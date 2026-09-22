@@ -5,11 +5,11 @@ import (
 
 	"github.com/qobulov/brothers-app/pkg/apperror"
 
+	"github.com/gofiber/fiber/v2"
 	"github.com/qobulov/brothers-app/internal/entities"
 	"github.com/qobulov/brothers-app/internal/order/dto"
 	"github.com/qobulov/brothers-app/internal/order/usecase"
 	responses "github.com/qobulov/brothers-app/pkg/responses"
-	"github.com/gofiber/fiber/v2"
 )
 
 type HttpOrderHandler struct {
@@ -39,7 +39,7 @@ func (h *HttpOrderHandler) CreateOrder(c *fiber.Ctx) error {
 		return responses.Error(c, err)
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(dto.ToOrderResponse(order))
+	return responses.Success(c, fiber.StatusCreated, dto.ToOrderResponse(order), "Запрос успешно обработан")
 }
 
 // FindAllOrders godoc
@@ -54,7 +54,7 @@ func (h *HttpOrderHandler) FindAllOrders(c *fiber.Ctx) error {
 		return responses.Error(c, err)
 	}
 
-	return c.JSON(dto.ToOrderResponseList(orders))
+	return responses.Success(c, fiber.StatusOK, dto.ToOrderResponseList(orders), "Запрос успешно обработан")
 }
 
 // FindOrderByID godoc
@@ -76,7 +76,7 @@ func (h *HttpOrderHandler) FindOrderByID(c *fiber.Ctx) error {
 		return responses.Error(c, err)
 	}
 
-	return c.JSON(dto.ToOrderResponse(order))
+	return responses.Success(c, fiber.StatusOK, dto.ToOrderResponse(order), "Запрос успешно обработан")
 }
 
 // PatchOrder godoc
@@ -112,7 +112,7 @@ func (h *HttpOrderHandler) PatchOrder(c *fiber.Ctx) error {
 		return responses.Error(c, err)
 	}
 
-	return c.JSON(dto.ToOrderResponse(updatedOrder))
+	return responses.Success(c, fiber.StatusOK, dto.ToOrderResponse(updatedOrder), "Запрос успешно обработан")
 }
 
 // DeleteOrder godoc

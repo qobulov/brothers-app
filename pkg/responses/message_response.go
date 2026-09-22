@@ -8,5 +8,5 @@ type MessageResponse struct {
 }
 
 func Message(c *fiber.Ctx, status int, message string) error {
-	return c.Status(status).JSON(MessageResponse{Message: message})
+	return Success[any](c, status, nil, message)
 }

@@ -3,12 +3,12 @@ package handler
 import (
 	"fmt"
 
+	"github.com/gofiber/fiber/v2"
 	"github.com/qobulov/brothers-app/internal/entities"
 	"github.com/qobulov/brothers-app/internal/user/dto"
 	"github.com/qobulov/brothers-app/internal/user/usecase"
 	"github.com/qobulov/brothers-app/pkg/apperror"
 	"github.com/qobulov/brothers-app/pkg/responses"
-	"github.com/gofiber/fiber/v2"
 )
 
 type HttpUserHandler struct {
@@ -38,7 +38,7 @@ func (h *HttpUserHandler) Register(c *fiber.Ctx) error {
 		return responses.Error(c, err)
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(dto.ToUserResponse(userEntity))
+	return responses.Success(c, fiber.StatusCreated, dto.ToUserResponse(userEntity), "Запрос успешно обработан")
 }
 
 // Login godoc
@@ -60,10 +60,10 @@ func (h *HttpUserHandler) Login(c *fiber.Ctx) error {
 		return responses.ErrorWithMessage(c, apperror.ErrUnauthorized, "invalid email or password")
 	}
 
-	return c.JSON(fiber.Map{
+	return responses.Success(c, fiber.StatusOK, fiber.Map{
 		"user":  dto.ToUserResponse(userEntity),
 		"token": token,
-	})
+	}, "Запрос успешно обработан")
 }
 
 // GetUser godoc
@@ -83,7 +83,7 @@ func (h *HttpUserHandler) GetUser(c *fiber.Ctx) error {
 		return responses.Error(c, err)
 	}
 
-	return c.JSON(dto.ToUserResponse(userEntity))
+	return responses.Success(c, fiber.StatusOK, dto.ToUserResponse(userEntity), "Запрос успешно обработан")
 }
 
 // FindUserByID godoc
@@ -104,7 +104,7 @@ func (h *HttpUserHandler) FindUserByID(c *fiber.Ctx) error {
 		return responses.Error(c, err)
 	}
 
-	return c.JSON(dto.ToUserResponse(userEntity))
+	return responses.Success(c, fiber.StatusOK, dto.ToUserResponse(userEntity), "Запрос успешно обработан")
 }
 
 // FindAllUsers godoc
@@ -119,7 +119,7 @@ func (h *HttpUserHandler) FindAllUsers(c *fiber.Ctx) error {
 		return responses.Error(c, err)
 	}
 
-	return c.JSON(dto.ToUserResponseList(users))
+	return responses.Success(c, fiber.StatusOK, dto.ToUserResponseList(users), "Запрос успешно обработан")
 }
 
 // PatchUser godoc
@@ -151,7 +151,7 @@ func (h *HttpUserHandler) PatchUser(c *fiber.Ctx) error {
 		return responses.Error(c, err)
 	}
 
-	return c.JSON(dto.ToUserResponse(updatedUser))
+	return responses.Success(c, fiber.StatusOK, dto.ToUserResponse(updatedUser), "Запрос успешно обработан")
 }
 
 // DeleteUser godoc

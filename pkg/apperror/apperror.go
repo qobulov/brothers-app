@@ -74,10 +74,16 @@ var (
 	// ------------------------
 	// Business logic / domain-specific errors
 	// ------------------------
-	ErrAlreadyExists   = errors.New("already exists")   // 409
-	ErrNotAvailable    = errors.New("not available")    // 409
-	ErrLimitExceeded   = errors.New("limit exceeded")   // 429
-	ErrOperationDenied = errors.New("operation denied") // 403
+	ErrAlreadyExists       = errors.New("already exists")   // 409
+	ErrNotAvailable        = errors.New("not available")    // 409
+	ErrLimitExceeded       = errors.New("limit exceeded")   // 429
+	ErrOperationDenied     = errors.New("operation denied") // 403
+	ErrInvalidOTP          = errors.New("invalid or expired otp")
+	ErrBotNotStarted       = errors.New("telegram bot was not started")
+	ErrInvalidResetToken   = errors.New("invalid or expired reset token")
+	ErrInvalidCredentials  = errors.New("invalid credentials")
+	ErrSessionRevoked      = errors.New("session revoked")
+	ErrTelegramUnavailable = errors.New("telegram unavailable")
 
 	// ------------------------
 	// Other errors
@@ -95,7 +101,7 @@ func StatusCode(err error) int {
 		return fiber.StatusInternalServerError
 	case errors.Is(err, ErrTimeout):
 		return fiber.StatusGatewayTimeout
-	case errors.Is(err, ErrUnauthorized):
+	case errors.Is(err, ErrUnauthorized), errors.Is(err, ErrInvalidCredentials), errors.Is(err, ErrInvalidResetToken), errors.Is(err, ErrSessionRevoked):
 		return fiber.StatusUnauthorized
 	case errors.Is(err, ErrForbidden), errors.Is(err, ErrOperationDenied):
 		return fiber.StatusForbidden
@@ -127,9 +133,94 @@ func StatusCode(err error) int {
 		return fiber.StatusUnprocessableEntity
 	case errors.Is(err, ErrLimitExceeded):
 		return fiber.StatusTooManyRequests
+	case errors.Is(err, ErrInvalidOTP), errors.Is(err, ErrBotNotStarted):
+		return fiber.StatusBadRequest
 
 	// Default
 	default:
 		return fiber.StatusInternalServerError
+	}
+}
+
+func Code(err error) int {
+	switch {
+	case errors.Is(err, ErrUnauthorized):
+		return 1401
+	case errors.Is(err, ErrInvalidCredentials), errors.Is(err, ErrInvalidResetToken), errors.Is(err, ErrSessionRevoked):
+		return 1401
+	case errors.Is(err, ErrForbidden), errors.Is(err, ErrOperationDenied):
+		return 1403
+	case errors.Is(err, ErrRecordNotFound):
+		return 1404
+	case errors.Is(err, ErrAlreadyExists), errors.Is(err, ErrConflict), errors.Is(err, ErrDuplicatedKey):
+		return 1409
+	case errors.Is(err, ErrLimitExceeded):
+		return 1429
+	case errors.Is(err, ErrInvalidOTP):
+		return 1404
+	case errors.Is(err, ErrBotNotStarted):
+		return 1409
+	case errors.Is(err, ErrInvalidData), errors.Is(err, ErrRequiredField), errors.Is(err, ErrInvalidFormat):
+		return 1400
+	default:
+		return 1500
+	}
+}
+
+func Slug(err error) string {
+	switch {
+	case errors.Is(err, ErrUnauthorized):
+		return "unauthorized"
+	case errors.Is(err, ErrInvalidCredentials):
+		return "invalid_credentials"
+	case errors.Is(err, ErrInvalidResetToken):
+		return "invalid_or_expired_reset_token"
+	case errors.Is(err, ErrSessionRevoked):
+		return "session_revoked"
+	case errors.Is(err, ErrForbidden), errors.Is(err, ErrOperationDenied):
+		return "forbidden"
+	case errors.Is(err, ErrRecordNotFound):
+		return "not_found"
+	case errors.Is(err, ErrAlreadyExists), errors.Is(err, ErrConflict), errors.Is(err, ErrDuplicatedKey):
+		return "conflict"
+	case errors.Is(err, ErrLimitExceeded):
+		return "rate_limit_exceeded"
+	case errors.Is(err, ErrInvalidOTP):
+		return "invalid_or_expired_otp"
+	case errors.Is(err, ErrBotNotStarted):
+		return "bot_not_started"
+	case errors.Is(err, ErrInvalidData), errors.Is(err, ErrRequiredField), errors.Is(err, ErrInvalidFormat):
+		return "invalid_data"
+	default:
+		return "internal_error"
+	}
+}
+
+func Message(err error) string {
+	switch {
+	case errors.Is(err, ErrUnauthorized):
+		return "Неверные учетные данные"
+	case errors.Is(err, ErrInvalidCredentials):
+		return "Неверные учетные данные"
+	case errors.Is(err, ErrInvalidResetToken):
+		return "Недействительный или просроченный токен сброса"
+	case errors.Is(err, ErrSessionRevoked):
+		return "Сессия отозвана"
+	case errors.Is(err, ErrForbidden), errors.Is(err, ErrOperationDenied):
+		return "Доступ запрещен"
+	case errors.Is(err, ErrRecordNotFound):
+		return "Ресурс не найден"
+	case errors.Is(err, ErrAlreadyExists), errors.Is(err, ErrConflict), errors.Is(err, ErrDuplicatedKey):
+		return "Конфликт данных"
+	case errors.Is(err, ErrLimitExceeded):
+		return "Слишком много запросов"
+	case errors.Is(err, ErrInvalidOTP):
+		return "Неверный или просроченный код"
+	case errors.Is(err, ErrBotNotStarted):
+		return "Сначала откройте Telegram-бота по ссылке"
+	case errors.Is(err, ErrInvalidData), errors.Is(err, ErrRequiredField), errors.Is(err, ErrInvalidFormat):
+		return "Некорректные данные"
+	default:
+		return "Внутренняя ошибка сервера"
 	}
 }

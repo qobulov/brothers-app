@@ -1,0 +1,14 @@
+version: "2"
+
+sql:
+  - engine: "postgresql"
+    schema: "db/sqlc/schema.sql"
+    queries: "db/sqlc/query"
+    gen:
+      go:
+        package: "db"
+        out: "internal/db"
+        sql_package: "database/sql"
+        emit_json_tags: true
+        emit_empty_slices: true
+        query_parameter_limit: 0

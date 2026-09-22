@@ -5,9 +5,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/qobulov/brothers-app/internal/entities"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/joho/godotenv"
+	"github.com/qobulov/brothers-app/internal/entities"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -49,7 +49,7 @@ func SetupTestDB(t *testing.T) (*gorm.DB, func()) {
 	}
 
 	// Run migrations
-	if err := db.AutoMigrate(&entities.User{}, &entities.Order{}); err != nil {
+	if err := db.AutoMigrate(&entities.User{}, &entities.Order{}, &entities.UserSession{}); err != nil {
 		t.Fatalf("Failed to migrate test database: %v", err)
 	}
 
@@ -70,7 +70,7 @@ func SetupTestDB(t *testing.T) (*gorm.DB, func()) {
 func cleanupTables(db *gorm.DB) {
 	// Truncate tables with CASCADE to handle foreign keys
 	// RESTART IDENTITY resets auto-increment counters
-	_ = db.Exec("TRUNCATE TABLE users, orders RESTART IDENTITY CASCADE")
+	_ = db.Exec("TRUNCATE TABLE user_sessions, users, orders RESTART IDENTITY CASCADE")
 }
 
 func getEnv(key, fallback string) string {
