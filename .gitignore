@@ -18,8 +18,7 @@
 # Vendor directory (if you use vendoring)
 /vendor/
 
-# Go modules files (can be committed or ignored; usually commit go.mod and go.sum)
-/go.sum
+# Go module files, including go.sum, must be committed for reproducible builds.
 
 # IDE/editor settings
 .vscode/
