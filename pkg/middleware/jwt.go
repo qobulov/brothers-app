@@ -8,10 +8,10 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"github.com/qobulov/brothers-app/internal/entities"
+	"github.com/jackc/pgx/v5/pgtype"
+	db "github.com/qobulov/brothers-app/internal/db"
 	"github.com/qobulov/brothers-app/pkg/config"
 	"github.com/qobulov/brothers-app/pkg/responses"
-	"gorm.io/gorm"
 )
 
 func JWTMiddleware() fiber.Handler {
@@ -55,7 +55,7 @@ func JWTMiddleware() fiber.Handler {
 
 // SessionJWTMiddleware validates an access token and checks that its single
 // referenced session is still active. It is used by the new auth endpoints.
-func SessionJWTMiddleware(db *gorm.DB, cfg *config.Config) fiber.Handler {
+func SessionJWTMiddleware(queries *db.Queries, cfg *config.Config) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		parts := strings.Fields(c.Get("Authorization"))
 		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
@@ -81,8 +81,12 @@ func SessionJWTMiddleware(db *gorm.DB, cfg *config.Config) fiber.Handler {
 		if !okSub || !okSID || userErr != nil || sessionErr != nil {
 			return unauthorized(c)
 		}
-		var session entities.UserSession
-		if err := db.WithContext(c.UserContext()).Where("id = ? AND user_id = ? AND revoked_at IS NULL AND expires_at > ?", sessionID, userID, time.Now().UTC()).First(&session).Error; err != nil {
+		_, err = queries.GetActiveSession(c.UserContext(), db.GetActiveSessionParams{
+			ID:        pgtype.UUID{Bytes: sessionID, Valid: true},
+			UserID:    pgtype.UUID{Bytes: userID, Valid: true},
+			ExpiresAt: pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true},
+		})
+		if err != nil {
 			return unauthorized(c)
 		}
 		c.Locals("auth_user_id", userID)

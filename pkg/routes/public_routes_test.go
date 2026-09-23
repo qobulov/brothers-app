@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/suite"
-	"gorm.io/gorm"
 
 	"github.com/qobulov/brothers-app/internal/app"
 	"github.com/qobulov/brothers-app/pkg/config"
@@ -17,7 +17,7 @@ import (
 
 type PublicRoutesTestSuite struct {
 	suite.Suite
-	db      *gorm.DB
+	db      *pgxpool.Pool
 	app     *fiber.App
 	cfg     *config.Config
 	cleanup func()
@@ -32,7 +32,7 @@ func (s *PublicRoutesTestSuite) SetupTest() {
 
 	// Setup REST server with test database (For registering routes and middleware)
 	var err error
-	s.app, err = app.SetupRestServer(s.db, s.cfg)
+	s.app, err = app.SetupRestServer(s.db, nil, s.cfg)
 	s.NoError(err, "Failed to setup REST server")
 }
 

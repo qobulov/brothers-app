@@ -3,17 +3,19 @@ package usecase_test
 import (
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+	db "github.com/qobulov/brothers-app/internal/db"
 	"github.com/qobulov/brothers-app/internal/entities"
 	"github.com/qobulov/brothers-app/internal/order/repository"
 	"github.com/qobulov/brothers-app/internal/order/usecase"
+	"github.com/qobulov/brothers-app/pkg/apperror"
 	"github.com/qobulov/brothers-app/pkg/database"
 	"github.com/stretchr/testify/suite"
-	"gorm.io/gorm"
 )
 
 type OrderUseCaseTestSuite struct {
 	suite.Suite
-	db      *gorm.DB
+	db      *pgxpool.Pool
 	repo    repository.OrderRepository
 	service usecase.OrderUseCase
 	cleanup func()
@@ -21,7 +23,7 @@ type OrderUseCaseTestSuite struct {
 
 func (s *OrderUseCaseTestSuite) SetupTest() {
 	s.db, s.cleanup = database.SetupTestDB(s.T())
-	s.repo = repository.NewGormOrderRepository(s.db)
+	s.repo = repository.NewSQLCOrderRepository(db.New(s.db))
 	s.service = usecase.NewOrderService(s.repo)
 }
 
@@ -119,7 +121,7 @@ func (s *OrderUseCaseTestSuite) TestPatchOrder_NotFound() {
 	updated, err := s.service.PatchOrder(99999, updateData)
 	s.Error(err)
 	s.Nil(updated)
-	s.Equal(gorm.ErrRecordNotFound, err)
+	s.ErrorIs(err, apperror.ErrRecordNotFound)
 }
 
 func (s *OrderUseCaseTestSuite) TestDeleteOrder() {
@@ -144,7 +146,7 @@ func (s *OrderUseCaseTestSuite) TestDeleteOrder() {
 func (s *OrderUseCaseTestSuite) TestDeleteOrder_NotFound() {
 	err := s.service.DeleteOrder(99999)
 	s.Error(err)
-	s.Equal(gorm.ErrRecordNotFound, err)
+	s.ErrorIs(err, apperror.ErrRecordNotFound)
 }
 
 func (s *OrderUseCaseTestSuite) TestCreateOrder_ZeroTotal() {

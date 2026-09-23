@@ -56,7 +56,7 @@ func RandomToken(size int) (string, error) {
 }
 
 func GenerateOTP() (string, error) {
-	b := make([]byte, 4)
+	b := make([]byte, 6)
 	if _, err := rand.Read(b); err != nil {
 		return "", err
 	}

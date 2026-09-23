@@ -2,11 +2,13 @@ package routes
 
 import (
 	"github.com/gofiber/fiber/v2"
-	"gorm.io/gorm"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	authHandler "github.com/qobulov/brothers-app/internal/auth"
+	"github.com/qobulov/brothers-app/internal/auth/otp"
 	authService "github.com/qobulov/brothers-app/internal/auth/service"
 	"github.com/qobulov/brothers-app/internal/auth/telegram"
+	db "github.com/qobulov/brothers-app/internal/db"
 	"github.com/qobulov/brothers-app/pkg/config"
 
 	// Order
@@ -20,23 +22,24 @@ import (
 	userUseCase "github.com/qobulov/brothers-app/internal/user/usecase"
 )
 
-func RegisterPublicRoutes(app fiber.Router, db *gorm.DB, cfg *config.Config) {
+func RegisterPublicRoutes(app fiber.Router, pool *pgxpool.Pool, otpCache *otp.Cache, cfg *config.Config) {
 
 	api := app.Group("/api/v1")
 
 	// === Dependency Wiring ===
 
 	// Order
-	orderRepo := orderRepository.NewGormOrderRepository(db)
+	queries := db.New(pool)
+	orderRepo := orderRepository.NewSQLCOrderRepository(queries)
 	orderService := orderUseCase.NewOrderService(orderRepo)
 	orderHandler := orderHandler.NewHttpOrderHandler(orderService)
 
 	// User
-	userRepo := userRepository.NewGormUserRepository(db)
+	userRepo := userRepository.NewSQLCUserRepository(queries)
 	userService := userUseCase.NewUserService(userRepo)
 	userHandler := userHandler.NewHttpUserHandler(userService)
 	telegramClient := telegram.NewClient(cfg.TelegramBotToken, cfg.TelegramBotAPIURL, cfg.TelegramHTTPTimeout, cfg.TelegramPollTimeout)
-	authService := authService.New(db, cfg, telegramClient)
+	authService := authService.New(pool, otpCache, cfg, telegramClient)
 	authHandler := authHandler.NewHandler(authService)
 
 	// === Public Routes ===

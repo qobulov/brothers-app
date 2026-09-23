@@ -3,24 +3,26 @@ package repository_test
 import (
 	"testing"
 
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
+	db "github.com/qobulov/brothers-app/internal/db"
 	"github.com/qobulov/brothers-app/internal/entities"
 	"github.com/qobulov/brothers-app/internal/user/repository"
+	"github.com/qobulov/brothers-app/pkg/apperror"
 	"github.com/qobulov/brothers-app/pkg/database"
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/suite"
-	"gorm.io/gorm"
 )
 
 type UserRepositoryTestSuite struct {
 	suite.Suite
-	db      *gorm.DB
+	db      *pgxpool.Pool
 	repo    repository.UserRepository
 	cleanup func()
 }
 
 func (s *UserRepositoryTestSuite) SetupTest() {
 	s.db, s.cleanup = database.SetupTestDB(s.T())
-	s.repo = repository.NewGormUserRepository(s.db)
+	s.repo = repository.NewSQLCUserRepository(db.New(s.db))
 }
 
 func (s *UserRepositoryTestSuite) TearDownTest() {
@@ -67,7 +69,7 @@ func (s *UserRepositoryTestSuite) TestFindByEmail_NotFound() {
 	found, err := s.repo.FindByEmail("notfound@example.com")
 	s.Error(err)
 	s.Nil(found)
-	s.Equal(gorm.ErrRecordNotFound, err)
+	s.ErrorIs(err, apperror.ErrRecordNotFound)
 }
 
 func (s *UserRepositoryTestSuite) TestFindByID() {
@@ -151,7 +153,7 @@ func (s *UserRepositoryTestSuite) TestPatch_NotFound() {
 	}
 	err := s.repo.Patch(nonExistentID, updateData)
 	s.Error(err)
-	s.Equal(gorm.ErrRecordNotFound, err)
+	s.ErrorIs(err, apperror.ErrRecordNotFound)
 }
 
 func (s *UserRepositoryTestSuite) TestDelete() {
@@ -178,7 +180,7 @@ func (s *UserRepositoryTestSuite) TestDelete_NotFound() {
 	nonExistentID := uuid.New().String()
 	err := s.repo.Delete(nonExistentID)
 	s.Error(err)
-	s.Equal(gorm.ErrRecordNotFound, err)
+	s.ErrorIs(err, apperror.ErrRecordNotFound)
 }
 
 func (s *UserRepositoryTestSuite) TestSave_DuplicateEmail() {

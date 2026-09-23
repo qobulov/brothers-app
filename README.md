@@ -3,7 +3,7 @@
 **brothers-app** is a backend application in Go built following Clean Architecture principles.
 
 - **Fiber v2** as a fast and lightweight web framework for RESTful APIs
-- **GORM** as the ORM for PostgreSQL database access
+- **sqlc + pgx** for type-safe PostgreSQL access
 - **JWT (JSON Web Tokens)** for secure stateless authentication
 - **Swagger** for interactive REST API documentation
 - **Docker Compose** for easy setup of development and test PostgreSQL databases
@@ -12,7 +12,7 @@
 
 - Clear separation of concerns with Clean Architecture (`entities`, `usecase`, `repository`, `handler/rest`, `dto`)
 - High-performance HTTP handling with Fiber v2
-- Robust database integration using GORM with PostgreSQL
+- Explicit, type-safe database integration using sqlc and pgx
 - JWT-based authentication and protected endpoints
 - Data Transfer Objects (DTO) to manage data structure transformations between layers
 - Automatic Swagger API documentation at `/api/v1/docs`
@@ -55,7 +55,7 @@ docker-compose --env-file .env.dev up -d postgres-test
 ### 4. Run the application
 
 ```bash
-go run ./cmd/app
+go run ./cmd/api
 ```
 
 The application will start on port `8000` by default (configurable via `APP_PORT` in `.env.dev`).
@@ -71,7 +71,7 @@ http://localhost:8000/api/v1/docs
 To regenerate Swagger documentation after modifying route annotations:
 
 ```bash
-swag init -g cmd/app/main.go -o docs/v1
+swag init -g cmd/api/main.go -o docs/v1
 ```
 
 ### 6. Run tests
@@ -89,22 +89,43 @@ go test -v -coverprofile=coverage.out ./...
 
 See [docs/TESTING.md](docs/TESTING.md) for details on the test suite and database isolation.
 
+## Deploy to Vercel
+
+The Go entrypoint is `cmd/api/main.go`, which Vercel detects automatically. No
+custom build command or `vercel.json` is required.
+
+Set these environment variables in the Vercel project before deploying:
+
+- `APP_ENV=production`
+- `DATABASE_URL`: hosted PostgreSQL connection URL, including the provider's TLS settings
+- `REDIS_URL`: hosted Redis connection URL used for OTP records
+- `JWT_SECRET`: a strong random signing secret
+- `OTP_PEPPER`: a separate strong random secret for hashing OTP values
+- `TELEGRAM_BOT_TOKEN` and `TELEGRAM_BOT_USERNAME` when Telegram auth is enabled
+
+Do not set `PORT` in Vercel; the platform injects it automatically.
+
 ## Environment Variables
 
 Key environment variables in `.env.dev`:
 
 ### Application Settings
-- `APP_PORT`: HTTP server port (default: `8000`)
+- `PORT`: HTTP server port assigned automatically by Vercel; it takes precedence over `APP_PORT`
+- `APP_PORT`: Local HTTP server port (default: `8000`)
 - `APP_ENV`: Application environment (e.g. `development`, `test`)
 - `JWT_SECRET`: Secret key for JWT token signing
 - `JWT_EXPIRATION`: JWT token expiration in seconds (default: `3600`)
 
 ### Development Database
+- `DATABASE_URL`: Hosted PostgreSQL connection URL; it takes precedence over the individual `DB_*` values
 - `DB_HOST`: Database host (default: `localhost`)
 - `DB_PORT`: Database port (default: `5432`)
 - `DB_USER`: Database user (default: `postgres`)
 - `DB_PASSWORD`: Database password
 - `DB_NAME`: Database name
+
+### Redis
+- `REDIS_URL`: Redis connection URL used for OTP storage; use a hosted Redis instance in production
 
 ### Test Database
 - `DB_TEST_HOST`: Test database host (default: `localhost`)
@@ -118,7 +139,7 @@ Key environment variables in `.env.dev`:
 ```bash
 /brothers-app
 ├── cmd/
-│   └── app/
+│   └── api/
 │       └── main.go                 # Entrypoint
 ├── docs/
 │   ├── TESTING.md
@@ -132,7 +153,7 @@ Key environment variables in `.env.dev`:
 │   │   ├── dto/                    # DTOs & mappers
 │   │   ├── handler/
 │   │   │   └── rest/               # Fiber REST controller
-│   │   ├── repository/             # GORM repository implementation
+│   │   ├── repository/             # sqlc repository implementation
 │   │   └── usecase/                # Business logic & tests
 │   └── user/                       # User & Auth feature module
 │       ├── dto/

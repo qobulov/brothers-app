@@ -4,6 +4,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+	db "github.com/qobulov/brothers-app/internal/db"
 	"github.com/qobulov/brothers-app/internal/entities"
 	"github.com/qobulov/brothers-app/internal/user/repository"
 	"github.com/qobulov/brothers-app/internal/user/usecase"
@@ -11,12 +13,11 @@ import (
 	"github.com/qobulov/brothers-app/pkg/database"
 	"github.com/stretchr/testify/suite"
 	"golang.org/x/crypto/bcrypt"
-	"gorm.io/gorm"
 )
 
 type UserUseCaseTestSuite struct {
 	suite.Suite
-	db      *gorm.DB
+	db      *pgxpool.Pool
 	repo    repository.UserRepository
 	service usecase.UserUseCase
 	cleanup func()
@@ -24,7 +25,7 @@ type UserUseCaseTestSuite struct {
 
 func (s *UserUseCaseTestSuite) SetupTest() {
 	s.db, s.cleanup = database.SetupTestDB(s.T())
-	s.repo = repository.NewGormUserRepository(s.db)
+	s.repo = repository.NewSQLCUserRepository(db.New(s.db))
 	s.service = usecase.NewUserService(s.repo)
 
 	// Set JWT_SECRET for testing

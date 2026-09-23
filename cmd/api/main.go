@@ -15,5 +15,5 @@ import (
 // @name Authorization
 // @description Type "Bearer" followed by a space and JWT token.
 func main() {
-	app.Start() // Call server.go
+	app.Start()
 }

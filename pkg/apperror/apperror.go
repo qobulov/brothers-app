@@ -4,7 +4,6 @@ import (
 	"errors"
 
 	"github.com/gofiber/fiber/v2"
-	"gorm.io/gorm/logger"
 )
 
 type AppError struct {
@@ -26,9 +25,7 @@ func NewAppError(code int, msg string, err error) *AppError {
 }
 
 var (
-	// ------------------------
 	// Generic errors
-	// ------------------------
 	ErrInternalServer = errors.New("internal server error") // 500
 	ErrUnknown        = errors.New("unknown error")         // 500
 	ErrTimeout        = errors.New("timeout")               // 504
@@ -36,10 +33,8 @@ var (
 	ErrForbidden      = errors.New("forbidden")             // 403
 	ErrNotImplemented = errors.New("not implemented")       // 501
 
-	// ------------------------
-	// GORM errors
-	// ------------------------
-	ErrRecordNotFound                = logger.ErrRecordNotFound                                          // 404
+	// Database errors]
+	ErrRecordNotFound                = errors.New("record not found")                                    // 404
 	ErrInvalidTransaction            = errors.New("invalid transaction")                                 // 400
 	ErrMissingWhereClause            = errors.New("WHERE conditions required")                           // 400
 	ErrUnsupportedRelation           = errors.New("unsupported relations")                               // 400
@@ -61,9 +56,7 @@ var (
 	ErrForeignKeyViolated            = errors.New("violates foreign key constraint")                     // 409
 	ErrCheckConstraintViolated       = errors.New("violates check constraint")                           // 409
 
-	// ------------------------
 	// Validation errors
-	// ------------------------
 	ErrInvalidData   = errors.New("invalid data")           // 400
 	ErrInvalidID     = errors.New("invalid id")             // 400
 	ErrRequiredField = errors.New("required field missing") // 400
@@ -71,9 +64,7 @@ var (
 	ErrOutOfRange    = errors.New("value out of range")     // 400
 	ErrUnprocessable = errors.New("unprocessable entity")   // 422
 
-	// ------------------------
 	// Business logic / domain-specific errors
-	// ------------------------
 	ErrAlreadyExists       = errors.New("already exists")   // 409
 	ErrNotAvailable        = errors.New("not available")    // 409
 	ErrLimitExceeded       = errors.New("limit exceeded")   // 429
@@ -85,9 +76,7 @@ var (
 	ErrSessionRevoked      = errors.New("session revoked")
 	ErrTelegramUnavailable = errors.New("telegram unavailable")
 
-	// ------------------------
 	// Other errors
-	// ------------------------
 	ErrConflict         = errors.New("conflict")            // 409
 	ErrDependencyFail   = errors.New("dependency failure")  // 502
 	ErrTransactionAbort = errors.New("transaction aborted") // 500
@@ -108,7 +97,7 @@ func StatusCode(err error) int {
 	case errors.Is(err, ErrNotImplemented):
 		return fiber.StatusNotImplemented
 
-	// Database / GORM errors
+	// Database errors
 	case errors.Is(err, ErrRecordNotFound):
 		return fiber.StatusNotFound
 	case errors.Is(err, ErrDuplicatedKey), errors.Is(err, ErrConflict), errors.Is(err, ErrAlreadyExists), errors.Is(err, ErrNotAvailable):

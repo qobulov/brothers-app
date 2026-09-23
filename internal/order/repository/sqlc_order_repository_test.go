@@ -3,23 +3,25 @@ package repository_test
 import (
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+	db "github.com/qobulov/brothers-app/internal/db"
 	"github.com/qobulov/brothers-app/internal/entities"
 	"github.com/qobulov/brothers-app/internal/order/repository"
+	"github.com/qobulov/brothers-app/pkg/apperror"
 	"github.com/qobulov/brothers-app/pkg/database"
 	"github.com/stretchr/testify/suite"
-	"gorm.io/gorm"
 )
 
 type OrderRepositoryTestSuite struct {
 	suite.Suite
-	db      *gorm.DB
+	db      *pgxpool.Pool
 	repo    repository.OrderRepository
 	cleanup func()
 }
 
 func (s *OrderRepositoryTestSuite) SetupTest() {
 	s.db, s.cleanup = database.SetupTestDB(s.T())
-	s.repo = repository.NewGormOrderRepository(s.db)
+	s.repo = repository.NewSQLCOrderRepository(db.New(s.db))
 }
 
 func (s *OrderRepositoryTestSuite) TearDownTest() {
@@ -115,7 +117,7 @@ func (s *OrderRepositoryTestSuite) TestPatch_NotFound() {
 	}
 	err := s.repo.Patch(99999, updateData)
 	s.Error(err)
-	s.Equal(gorm.ErrRecordNotFound, err)
+	s.ErrorIs(err, apperror.ErrRecordNotFound)
 }
 
 func (s *OrderRepositoryTestSuite) TestDelete() {
@@ -140,7 +142,7 @@ func (s *OrderRepositoryTestSuite) TestDelete() {
 func (s *OrderRepositoryTestSuite) TestDelete_NotFound() {
 	err := s.repo.Delete(99999)
 	s.Error(err)
-	s.Equal(gorm.ErrRecordNotFound, err)
+	s.ErrorIs(err, apperror.ErrRecordNotFound)
 }
 
 func (s *OrderRepositoryTestSuite) TestSave_MultipleOrders() {

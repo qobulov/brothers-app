@@ -18,6 +18,7 @@ type Config struct {
 	DBPassword  string
 	DBName      string
 	DatabaseDSN string
+	RedisURL    string
 
 	JWTSecret     string
 	JWTExpiration int // in seconds
@@ -36,7 +37,6 @@ type Config struct {
 }
 
 func LoadConfig(env string) *Config {
-
 	envFile := ".env"
 	if env != "" {
 		envFile = ".env." + env
@@ -49,13 +49,14 @@ func LoadConfig(env string) *Config {
 	jwtExp := getEnvAsInt("JWT_EXPIRATION", 3600)
 
 	cfg := &Config{
-		AppPort:             getEnv("APP_PORT", "8000"),
+		AppPort:             getEnv("PORT", getEnv("APP_PORT", "8000")),
 		AppEnv:              getEnv("APP_ENV", "development"),
 		DBHost:              getEnv("DB_HOST", "localhost"),
 		DBPort:              getEnv("DB_PORT", "5432"),
 		DBUser:              getEnv("DB_USER", "postgres"),
-		DBPassword:          getEnv("DB_PASSWORD", ""),
+		DBPassword:          getEnv("DB_PASSWORD", "brothers"),
 		DBName:              getEnv("DB_NAME", "test"),
+		RedisURL:            getEnv("REDIS_URL", "redis://localhost:6379/0"),
 		JWTSecret:           getEnv("JWT_SECRET", "changeme"),
 		JWTExpiration:       jwtExp,
 		JWTIssuer:           getEnv("JWT_ISSUER", "brothers-app"),
@@ -71,10 +72,11 @@ func LoadConfig(env string) *Config {
 		OTPMaxAttempts:      getEnvAsInt("OTP_MAX_ATTEMPTS", 5),
 	}
 
-	cfg.DatabaseDSN = fmt.Sprintf(
+	databaseDSNFallback := fmt.Sprintf(
 		"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 		cfg.DBHost, cfg.DBPort, cfg.DBUser, cfg.DBPassword, cfg.DBName,
 	)
+	cfg.DatabaseDSN = getEnv("DATABASE_URL", databaseDSNFallback)
 
 	return cfg
 }

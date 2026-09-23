@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS user_sessions (
     refresh_token_hash text NOT NULL,
     device_id varchar(255),
     device_name varchar(255),
+    platform varchar(50),
     expires_at timestamptz NOT NULL,
     created_at timestamptz NOT NULL DEFAULT now(),
     revoked_at timestamptz
@@ -40,6 +41,7 @@ CREATE TABLE IF NOT EXISTS user_sessions (
 CREATE UNIQUE INDEX IF NOT EXISTS user_sessions_refresh_token_hash_idx ON user_sessions (refresh_token_hash);
 CREATE UNIQUE INDEX IF NOT EXISTS user_sessions_one_active_idx ON user_sessions (user_id) WHERE revoked_at IS NULL;
 CREATE INDEX IF NOT EXISTS user_sessions_expiry_idx ON user_sessions (expires_at);
+CREATE INDEX IF NOT EXISTS user_sessions_platform_idx ON user_sessions (platform);
 
 DO $$
 BEGIN

@@ -2,21 +2,24 @@ package routes
 
 import (
 	authHandler "github.com/qobulov/brothers-app/internal/auth"
+	"github.com/qobulov/brothers-app/internal/auth/otp"
 	authService "github.com/qobulov/brothers-app/internal/auth/service"
 	"github.com/qobulov/brothers-app/internal/auth/telegram"
+	db "github.com/qobulov/brothers-app/internal/db"
 	"github.com/qobulov/brothers-app/pkg/config"
 	middleware "github.com/qobulov/brothers-app/pkg/middleware"
 
 	"github.com/gofiber/fiber/v2"
-	"gorm.io/gorm"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func RegisterPrivateRoutes(app fiber.Router, db *gorm.DB, cfg *config.Config) {
+func RegisterPrivateRoutes(app fiber.Router, pool *pgxpool.Pool, otpCache *otp.Cache, cfg *config.Config) {
 
-	secureRoute := app.Group("/api/v1", middleware.SessionJWTMiddleware(db, cfg))
+	queries := db.New(pool)
+	secureRoute := app.Group("/api/v1", middleware.SessionJWTMiddleware(queries, cfg))
 
 	telegramClient := telegram.NewClient(cfg.TelegramBotToken, cfg.TelegramBotAPIURL, cfg.TelegramHTTPTimeout, cfg.TelegramPollTimeout)
-	service := authService.New(db, cfg, telegramClient)
+	service := authService.New(pool, otpCache, cfg, telegramClient)
 	handler := authHandler.NewHandler(service)
 	secureRoute.Get("/me", handler.CurrentUser)
 	secureRoute.Post("/auth/logout", handler.Logout)

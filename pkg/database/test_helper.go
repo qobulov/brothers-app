@@ -1,81 +1,71 @@
 package database
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"testing"
 
-	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
-	"github.com/qobulov/brothers-app/internal/entities"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
 )
 
-// SetupTestDB creates a test database connection and returns a GORM DB instance
-// Uses a single test database and cleans tables before/after each test
-func SetupTestDB(t *testing.T) (*gorm.DB, func()) {
-	// Try to load .env.dev file (optional - for local development)
-	// In CI, environment variables are set directly, so this is not required
-	envPaths := []string{
-		".env.dev",
-		"../../.env.dev",
-		"../../../.env.dev",
-	}
-
-	for _, path := range envPaths {
+func SetupTestDB(t *testing.T) (*pgxpool.Pool, func()) {
+	t.Helper()
+	for _, path := range []string{".env.dev", "../../.env.dev", "../../../.env.dev"} {
 		if _, err := os.Stat(path); err == nil {
-			_ = godotenv.Load(path) // Ignore errors - env vars may be set via CI
+			_ = godotenv.Load(path)
 			break
 		}
 	}
-
-	// Get test database connection details from environment or use defaults
-	dbHost := getEnv("DB_HOST", "localhost")
-	dbPort := getEnv("DB_TEST_PORT", "5432")
-	dbUser := getEnv("DB_TEST_USER", "postgres")
-	dbPassword := getEnv("DB_TEST_PASSWORD", "")
-	testDBName := getEnv("DB_TEST_NAME", "test")
-
-	// Connect to the test database
-	testDSN := fmt.Sprintf(
-		"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-		dbHost, dbPort, dbUser, dbPassword, testDBName,
+	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+		getEnv("DB_HOST", "localhost"), getEnv("DB_TEST_PORT", "5432"), getEnv("DB_TEST_USER", "postgres"),
+		getEnv("DB_TEST_PASSWORD", ""), getEnv("DB_TEST_NAME", "test"),
 	)
-
-	db, err := gorm.Open(postgres.Open(testDSN), &gorm.Config{})
+	pool, err := pgxpool.New(context.Background(), dsn)
 	if err != nil {
-		t.Fatalf("Failed to connect to test database: %v", err)
+		t.Fatalf("connect test database: %v", err)
 	}
-
-	// Run migrations
-	if err := db.AutoMigrate(&entities.User{}, &entities.Order{}, &entities.UserSession{}); err != nil {
-		t.Fatalf("Failed to migrate test database: %v", err)
+	if err := pool.Ping(context.Background()); err != nil {
+		pool.Close()
+		t.Fatalf("ping test database: %v", err)
 	}
-
-	// Clean up tables before test
-	// This ensures each test starts with a clean database
-	cleanupTables(db)
-
-	// Return cleanup function that will be called after each test
-	cleanup := func() {
-		// Clean up tables after test to ensure isolation between tests
-		cleanupTables(db)
+	applyTestSchema(t, pool)
+	cleanupTables(t, pool)
+	return pool, func() {
+		cleanupTables(t, pool)
+		pool.Close()
 	}
-
-	return db, cleanup
 }
 
-// cleanupTables truncates all test tables to ensure clean state
-func cleanupTables(db *gorm.DB) {
-	// Truncate tables with CASCADE to handle foreign keys
-	// RESTART IDENTITY resets auto-increment counters
-	_ = db.Exec("TRUNCATE TABLE user_sessions, users, orders RESTART IDENTITY CASCADE")
+func applyTestSchema(t *testing.T, pool *pgxpool.Pool) {
+	t.Helper()
+	var schema []byte
+	var err error
+	for _, path := range []string{"migrations/000001_auth_foundation.up.sql", "../../migrations/000001_auth_foundation.up.sql", "../../../migrations/000001_auth_foundation.up.sql"} {
+		schema, err = os.ReadFile(path)
+		if err == nil {
+			break
+		}
+	}
+	if err != nil {
+		t.Fatalf("read test schema: %v", err)
+	}
+	if _, err := pool.Exec(context.Background(), string(schema)); err != nil {
+		t.Fatalf("apply test schema: %v", err)
+	}
+}
+
+func cleanupTables(t *testing.T, pool *pgxpool.Pool) {
+	t.Helper()
+	if _, err := pool.Exec(context.Background(), "TRUNCATE TABLE user_sessions, users, orders RESTART IDENTITY CASCADE"); err != nil {
+		t.Fatalf("clean test tables: %v", err)
+	}
 }
 
 func getEnv(key, fallback string) string {
-	if val := os.Getenv(key); val != "" {
-		return val
+	if value := os.Getenv(key); value != "" {
+		return value
 	}
 	return fallback
 }
