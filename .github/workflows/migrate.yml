@@ -1,0 +1,46 @@
+name: Database Migration
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-database-migration
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    name: Migrate production database
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install golang-migrate
+        run: go install -tags postgres github.com/golang-migrate/migrate/v4/cmd/migrate@v4.18.3
+
+      - name: Apply pending migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "DATABASE_URL secret is not configured for the production environment" >&2
+            exit 1
+          fi
+
+          "$(go env GOPATH)/bin/migrate" \
+            -path migrations \
+            -database "$DATABASE_URL" \
+            -verbose \
+            up

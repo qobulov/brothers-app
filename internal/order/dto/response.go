@@ -1,4 +1,4 @@
-package dto
+package orderdto
 
 type OrderResponse struct {
 	ID    uint    `json:"id"`

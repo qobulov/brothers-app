@@ -7,8 +7,10 @@ import (
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/suite"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/qobulov/brothers-app/internal/app"
 	"github.com/qobulov/brothers-app/pkg/config"
@@ -81,34 +83,35 @@ func (s *PublicRoutesTestSuite) TestSignup() {
 }
 
 func (s *PublicRoutesTestSuite) TestSignin() {
-	// First signup to create a user
-	signupBody := map[string]string{
-		"email":    "signinuser@example.com",
-		"password": "securepassword123",
+	const password = "securepassword123"
+	s.createLoginUser("signinuser", "+998901234567", password)
+
+	tests := []struct {
+		name  string
+		login string
+	}{
+		{name: "username", login: "signinuser"},
+		{name: "phone", login: "+998 90 123 45 67"},
 	}
-	jsonSignupBody, _ := json.Marshal(signupBody)
-	signupReq := httptest.NewRequest("POST", "/api/v1/auth/signup", bytes.NewBuffer(jsonSignupBody))
-	signupReq.Header.Set("Content-Type", "application/json")
-	_, _ = s.app.Test(signupReq, -1)
+	for _, test := range tests {
+		s.Run(test.name, func() {
+			body := map[string]string{"login": test.login, "password": password}
+			jsonBody, err := json.Marshal(body)
+			s.Require().NoError(err)
 
-	// Then try to signin
-	body := map[string]string{
-		"email":    "signinuser@example.com",
-		"password": "securepassword123",
+			req := httptest.NewRequest("POST", "/api/v1/auth/signin", bytes.NewBuffer(jsonBody))
+			req.Header.Set("Content-Type", "application/json")
+			resp, err := s.app.Test(req, -1)
+			s.Require().NoError(err)
+			defer resp.Body.Close()
+			s.Equal(fiber.StatusOK, resp.StatusCode)
+		})
 	}
-	jsonBody, _ := json.Marshal(body)
-
-	req := httptest.NewRequest("POST", "/api/v1/auth/signin", bytes.NewBuffer(jsonBody))
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := s.app.Test(req, -1)
-	s.NoError(err)
-	s.True(resp.StatusCode == fiber.StatusOK || resp.StatusCode == fiber.StatusUnauthorized)
 }
 
 func (s *PublicRoutesTestSuite) TestSignin_InvalidCredentials() {
 	body := map[string]string{
-		"email":    "nonexistent@example.com",
+		"login":    "nonexistent-user",
 		"password": "wrongpassword",
 	}
 	jsonBody, _ := json.Marshal(body)
@@ -119,6 +122,72 @@ func (s *PublicRoutesTestSuite) TestSignin_InvalidCredentials() {
 	resp, err := s.app.Test(req, -1)
 	s.NoError(err)
 	s.Equal(fiber.StatusUnauthorized, resp.StatusCode)
+}
+
+func (s *PublicRoutesTestSuite) TestCurrentProfilePatch() {
+	const password = "securepassword123"
+	s.createLoginUser("profileuser", "+998901234568", password)
+
+	loginBody, err := json.Marshal(map[string]string{"login": "profileuser", "password": password})
+	s.Require().NoError(err)
+	loginRequest := httptest.NewRequest("POST", "/api/v1/auth/login", bytes.NewBuffer(loginBody))
+	loginRequest.Header.Set("Content-Type", "application/json")
+	loginResponse, err := s.app.Test(loginRequest, -1)
+	s.Require().NoError(err)
+	defer loginResponse.Body.Close()
+	s.Require().Equal(fiber.StatusOK, loginResponse.StatusCode)
+
+	var loginEnvelope struct {
+		Data struct {
+			AccessToken string `json:"access_token"`
+		} `json:"data"`
+	}
+	s.Require().NoError(json.NewDecoder(loginResponse.Body).Decode(&loginEnvelope))
+	s.Require().NotEmpty(loginEnvelope.Data.AccessToken)
+
+	patchBody, err := json.Marshal(map[string]any{
+		"first_name": "Qobul",
+		"last_name":  "Qobulov",
+		"language":   "ru",
+		"avatar_url": "https://example.com/avatar.jpg",
+		"is_active":  false,
+		"created_at": "2000-01-01T00:00:00Z",
+	})
+	s.Require().NoError(err)
+	patchRequest := httptest.NewRequest("PATCH", "/api/v1/me", bytes.NewBuffer(patchBody))
+	patchRequest.Header.Set("Content-Type", "application/json")
+	patchRequest.Header.Set("Authorization", "Bearer "+loginEnvelope.Data.AccessToken)
+	patchResponse, err := s.app.Test(patchRequest, -1)
+	s.Require().NoError(err)
+	defer patchResponse.Body.Close()
+	s.Require().Equal(fiber.StatusOK, patchResponse.StatusCode)
+
+	var patchEnvelope struct {
+		Data struct {
+			FirstName string `json:"first_name"`
+			LastName  string `json:"last_name"`
+			Language  string `json:"language"`
+			IsActive  bool   `json:"is_active"`
+		} `json:"data"`
+	}
+	s.Require().NoError(json.NewDecoder(patchResponse.Body).Decode(&patchEnvelope))
+	s.Equal("Qobul", patchEnvelope.Data.FirstName)
+	s.Equal("Qobulov", patchEnvelope.Data.LastName)
+	s.Equal("ru", patchEnvelope.Data.Language)
+	s.True(patchEnvelope.Data.IsActive, "database-managed is_active must be ignored")
+}
+
+func (s *PublicRoutesTestSuite) createLoginUser(username, phone, password string) {
+	s.T().Helper()
+	passwordHash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.MinCost)
+	s.Require().NoError(err)
+
+	_, err = s.db.Exec(s.T().Context(), `
+		INSERT INTO users (
+			id, email, password_hash, name, phone, username, is_active, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, true, now(), now())
+	`, uuid.New(), username+"@test.invalid", string(passwordHash), username, phone, username)
+	s.Require().NoError(err)
 }
 
 // === ORDER ROUTES ===

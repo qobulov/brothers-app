@@ -23,9 +23,9 @@ UPDATE users SET is_active = true, updated_at = $2
 WHERE id = $1 AND deleted_at IS NULL
 RETURNING *;
 
--- name: GetUserByIdentifier :one
+-- name: GetUserByLogin :one
 SELECT * FROM users
-WHERE (username = $1 OR phone = $2 OR email = $3) AND deleted_at IS NULL
+WHERE (username = $1 OR phone = $2) AND is_active = true AND deleted_at IS NULL
 FOR UPDATE;
 
 -- name: UpdateUserLogin :one
@@ -33,6 +33,20 @@ UPDATE users SET last_login_at = $2, updated_at = $2 WHERE id = $1 RETURNING *;
 
 -- name: GetActiveUser :one
 SELECT * FROM users WHERE id = $1 AND is_active = true AND deleted_at IS NULL;
+
+-- name: UpdateUserProfile :one
+UPDATE users SET
+    first_name = COALESCE(sqlc.narg('first_name'), first_name),
+    last_name = COALESCE(sqlc.narg('last_name'), last_name),
+    avatar_url = COALESCE(sqlc.narg('avatar_url'), avatar_url),
+    language = COALESCE(sqlc.narg('language'), language),
+    name = BTRIM(CONCAT_WS(' ',
+        COALESCE(sqlc.narg('first_name'), first_name),
+        COALESCE(sqlc.narg('last_name'), last_name)
+    )),
+    updated_at = sqlc.arg('updated_at')
+WHERE id = sqlc.arg('id') AND is_active = true AND deleted_at IS NULL
+RETURNING *;
 
 -- name: GetUserByPhone :one
 SELECT * FROM users WHERE phone = $1 AND deleted_at IS NULL;

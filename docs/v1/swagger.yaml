@@ -1,19 +1,254 @@
 basePath: /api/v1
 definitions:
-  entities.Order:
+  authdto.AuthData:
     properties:
-      id:
-        type: integer
-      total:
-        type: number
+      access_token:
+        type: string
+      refresh_token:
+        type: string
+      user:
+        $ref: '#/definitions/authdto.UserData'
     type: object
-  entities.User:
+  authdto.AuthResponse:
+    properties:
+      code:
+        example: 0
+        type: integer
+      data:
+        $ref: '#/definitions/authdto.AuthData'
+      message:
+        example: Запрос успешно обработан
+        type: string
+      meta:
+        $ref: '#/definitions/authdto.ResponseMeta'
+      slug:
+        example: ok
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  authdto.EmptyResponse:
+    properties:
+      code:
+        example: 0
+        type: integer
+      data:
+        x-nullable: true
+      message:
+        example: Запрос успешно обработан
+        type: string
+      meta:
+        $ref: '#/definitions/authdto.ResponseMeta'
+      slug:
+        example: ok
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  authdto.ErrorResponse:
+    properties:
+      code:
+        example: 1400
+        type: integer
+      data:
+        x-nullable: true
+      message:
+        example: Некорректные данные
+        type: string
+      meta:
+        $ref: '#/definitions/authdto.ResponseMeta'
+      slug:
+        example: invalid_data
+        type: string
+      success:
+        example: false
+        type: boolean
+    type: object
+  authdto.ForgotPasswordRequest:
+    properties:
+      phone:
+        example: "+998901234567"
+        type: string
+    type: object
+  authdto.LoginRequest:
+    properties:
+      login:
+        example: qobulov
+        type: string
+      password:
+        example: strong-password
+        type: string
+    type: object
+  authdto.OTPVerifyRequest:
+    properties:
+      otp:
+        example: "123456"
+        type: string
+      phone:
+        example: "+998901234567"
+        type: string
+    type: object
+  authdto.PhoneChangeConfirmRequest:
+    properties:
+      new_phone:
+        example: "+998901234568"
+        type: string
+      otp:
+        example: "123456"
+        type: string
+    type: object
+  authdto.PhoneChangeRequest:
+    properties:
+      new_phone:
+        example: "+998901234568"
+        type: string
+    type: object
+  authdto.PhoneRequest:
+    properties:
+      phone:
+        example: "+998901234567"
+        type: string
+    type: object
+  authdto.RefreshRequest:
+    properties:
+      refresh_token:
+        example: opaque-refresh-token
+        type: string
+    type: object
+  authdto.RegisterRequest:
+    properties:
+      avatar_url:
+        example: https://example.com/avatar.jpg
+        type: string
+      first_name:
+        example: Qobul
+        type: string
+      language:
+        example: uz
+        type: string
+      last_name:
+        example: Qobulov
+        type: string
+      password:
+        example: strong-password
+        type: string
+      phone:
+        example: "+998901234567"
+        type: string
+      username:
+        example: qobulov
+        type: string
+    type: object
+  authdto.ResetPasswordRequest:
+    properties:
+      confirm_password:
+        example: new-strong-password
+        type: string
+      password:
+        example: new-strong-password
+        type: string
+      reset_token:
+        example: opaque-reset-token
+        type: string
+    type: object
+  authdto.ResetVerifyData:
+    properties:
+      expires_at:
+        type: string
+      reset_token:
+        type: string
+    type: object
+  authdto.ResetVerifyResponse:
+    properties:
+      code:
+        example: 0
+        type: integer
+      data:
+        $ref: '#/definitions/authdto.ResetVerifyData'
+      message:
+        example: Запрос успешно обработан
+        type: string
+      meta:
+        $ref: '#/definitions/authdto.ResponseMeta'
+      slug:
+        example: ok
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  authdto.ResponseMeta:
+    properties:
+      api_version:
+        example: v1
+        type: string
+      duration:
+        example: 2.22896ms
+        type: string
+      request_id:
+        example: aaddf89a9a081829a856613eff19682b
+        type: string
+      service:
+        example: brothers_app
+        type: string
+      timestamp:
+        example: "2026-09-22T12:55:03Z"
+        type: string
+    type: object
+  authdto.StartData:
+    properties:
+      expires_at:
+        type: string
+      resend_in:
+        type: integer
+      telegram_deep_link:
+        type: string
+    type: object
+  authdto.StartResponse:
+    properties:
+      code:
+        example: 0
+        type: integer
+      data:
+        $ref: '#/definitions/authdto.StartData'
+      message:
+        example: Запрос успешно обработан
+        type: string
+      meta:
+        $ref: '#/definitions/authdto.ResponseMeta'
+      slug:
+        example: ok
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  authdto.UpdateProfileRequest:
+    properties:
+      avatar_url:
+        example: https://example.com/avatar.jpg
+        type: string
+      first_name:
+        example: Qobul
+        type: string
+      language:
+        enum:
+        - uz
+        - ru
+        - en
+        example: uz
+        type: string
+      last_name:
+        example: Qobulov
+        type: string
+    type: object
+  authdto.UserData:
     properties:
       avatar_url:
         type: string
       created_at:
-        type: string
-      email:
         type: string
       first_name:
         type: string
@@ -27,8 +262,6 @@ definitions:
         type: string
       last_name:
         type: string
-      name:
-        type: string
       phone:
         type: string
       updated_at:
@@ -36,10 +269,73 @@ definitions:
       username:
         type: string
     type: object
+  authdto.UserResponse:
+    properties:
+      code:
+        example: 0
+        type: integer
+      data:
+        $ref: '#/definitions/authdto.UserData'
+      message:
+        example: Запрос успешно обработан
+        type: string
+      meta:
+        $ref: '#/definitions/authdto.ResponseMeta'
+      slug:
+        example: ok
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  orderdto.CreateOrderRequest:
+    properties:
+      total:
+        type: number
+    required:
+    - total
+    type: object
+  orderdto.OrderResponse:
+    properties:
+      id:
+        type: integer
+      total:
+        type: number
+    type: object
   responses.MessageResponse:
     properties:
       message:
         example: example message
+        type: string
+    type: object
+  userdto.PatchUserRequest:
+    properties:
+      name:
+        type: string
+    required:
+    - name
+    type: object
+  userdto.RegisterRequest:
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+      password:
+        minLength: 6
+        type: string
+    required:
+    - email
+    - name
+    - password
+    type: object
+  userdto.UserResponse:
+    properties:
+      email:
+        type: string
+      id:
+        type: string
+      name:
         type: string
     type: object
 info:
@@ -48,30 +344,355 @@ info:
   title: Brothers App API
   version: "1.0"
 paths:
-  /auth/signin:
+  /auth/login:
     post:
       consumes:
       - application/json
+      description: Authenticates an active user using a username or phone number and
+        password.
       parameters:
-      - description: Login credentials (email & password)
+      - description: Login credentials
         in: body
         name: credentials
         required: true
         schema:
-          additionalProperties:
-            type: string
-          type: object
+          $ref: '#/definitions/authdto.LoginRequest'
       produces:
       - application/json
       responses:
         "200":
-          description: Authenticated user and JWT token
+          description: OK
           schema:
-            additionalProperties: true
-            type: object
-      summary: Authenticate user and return token
+            $ref: '#/definitions/authdto.AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+      summary: Sign in with username or phone
       tags:
-      - users
+      - auth
+  /auth/logout:
+    post:
+      description: Revokes the current authenticated session.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/authdto.EmptyResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Log out
+      tags:
+      - auth
+  /auth/otp/verify:
+    post:
+      consumes:
+      - application/json
+      description: Verifies the Telegram-delivered registration OTP and issues a token
+        pair.
+      parameters:
+      - description: Phone and OTP
+        in: body
+        name: verification
+        required: true
+        schema:
+          $ref: '#/definitions/authdto.OTPVerifyRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/authdto.AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+      summary: Verify registration OTP
+      tags:
+      - auth
+  /auth/password/forgot:
+    post:
+      consumes:
+      - application/json
+      description: Starts the Telegram OTP password-reset flow.
+      parameters:
+      - description: Account phone
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/authdto.ForgotPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/authdto.StartResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+      summary: Start password reset
+      tags:
+      - auth
+  /auth/password/resend:
+    post:
+      consumes:
+      - application/json
+      description: Sends a replacement password-reset OTP to the bound Telegram chat.
+      parameters:
+      - description: Account phone
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/authdto.PhoneRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/authdto.EmptyResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+      summary: Resend password-reset OTP
+      tags:
+      - auth
+  /auth/password/reset:
+    post:
+      consumes:
+      - application/json
+      description: Replaces the password using a reset-only token and revokes the
+        active session.
+      parameters:
+      - description: Reset token and new password
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/authdto.ResetPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/authdto.EmptyResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+      summary: Reset password
+      tags:
+      - auth
+  /auth/password/verify:
+    post:
+      consumes:
+      - application/json
+      description: Exchanges a Telegram-delivered reset OTP for a single-use reset
+        token.
+      parameters:
+      - description: Phone and OTP
+        in: body
+        name: verification
+        required: true
+        schema:
+          $ref: '#/definitions/authdto.OTPVerifyRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/authdto.ResetVerifyResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+      summary: Verify password-reset OTP
+      tags:
+      - auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Rotates the opaque refresh token and returns a new token pair.
+      parameters:
+      - description: Refresh token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/authdto.RefreshRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/authdto.AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+      summary: Refresh session tokens
+      tags:
+      - auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Creates a pending user and starts Telegram OTP verification.
+      parameters:
+      - description: Registration payload
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/authdto.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/authdto.StartResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+      summary: Start user registration
+      tags:
+      - auth
+  /auth/register/resend:
+    post:
+      consumes:
+      - application/json
+      description: Sends a replacement OTP to the Telegram chat bound by the registration
+        flow.
+      parameters:
+      - description: Registration phone
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/authdto.PhoneRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/authdto.EmptyResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+      summary: Resend registration OTP
+      tags:
+      - auth
+  /auth/signin:
+    post:
+      consumes:
+      - application/json
+      description: Authenticates an active user using a username or phone number and
+        password.
+      parameters:
+      - description: Login credentials
+        in: body
+        name: credentials
+        required: true
+        schema:
+          $ref: '#/definitions/authdto.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/authdto.AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+      summary: Sign in with username or phone
+      tags:
+      - auth
   /auth/signup:
     post:
       consumes:
@@ -82,17 +703,179 @@ paths:
         name: user
         required: true
         schema:
-          $ref: '#/definitions/entities.User'
+          $ref: '#/definitions/userdto.RegisterRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/entities.User'
+            $ref: '#/definitions/userdto.UserResponse'
       summary: Register a new user
       tags:
       - users
+  /me:
+    get:
+      description: Returns safe profile fields for the authenticated user.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/authdto.UserResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get current profile
+      tags:
+      - profile
+    patch:
+      consumes:
+      - application/json
+      description: Updates only provided names, avatar URL, and language fields.
+      parameters:
+      - description: Editable profile fields
+        in: body
+        name: profile
+        required: true
+        schema:
+          $ref: '#/definitions/authdto.UpdateProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/authdto.UserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update current profile
+      tags:
+      - profile
+  /me/phone-change/confirm:
+    post:
+      consumes:
+      - application/json
+      description: Verifies the Telegram OTP and applies the new phone number.
+      parameters:
+      - description: New phone and OTP
+        in: body
+        name: confirmation
+        required: true
+        schema:
+          $ref: '#/definitions/authdto.PhoneChangeConfirmRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/authdto.EmptyResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Confirm phone change
+      tags:
+      - profile
+  /me/phone-change/request:
+    post:
+      consumes:
+      - application/json
+      description: Starts the Telegram OTP flow for a new unique phone number.
+      parameters:
+      - description: New phone
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/authdto.PhoneChangeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/authdto.StartResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Start phone change
+      tags:
+      - profile
+  /me/phone-change/resend:
+    post:
+      consumes:
+      - application/json
+      description: Sends a replacement phone-change OTP to the bound Telegram chat.
+      parameters:
+      - description: New phone
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/authdto.PhoneChangeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/authdto.EmptyResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Resend phone-change OTP
+      tags:
+      - profile
   /orders:
     get:
       produces:
@@ -102,7 +885,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/entities.Order'
+              $ref: '#/definitions/orderdto.OrderResponse'
             type: array
       summary: Get all orders
       tags:
@@ -116,14 +899,14 @@ paths:
         name: order
         required: true
         schema:
-          $ref: '#/definitions/entities.Order'
+          $ref: '#/definitions/orderdto.CreateOrderRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/entities.Order'
+            $ref: '#/definitions/orderdto.OrderResponse'
       summary: Create a new order
       tags:
       - orders
@@ -158,7 +941,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/entities.Order'
+            $ref: '#/definitions/orderdto.OrderResponse'
       summary: Get order by ID
       tags:
       - orders
@@ -176,14 +959,14 @@ paths:
         name: order
         required: true
         schema:
-          $ref: '#/definitions/entities.Order'
+          $ref: '#/definitions/orderdto.CreateOrderRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/entities.Order'
+            $ref: '#/definitions/orderdto.OrderResponse'
       summary: Update an order partially
       tags:
       - orders
@@ -196,7 +979,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/entities.User'
+              $ref: '#/definitions/userdto.UserResponse'
             type: array
       summary: Get all users
       tags:
@@ -232,7 +1015,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/entities.User'
+            $ref: '#/definitions/userdto.UserResponse'
       summary: Get user by ID
       tags:
       - users
@@ -250,14 +1033,14 @@ paths:
         name: user
         required: true
         schema:
-          $ref: '#/definitions/entities.User'
+          $ref: '#/definitions/userdto.PatchUserRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/entities.User'
+            $ref: '#/definitions/userdto.UserResponse'
       summary: Update an user partially
       tags:
       - users
@@ -269,7 +1052,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/entities.User'
+            $ref: '#/definitions/userdto.UserResponse'
       summary: Get currently authenticated user
       tags:
       - users

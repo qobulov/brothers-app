@@ -1,4 +1,4 @@
-package dto
+package orderdto
 
 import "github.com/qobulov/brothers-app/internal/entities"
 

@@ -1,4 +1,4 @@
-package dto
+package userdto
 
 import "github.com/qobulov/brothers-app/internal/entities"
 

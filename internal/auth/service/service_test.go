@@ -1,8 +1,10 @@
 package service
 
 import (
+	"errors"
 	"testing"
 
+	"github.com/qobulov/brothers-app/pkg/apperror"
 	"github.com/qobulov/brothers-app/pkg/helpers"
 )
 
@@ -46,5 +48,83 @@ func TestGenerateOTP(t *testing.T) {
 		if !helpers.ValidOTP(value) {
 			t.Fatalf("generated invalid otp %q", value)
 		}
+	}
+}
+
+func TestLoginIdentifiers(t *testing.T) {
+	tests := []struct {
+		name         string
+		input        string
+		wantUsername string
+		wantPhone    string
+	}{
+		{name: "username", input: "  qobulov  ", wantUsername: "qobulov"},
+		{name: "phone", input: "+998 90 123 45 67", wantUsername: "+998 90 123 45 67", wantPhone: "+998901234567"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			username, phone := loginIdentifiers(test.input)
+			if username != test.wantUsername {
+				t.Errorf("username = %q, want %q", username, test.wantUsername)
+			}
+			if phone != test.wantPhone {
+				t.Errorf("phone = %q, want %q", phone, test.wantPhone)
+			}
+		})
+	}
+}
+
+func TestOptionalProfileFields(t *testing.T) {
+	validName := "  Qobul  "
+	validLanguage := " RU "
+	validAvatar := "https://example.com/avatar.jpg"
+	emptyAvatar := ""
+	invalidName := "   "
+	invalidLanguage := "de"
+	invalidAvatar := "javascript:alert(1)"
+
+	tests := []struct {
+		name    string
+		run     func() error
+		wantErr bool
+	}{
+		{name: "trim name", run: func() error {
+			value, err := optionalName(&validName)
+			if value.String != "Qobul" {
+				t.Errorf("name = %q", value.String)
+			}
+			return err
+		}},
+		{name: "accept language", run: func() error {
+			value, err := optionalLanguage(&validLanguage)
+			if value.String != "ru" {
+				t.Errorf("language = %q", value.String)
+			}
+			return err
+		}},
+		{name: "accept https avatar", run: func() error { _, err := optionalAvatarURL(&validAvatar); return err }},
+		{name: "allow clearing avatar", run: func() error {
+			value, err := optionalAvatarURL(&emptyAvatar)
+			if !value.Valid || value.String != "" {
+				t.Errorf("avatar = %#v", value)
+			}
+			return err
+		}},
+		{name: "reject empty name", run: func() error { _, err := optionalName(&invalidName); return err }, wantErr: true},
+		{name: "reject unsupported language", run: func() error { _, err := optionalLanguage(&invalidLanguage); return err }, wantErr: true},
+		{name: "reject unsafe avatar scheme", run: func() error { _, err := optionalAvatarURL(&invalidAvatar); return err }, wantErr: true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := test.run()
+			if test.wantErr && !errors.Is(err, apperror.ErrInvalidData) {
+				t.Fatalf("error = %v, want ErrInvalidData", err)
+			}
+			if !test.wantErr && err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
 	}
 }

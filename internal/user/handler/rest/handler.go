@@ -24,33 +24,26 @@ func NewHttpUserHandler(useCase usecase.UserUseCase) *HttpUserHandler {
 // @Tags users
 // @Accept json
 // @Produce json
-// @Param user body entities.User true "User registration payload"
-// @Success 201 {object} entities.User
+// @Param user body userdto.RegisterRequest true "User registration payload"
+// @Success 201 {object} userdto.UserResponse
 // @Router /auth/signup [post]
 func (h *HttpUserHandler) Register(c *fiber.Ctx) error {
-	req := new(dto.RegisterRequest)
+	req := new(userdto.RegisterRequest)
 	if err := c.BodyParser(req); err != nil {
 		return responses.Error(c, apperror.ErrInvalidData)
 	}
 
-	userEntity := dto.ToUserEntity(req)
+	userEntity := userdto.ToUserEntity(req)
 	if err := h.userUseCase.Register(userEntity); err != nil {
 		return responses.Error(c, err)
 	}
 
-	return responses.Success(c, fiber.StatusCreated, dto.ToUserResponse(userEntity), "Запрос успешно обработан")
+	return responses.Success(c, fiber.StatusCreated, userdto.ToUserResponse(userEntity), "Запрос успешно обработан")
 }
 
-// Login godoc
-// @Summary Authenticate user and return token
-// @Tags users
-// @Accept json
-// @Produce json
-// @Param credentials body map[string]string true "Login credentials (email & password)"
-// @Success 200 {object} map[string]interface{} "Authenticated user and JWT token"
-// @Router /auth/signin [post]
+// Login authenticates a legacy email/password user.
 func (h *HttpUserHandler) Login(c *fiber.Ctx) error {
-	loginReq := new(dto.LoginRequest)
+	loginReq := new(userdto.LoginRequest)
 	if err := c.BodyParser(loginReq); err != nil {
 		return responses.Error(c, apperror.ErrInvalidData)
 	}
@@ -61,7 +54,7 @@ func (h *HttpUserHandler) Login(c *fiber.Ctx) error {
 	}
 
 	return responses.Success(c, fiber.StatusOK, fiber.Map{
-		"user":  dto.ToUserResponse(userEntity),
+		"user":  userdto.ToUserResponse(userEntity),
 		"token": token,
 	}, "Запрос успешно обработан")
 }
@@ -70,7 +63,7 @@ func (h *HttpUserHandler) Login(c *fiber.Ctx) error {
 // @Summary Get currently authenticated user
 // @Tags users
 // @Produce json
-// @Success 200 {object} entities.User
+// @Success 200 {object} userdto.UserResponse
 // @Router /users/me [get]
 func (h *HttpUserHandler) GetUser(c *fiber.Ctx) error {
 	userID := c.Locals("user_id")
@@ -83,7 +76,7 @@ func (h *HttpUserHandler) GetUser(c *fiber.Ctx) error {
 		return responses.Error(c, err)
 	}
 
-	return responses.Success(c, fiber.StatusOK, dto.ToUserResponse(userEntity), "Запрос успешно обработан")
+	return responses.Success(c, fiber.StatusOK, userdto.ToUserResponse(userEntity), "Запрос успешно обработан")
 }
 
 // FindUserByID godoc
@@ -91,7 +84,7 @@ func (h *HttpUserHandler) GetUser(c *fiber.Ctx) error {
 // @Tags users
 // @Produce json
 // @Param id path int true "User ID"
-// @Success 200 {object} entities.User
+// @Success 200 {object} userdto.UserResponse
 // @Router /users/{id} [get]
 func (h *HttpUserHandler) FindUserByID(c *fiber.Ctx) error {
 	id := c.Params("id")
@@ -104,14 +97,14 @@ func (h *HttpUserHandler) FindUserByID(c *fiber.Ctx) error {
 		return responses.Error(c, err)
 	}
 
-	return responses.Success(c, fiber.StatusOK, dto.ToUserResponse(userEntity), "Запрос успешно обработан")
+	return responses.Success(c, fiber.StatusOK, userdto.ToUserResponse(userEntity), "Запрос успешно обработан")
 }
 
 // FindAllUsers godoc
 // @Summary Get all users
 // @Tags users
 // @Produce json
-// @Success 200 {array} entities.User
+// @Success 200 {array} userdto.UserResponse
 // @Router /users [get]
 func (h *HttpUserHandler) FindAllUsers(c *fiber.Ctx) error {
 	users, err := h.userUseCase.FindAllUsers()
@@ -119,7 +112,7 @@ func (h *HttpUserHandler) FindAllUsers(c *fiber.Ctx) error {
 		return responses.Error(c, err)
 	}
 
-	return responses.Success(c, fiber.StatusOK, dto.ToUserResponseList(users), "Запрос успешно обработан")
+	return responses.Success(c, fiber.StatusOK, userdto.ToUserResponseList(users), "Запрос успешно обработан")
 }
 
 // PatchUser godoc
@@ -128,13 +121,13 @@ func (h *HttpUserHandler) FindAllUsers(c *fiber.Ctx) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "User ID"
-// @Param user body entities.User true "User update payload"
-// @Success 200 {object} entities.User
+// @Param user body userdto.PatchUserRequest true "User update payload"
+// @Success 200 {object} userdto.UserResponse
 // @Router /users/{id} [patch]
 func (h *HttpUserHandler) PatchUser(c *fiber.Ctx) error {
 	id := c.Params("id")
 
-	var req dto.PatchUserRequest
+	var req userdto.PatchUserRequest
 	if err := c.BodyParser(&req); err != nil {
 		return responses.ErrorWithMessage(c, err, "invalid request")
 	}
@@ -151,7 +144,7 @@ func (h *HttpUserHandler) PatchUser(c *fiber.Ctx) error {
 		return responses.Error(c, err)
 	}
 
-	return responses.Success(c, fiber.StatusOK, dto.ToUserResponse(updatedUser), "Запрос успешно обработан")
+	return responses.Success(c, fiber.StatusOK, userdto.ToUserResponse(updatedUser), "Запрос успешно обработан")
 }
 
 // DeleteUser godoc

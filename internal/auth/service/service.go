@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -13,7 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/qobulov/brothers-app/internal/auth/dto"
+	dto "github.com/qobulov/brothers-app/internal/auth/dto"
 	"github.com/qobulov/brothers-app/internal/auth/otp"
 	db "github.com/qobulov/brothers-app/internal/db"
 	"github.com/qobulov/brothers-app/internal/entities"
@@ -115,17 +116,19 @@ func (s *Service) VerifyRegistration(ctx context.Context, phone, code string) (d
 	return result, err
 }
 
-func (s *Service) Login(ctx context.Context, identifier, password string) (dto.AuthData, error) {
-	identifier = strings.TrimSpace(identifier)
-	phone := identifier
-	if normalized, err := helpers.NormalizePhone(identifier); err == nil {
-		phone = normalized
+func (s *Service) Login(ctx context.Context, login, password string) (dto.AuthData, error) {
+	login, phone := loginIdentifiers(login)
+	if login == "" || password == "" {
+		return dto.AuthData{}, apperror.ErrInvalidCredentials
 	}
 	var result dto.AuthData
 	err := s.withTx(ctx, func(q *db.Queries) error {
-		user, queryErr := q.GetUserByIdentifier(ctx, db.GetUserByIdentifierParams{Username: text(identifier), Phone: text(phone), Email: text(strings.ToLower(identifier))})
+		user, queryErr := q.GetUserByLogin(ctx, db.GetUserByLoginParams{Username: text(login), Phone: text(phone)})
 		if queryErr != nil {
-			return apperror.ErrInvalidCredentials
+			if errors.Is(queryErr, pgx.ErrNoRows) {
+				return apperror.ErrInvalidCredentials
+			}
+			return fmt.Errorf("finding login user: %w", queryErr)
 		}
 		hash := user.PasswordHash.String
 		if hash == "" {
@@ -146,6 +149,14 @@ func (s *Service) Login(ctx context.Context, identifier, password string) (dto.A
 		return nil
 	})
 	return result, err
+}
+
+func loginIdentifiers(value string) (username, phone string) {
+	username = strings.TrimSpace(value)
+	if normalized, err := helpers.NormalizePhone(username); err == nil {
+		phone = normalized
+	}
+	return username, phone
 }
 
 func (s *Service) Refresh(ctx context.Context, refreshToken string) (dto.AuthData, error) {
@@ -184,10 +195,49 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (dto.AuthDat
 	return result, err
 }
 
-func (s *Service) CurrentUser(ctx context.Context, userID uuid.UUID) (map[string]interface{}, error) {
+func (s *Service) CurrentUser(ctx context.Context, userID uuid.UUID) (dto.UserData, error) {
 	user, err := s.queries.GetActiveUser(ctx, db.GetActiveUserParams{ID: pgUUID(userID)})
 	if err != nil {
-		return nil, apperror.ErrUnauthorized
+		return dto.UserData{}, apperror.ErrUnauthorized
+	}
+	return SafeUser(toEntity(user)), nil
+}
+
+func (s *Service) UpdateCurrentUser(ctx context.Context, userID uuid.UUID, req dto.UpdateProfileRequest) (dto.UserData, error) {
+	if req.FirstName == nil && req.LastName == nil && req.AvatarURL == nil && req.Language == nil {
+		return dto.UserData{}, apperror.ErrInvalidData
+	}
+
+	firstName, err := optionalName(req.FirstName)
+	if err != nil {
+		return dto.UserData{}, err
+	}
+	lastName, err := optionalName(req.LastName)
+	if err != nil {
+		return dto.UserData{}, err
+	}
+	avatarURL, err := optionalAvatarURL(req.AvatarURL)
+	if err != nil {
+		return dto.UserData{}, err
+	}
+	language, err := optionalLanguage(req.Language)
+	if err != nil {
+		return dto.UserData{}, err
+	}
+
+	user, err := s.queries.UpdateUserProfile(ctx, db.UpdateUserProfileParams{
+		FirstName: firstName,
+		LastName:  lastName,
+		AvatarUrl: avatarURL,
+		Language:  language,
+		UpdatedAt: timestamp(s.now().UTC()),
+		ID:        pgUUID(userID),
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return dto.UserData{}, apperror.ErrUnauthorized
+	}
+	if err != nil {
+		return dto.UserData{}, fmt.Errorf("updating current user: %w", err)
 	}
 	return SafeUser(toEntity(user)), nil
 }
@@ -488,8 +538,53 @@ func toEntity(user db.User) entities.User {
 	return result
 }
 
-func SafeUser(user entities.User) map[string]interface{} {
-	return map[string]interface{}{"id": user.ID, "phone": user.Phone, "username": user.Username, "first_name": user.FirstName, "last_name": user.LastName, "avatar_url": user.AvatarURL, "language": user.Language, "is_active": user.IsActive, "created_at": user.CreatedAt, "updated_at": user.UpdatedAt}
+func SafeUser(user entities.User) dto.UserData {
+	return dto.UserData{
+		ID: user.ID, Phone: user.Phone, Username: user.Username, FirstName: user.FirstName,
+		LastName: user.LastName, AvatarURL: user.AvatarURL, Language: user.Language,
+		IsActive: user.IsActive, LastLoginAt: user.LastLoginAt, CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+	}
+}
+
+func optionalName(value *string) (pgtype.Text, error) {
+	if value == nil {
+		return pgtype.Text{}, nil
+	}
+	trimmed := strings.TrimSpace(*value)
+	if trimmed == "" || len([]rune(trimmed)) > 100 {
+		return pgtype.Text{}, apperror.ErrInvalidData
+	}
+	return text(trimmed), nil
+}
+
+func optionalLanguage(value *string) (pgtype.Text, error) {
+	if value == nil {
+		return pgtype.Text{}, nil
+	}
+	language := strings.ToLower(strings.TrimSpace(*value))
+	if language != "uz" && language != "ru" && language != "en" {
+		return pgtype.Text{}, apperror.ErrInvalidData
+	}
+	return text(language), nil
+}
+
+func optionalAvatarURL(value *string) (pgtype.Text, error) {
+	if value == nil {
+		return pgtype.Text{}, nil
+	}
+	avatar := strings.TrimSpace(*value)
+	if avatar == "" {
+		return text(""), nil
+	}
+	if len(avatar) > 2048 {
+		return pgtype.Text{}, apperror.ErrInvalidData
+	}
+	parsed, err := url.ParseRequestURI(avatar)
+	if err != nil || parsed.Host == "" || (parsed.Scheme != "https" && parsed.Scheme != "http") {
+		return pgtype.Text{}, apperror.ErrInvalidData
+	}
+	return text(avatar), nil
 }
 
 func ParseUUID(value string) (uuid.UUID, error) {

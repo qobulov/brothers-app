@@ -25,11 +25,11 @@ func NewHttpOrderHandler(useCase usecase.OrderUseCase) *HttpOrderHandler {
 // @Tags orders
 // @Accept json
 // @Produce json
-// @Param order body entities.Order true "Order payload"
-// @Success 201 {object} entities.Order
+// @Param order body orderdto.CreateOrderRequest true "Order payload"
+// @Success 201 {object} orderdto.OrderResponse
 // @Router /orders [post]
 func (h *HttpOrderHandler) CreateOrder(c *fiber.Ctx) error {
-	var req dto.CreateOrderRequest
+	var req orderdto.CreateOrderRequest
 	if err := c.BodyParser(&req); err != nil {
 		return responses.ErrorWithMessage(c, err, "invalid request")
 	}
@@ -39,14 +39,14 @@ func (h *HttpOrderHandler) CreateOrder(c *fiber.Ctx) error {
 		return responses.Error(c, err)
 	}
 
-	return responses.Success(c, fiber.StatusCreated, dto.ToOrderResponse(order), "Запрос успешно обработан")
+	return responses.Success(c, fiber.StatusCreated, orderdto.ToOrderResponse(order), "Запрос успешно обработан")
 }
 
 // FindAllOrders godoc
 // @Summary Get all orders
 // @Tags orders
 // @Produce json
-// @Success 200 {array} entities.Order
+// @Success 200 {array} orderdto.OrderResponse
 // @Router /orders [get]
 func (h *HttpOrderHandler) FindAllOrders(c *fiber.Ctx) error {
 	orders, err := h.orderUseCase.FindAllOrders()
@@ -54,7 +54,7 @@ func (h *HttpOrderHandler) FindAllOrders(c *fiber.Ctx) error {
 		return responses.Error(c, err)
 	}
 
-	return responses.Success(c, fiber.StatusOK, dto.ToOrderResponseList(orders), "Запрос успешно обработан")
+	return responses.Success(c, fiber.StatusOK, orderdto.ToOrderResponseList(orders), "Запрос успешно обработан")
 }
 
 // FindOrderByID godoc
@@ -62,7 +62,7 @@ func (h *HttpOrderHandler) FindAllOrders(c *fiber.Ctx) error {
 // @Tags orders
 // @Produce json
 // @Param id path int true "Order ID"
-// @Success 200 {object} entities.Order
+// @Success 200 {object} orderdto.OrderResponse
 // @Router /orders/{id} [get]
 func (h *HttpOrderHandler) FindOrderByID(c *fiber.Ctx) error {
 	id := c.Params("id")
@@ -76,7 +76,7 @@ func (h *HttpOrderHandler) FindOrderByID(c *fiber.Ctx) error {
 		return responses.Error(c, err)
 	}
 
-	return responses.Success(c, fiber.StatusOK, dto.ToOrderResponse(order), "Запрос успешно обработан")
+	return responses.Success(c, fiber.StatusOK, orderdto.ToOrderResponse(order), "Запрос успешно обработан")
 }
 
 // PatchOrder godoc
@@ -85,8 +85,8 @@ func (h *HttpOrderHandler) FindOrderByID(c *fiber.Ctx) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "Order ID"
-// @Param order body entities.Order true "Order update payload"
-// @Success 200 {object} entities.Order
+// @Param order body orderdto.CreateOrderRequest true "Order update payload"
+// @Success 200 {object} orderdto.OrderResponse
 // @Router /orders/{id} [patch]
 func (h *HttpOrderHandler) PatchOrder(c *fiber.Ctx) error {
 	id := c.Params("id")
@@ -95,7 +95,7 @@ func (h *HttpOrderHandler) PatchOrder(c *fiber.Ctx) error {
 		return responses.ErrorWithMessage(c, err, "invalid id")
 	}
 
-	var req dto.CreateOrderRequest
+	var req orderdto.CreateOrderRequest
 	if err := c.BodyParser(&req); err != nil {
 		return responses.ErrorWithMessage(c, err, "invalid request")
 	}
@@ -112,7 +112,7 @@ func (h *HttpOrderHandler) PatchOrder(c *fiber.Ctx) error {
 		return responses.Error(c, err)
 	}
 
-	return responses.Success(c, fiber.StatusOK, dto.ToOrderResponse(updatedOrder), "Запрос успешно обработан")
+	return responses.Success(c, fiber.StatusOK, orderdto.ToOrderResponse(updatedOrder), "Запрос успешно обработан")
 }
 
 // DeleteOrder godoc

@@ -8,8 +8,9 @@
     },
     "basePath": "/api/v1",
     "paths": {
-        "/auth/signin": {
+        "/auth/login": {
             "post": {
+                "description": "Authenticates an active user using a username or phone number and password.",
                 "consumes": [
                     "application/json"
                 ],
@@ -17,29 +18,518 @@
                     "application/json"
                 ],
                 "tags": [
-                    "users"
+                    "auth"
                 ],
-                "summary": "Authenticate user and return token",
+                "summary": "Sign in with username or phone",
                 "parameters": [
                     {
-                        "description": "Login credentials (email \u0026 password)",
+                        "description": "Login credentials",
                         "name": "credentials",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/authdto.LoginRequest"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Authenticated user and JWT token",
+                        "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/authdto.AuthResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/logout": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Revokes the current authenticated session.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Log out",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.EmptyResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/otp/verify": {
+            "post": {
+                "description": "Verifies the Telegram-delivered registration OTP and issues a token pair.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Verify registration OTP",
+                "parameters": [
+                    {
+                        "description": "Phone and OTP",
+                        "name": "verification",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/authdto.OTPVerifyRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.AuthResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/password/forgot": {
+            "post": {
+                "description": "Starts the Telegram OTP password-reset flow.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Start password reset",
+                "parameters": [
+                    {
+                        "description": "Account phone",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ForgotPasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.StartResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/password/resend": {
+            "post": {
+                "description": "Sends a replacement password-reset OTP to the bound Telegram chat.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Resend password-reset OTP",
+                "parameters": [
+                    {
+                        "description": "Account phone",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/authdto.PhoneRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.EmptyResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/password/reset": {
+            "post": {
+                "description": "Replaces the password using a reset-only token and revokes the active session.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Reset password",
+                "parameters": [
+                    {
+                        "description": "Reset token and new password",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ResetPasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.EmptyResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/password/verify": {
+            "post": {
+                "description": "Exchanges a Telegram-delivered reset OTP for a single-use reset token.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Verify password-reset OTP",
+                "parameters": [
+                    {
+                        "description": "Phone and OTP",
+                        "name": "verification",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/authdto.OTPVerifyRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ResetVerifyResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/refresh": {
+            "post": {
+                "description": "Rotates the opaque refresh token and returns a new token pair.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Refresh session tokens",
+                "parameters": [
+                    {
+                        "description": "Refresh token",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/authdto.RefreshRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.AuthResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/register": {
+            "post": {
+                "description": "Creates a pending user and starts Telegram OTP verification.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Start user registration",
+                "parameters": [
+                    {
+                        "description": "Registration payload",
+                        "name": "user",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/authdto.RegisterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.StartResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/register/resend": {
+            "post": {
+                "description": "Sends a replacement OTP to the Telegram chat bound by the registration flow.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Resend registration OTP",
+                "parameters": [
+                    {
+                        "description": "Registration phone",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/authdto.PhoneRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.EmptyResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/signin": {
+            "post": {
+                "description": "Authenticates an active user using a username or phone number and password.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Sign in with username or phone",
+                "parameters": [
+                    {
+                        "description": "Login credentials",
+                        "name": "credentials",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/authdto.LoginRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.AuthResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
                         }
                     }
                 }
@@ -64,7 +554,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/entities.User"
+                            "$ref": "#/definitions/userdto.RegisterRequest"
                         }
                     }
                 ],
@@ -72,7 +562,264 @@
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/entities.User"
+                            "$ref": "#/definitions/userdto.UserResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/me": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns safe profile fields for the authenticated user.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "profile"
+                ],
+                "summary": "Get current profile",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.UserResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Updates only provided names, avatar URL, and language fields.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "profile"
+                ],
+                "summary": "Update current profile",
+                "parameters": [
+                    {
+                        "description": "Editable profile fields",
+                        "name": "profile",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/authdto.UpdateProfileRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.UserResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/me/phone-change/confirm": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Verifies the Telegram OTP and applies the new phone number.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "profile"
+                ],
+                "summary": "Confirm phone change",
+                "parameters": [
+                    {
+                        "description": "New phone and OTP",
+                        "name": "confirmation",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/authdto.PhoneChangeConfirmRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.EmptyResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/me/phone-change/request": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Starts the Telegram OTP flow for a new unique phone number.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "profile"
+                ],
+                "summary": "Start phone change",
+                "parameters": [
+                    {
+                        "description": "New phone",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/authdto.PhoneChangeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.StartResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/me/phone-change/resend": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Sends a replacement phone-change OTP to the bound Telegram chat.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "profile"
+                ],
+                "summary": "Resend phone-change OTP",
+                "parameters": [
+                    {
+                        "description": "New phone",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/authdto.PhoneChangeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.EmptyResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
                         }
                     }
                 }
@@ -93,7 +840,7 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/entities.Order"
+                                "$ref": "#/definitions/orderdto.OrderResponse"
                             }
                         }
                     }
@@ -117,7 +864,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/entities.Order"
+                            "$ref": "#/definitions/orderdto.CreateOrderRequest"
                         }
                     }
                 ],
@@ -125,7 +872,7 @@
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/entities.Order"
+                            "$ref": "#/definitions/orderdto.OrderResponse"
                         }
                     }
                 }
@@ -153,7 +900,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/entities.Order"
+                            "$ref": "#/definitions/orderdto.OrderResponse"
                         }
                     }
                 }
@@ -209,7 +956,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/entities.Order"
+                            "$ref": "#/definitions/orderdto.CreateOrderRequest"
                         }
                     }
                 ],
@@ -217,7 +964,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/entities.Order"
+                            "$ref": "#/definitions/orderdto.OrderResponse"
                         }
                     }
                 }
@@ -238,7 +985,7 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/entities.User"
+                                "$ref": "#/definitions/userdto.UserResponse"
                             }
                         }
                     }
@@ -258,7 +1005,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/entities.User"
+                            "$ref": "#/definitions/userdto.UserResponse"
                         }
                     }
                 }
@@ -286,7 +1033,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/entities.User"
+                            "$ref": "#/definitions/userdto.UserResponse"
                         }
                     }
                 }
@@ -342,7 +1089,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/entities.User"
+                            "$ref": "#/definitions/userdto.PatchUserRequest"
                         }
                     }
                 ],
@@ -350,7 +1097,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/entities.User"
+                            "$ref": "#/definitions/userdto.UserResponse"
                         }
                     }
                 }
@@ -358,27 +1105,363 @@
         }
     },
     "definitions": {
-        "entities.Order": {
+        "authdto.AuthData": {
             "type": "object",
             "properties": {
-                "id": {
-                    "type": "integer"
+                "access_token": {
+                    "type": "string"
                 },
-                "total": {
-                    "type": "number"
+                "refresh_token": {
+                    "type": "string"
+                },
+                "user": {
+                    "$ref": "#/definitions/authdto.UserData"
                 }
             }
         },
-        "entities.User": {
+        "authdto.AuthResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "data": {
+                    "$ref": "#/definitions/authdto.AuthData"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Запрос успешно обработан"
+                },
+                "meta": {
+                    "$ref": "#/definitions/authdto.ResponseMeta"
+                },
+                "slug": {
+                    "type": "string",
+                    "example": "ok"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "authdto.EmptyResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "data": {
+                    "x-nullable": true
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Запрос успешно обработан"
+                },
+                "meta": {
+                    "$ref": "#/definitions/authdto.ResponseMeta"
+                },
+                "slug": {
+                    "type": "string",
+                    "example": "ok"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "authdto.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "example": 1400
+                },
+                "data": {
+                    "x-nullable": true
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Некорректные данные"
+                },
+                "meta": {
+                    "$ref": "#/definitions/authdto.ResponseMeta"
+                },
+                "slug": {
+                    "type": "string",
+                    "example": "invalid_data"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": false
+                }
+            }
+        },
+        "authdto.ForgotPasswordRequest": {
+            "type": "object",
+            "properties": {
+                "phone": {
+                    "type": "string",
+                    "example": "+998901234567"
+                }
+            }
+        },
+        "authdto.LoginRequest": {
+            "type": "object",
+            "properties": {
+                "login": {
+                    "type": "string",
+                    "example": "qobulov"
+                },
+                "password": {
+                    "type": "string",
+                    "example": "strong-password"
+                }
+            }
+        },
+        "authdto.OTPVerifyRequest": {
+            "type": "object",
+            "properties": {
+                "otp": {
+                    "type": "string",
+                    "example": "123456"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "+998901234567"
+                }
+            }
+        },
+        "authdto.PhoneChangeConfirmRequest": {
+            "type": "object",
+            "properties": {
+                "new_phone": {
+                    "type": "string",
+                    "example": "+998901234568"
+                },
+                "otp": {
+                    "type": "string",
+                    "example": "123456"
+                }
+            }
+        },
+        "authdto.PhoneChangeRequest": {
+            "type": "object",
+            "properties": {
+                "new_phone": {
+                    "type": "string",
+                    "example": "+998901234568"
+                }
+            }
+        },
+        "authdto.PhoneRequest": {
+            "type": "object",
+            "properties": {
+                "phone": {
+                    "type": "string",
+                    "example": "+998901234567"
+                }
+            }
+        },
+        "authdto.RefreshRequest": {
+            "type": "object",
+            "properties": {
+                "refresh_token": {
+                    "type": "string",
+                    "example": "opaque-refresh-token"
+                }
+            }
+        },
+        "authdto.RegisterRequest": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "type": "string",
+                    "example": "https://example.com/avatar.jpg"
+                },
+                "first_name": {
+                    "type": "string",
+                    "example": "Qobul"
+                },
+                "language": {
+                    "type": "string",
+                    "example": "uz"
+                },
+                "last_name": {
+                    "type": "string",
+                    "example": "Qobulov"
+                },
+                "password": {
+                    "type": "string",
+                    "example": "strong-password"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "+998901234567"
+                },
+                "username": {
+                    "type": "string",
+                    "example": "qobulov"
+                }
+            }
+        },
+        "authdto.ResetPasswordRequest": {
+            "type": "object",
+            "properties": {
+                "confirm_password": {
+                    "type": "string",
+                    "example": "new-strong-password"
+                },
+                "password": {
+                    "type": "string",
+                    "example": "new-strong-password"
+                },
+                "reset_token": {
+                    "type": "string",
+                    "example": "opaque-reset-token"
+                }
+            }
+        },
+        "authdto.ResetVerifyData": {
+            "type": "object",
+            "properties": {
+                "expires_at": {
+                    "type": "string"
+                },
+                "reset_token": {
+                    "type": "string"
+                }
+            }
+        },
+        "authdto.ResetVerifyResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "data": {
+                    "$ref": "#/definitions/authdto.ResetVerifyData"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Запрос успешно обработан"
+                },
+                "meta": {
+                    "$ref": "#/definitions/authdto.ResponseMeta"
+                },
+                "slug": {
+                    "type": "string",
+                    "example": "ok"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "authdto.ResponseMeta": {
+            "type": "object",
+            "properties": {
+                "api_version": {
+                    "type": "string",
+                    "example": "v1"
+                },
+                "duration": {
+                    "type": "string",
+                    "example": "2.22896ms"
+                },
+                "request_id": {
+                    "type": "string",
+                    "example": "aaddf89a9a081829a856613eff19682b"
+                },
+                "service": {
+                    "type": "string",
+                    "example": "brothers_app"
+                },
+                "timestamp": {
+                    "type": "string",
+                    "example": "2026-09-22T12:55:03Z"
+                }
+            }
+        },
+        "authdto.StartData": {
+            "type": "object",
+            "properties": {
+                "expires_at": {
+                    "type": "string"
+                },
+                "resend_in": {
+                    "type": "integer"
+                },
+                "telegram_deep_link": {
+                    "type": "string"
+                }
+            }
+        },
+        "authdto.StartResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "data": {
+                    "$ref": "#/definitions/authdto.StartData"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Запрос успешно обработан"
+                },
+                "meta": {
+                    "$ref": "#/definitions/authdto.ResponseMeta"
+                },
+                "slug": {
+                    "type": "string",
+                    "example": "ok"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "authdto.UpdateProfileRequest": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "type": "string",
+                    "example": "https://example.com/avatar.jpg"
+                },
+                "first_name": {
+                    "type": "string",
+                    "example": "Qobul"
+                },
+                "language": {
+                    "type": "string",
+                    "enum": [
+                        "uz",
+                        "ru",
+                        "en"
+                    ],
+                    "example": "uz"
+                },
+                "last_name": {
+                    "type": "string",
+                    "example": "Qobulov"
+                }
+            }
+        },
+        "authdto.UserData": {
             "type": "object",
             "properties": {
                 "avatar_url": {
                     "type": "string"
                 },
                 "created_at": {
-                    "type": "string"
-                },
-                "email": {
                     "type": "string"
                 },
                 "first_name": {
@@ -399,9 +1482,6 @@
                 "last_name": {
                     "type": "string"
                 },
-                "name": {
-                    "type": "string"
-                },
                 "phone": {
                     "type": "string"
                 },
@@ -413,12 +1493,106 @@
                 }
             }
         },
+        "authdto.UserResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "data": {
+                    "$ref": "#/definitions/authdto.UserData"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Запрос успешно обработан"
+                },
+                "meta": {
+                    "$ref": "#/definitions/authdto.ResponseMeta"
+                },
+                "slug": {
+                    "type": "string",
+                    "example": "ok"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "orderdto.CreateOrderRequest": {
+            "type": "object",
+            "required": [
+                "total"
+            ],
+            "properties": {
+                "total": {
+                    "type": "number"
+                }
+            }
+        },
+        "orderdto.OrderResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "number"
+                }
+            }
+        },
         "responses.MessageResponse": {
             "type": "object",
             "properties": {
                 "message": {
                     "type": "string",
                     "example": "example message"
+                }
+            }
+        },
+        "userdto.PatchUserRequest": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "userdto.RegisterRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "name",
+                "password"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string",
+                    "minLength": 6
+                }
+            }
+        },
+        "userdto.UserResponse": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
                 }
             }
         }

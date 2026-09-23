@@ -47,7 +47,7 @@ func RegisterPublicRoutes(app fiber.Router, pool *pgxpool.Pool, otpCache *otp.Ca
 	// Auth routes (separated from /users)
 	authGroup := api.Group("/auth")
 	authGroup.Post("/signup", userHandler.Register)
-	authGroup.Post("/signin", userHandler.Login)
+	authGroup.Post("/signin", authHandler.Login)
 	authGroup.Post("/register", authHandler.Register)
 	authGroup.Post("/login", authHandler.Login)
 	authGroup.Post("/refresh", authHandler.Refresh)

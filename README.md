@@ -107,6 +107,27 @@ Set these environment variables in the Vercel project before deploying:
 
 Do not set `PORT` in Vercel; the platform injects it automatically.
 
+### Run production database migrations
+
+Production migrations run separately from the Vercel application process.
+Configure them once in GitHub:
+
+1. Open `Settings` -> `Environments` and create the `production` environment.
+2. Add `DATABASE_URL` as an environment secret. Use the hosted PostgreSQL URL
+   with its required TLS parameters.
+3. Optionally configure required reviewers for the `production` environment.
+4. Open `Actions` -> `Database Migration` -> `Run workflow` and select the
+   `main` branch.
+5. Redeploy Vercel only after the migration workflow succeeds.
+
+The workflow applies only pending `*.up.sql` files and serializes production
+migration runs. It never runs a down migration. Do not run the current first
+down migration against production because it drops the application tables.
+
+For each subsequent schema change, add a new numbered pair such as
+`000002_feature.up.sql` and `000002_feature.down.sql`. Never edit a migration
+that has already been applied to production.
+
 ## Environment Variables
 
 Key environment variables in `.env.dev`:

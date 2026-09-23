@@ -262,20 +262,19 @@ func (q *Queries) GetSessionByRefreshHash(ctx context.Context, arg GetSessionByR
 	return i, err
 }
 
-const getUserByIdentifier = `-- name: GetUserByIdentifier :one
+const getUserByLogin = `-- name: GetUserByLogin :one
 SELECT id, email, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at FROM users
-WHERE (username = $1 OR phone = $2 OR email = $3) AND deleted_at IS NULL
+WHERE (username = $1 OR phone = $2) AND is_active = true AND deleted_at IS NULL
 FOR UPDATE
 `
 
-type GetUserByIdentifierParams struct {
+type GetUserByLoginParams struct {
 	Username pgtype.Text `json:"username"`
 	Phone    pgtype.Text `json:"phone"`
-	Email    pgtype.Text `json:"email"`
 }
 
-func (q *Queries) GetUserByIdentifier(ctx context.Context, arg GetUserByIdentifierParams) (User, error) {
-	row := q.db.QueryRow(ctx, getUserByIdentifier, arg.Username, arg.Phone, arg.Email)
+func (q *Queries) GetUserByLogin(ctx context.Context, arg GetUserByLoginParams) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByLogin, arg.Username, arg.Phone)
 	var i User
 	err := row.Scan(
 		&i.ID,
@@ -526,6 +525,61 @@ func (q *Queries) UpdateUserPhone(ctx context.Context, arg UpdateUserPhoneParams
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const updateUserProfile = `-- name: UpdateUserProfile :one
+UPDATE users SET
+    first_name = COALESCE($1, first_name),
+    last_name = COALESCE($2, last_name),
+    avatar_url = COALESCE($3, avatar_url),
+    language = COALESCE($4, language),
+    name = BTRIM(CONCAT_WS(' ',
+        COALESCE($1, first_name),
+        COALESCE($2, last_name)
+    )),
+    updated_at = $5
+WHERE id = $6 AND is_active = true AND deleted_at IS NULL
+RETURNING id, email, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at
+`
+
+type UpdateUserProfileParams struct {
+	FirstName pgtype.Text        `json:"first_name"`
+	LastName  pgtype.Text        `json:"last_name"`
+	AvatarUrl pgtype.Text        `json:"avatar_url"`
+	Language  pgtype.Text        `json:"language"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	ID        pgtype.UUID        `json:"id"`
+}
+
+func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error) {
+	row := q.db.QueryRow(ctx, updateUserProfile,
+		arg.FirstName,
+		arg.LastName,
+		arg.AvatarUrl,
+		arg.Language,
+		arg.UpdatedAt,
+		arg.ID,
+	)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Password,
+		&i.PasswordHash,
+		&i.Name,
+		&i.Phone,
+		&i.Username,
+		&i.FirstName,
+		&i.LastName,
+		&i.AvatarUrl,
+		&i.Language,
+		&i.IsActive,
+		&i.LastLoginAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
 }
 
 const userPhoneExistsOther = `-- name: UserPhoneExistsOther :one
