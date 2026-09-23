@@ -68,8 +68,8 @@ func (s *Service) SendOTP(ctx context.Context, req dto.SendOTPRequest) (dto.Star
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return dto.StartData{}, fmt.Errorf("checking registration phone: %w", err)
 	}
-	// A configured development OTP is a local testing path. Store it directly
-	// instead of reusing a Telegram chat binding that may belong to another bot.
+	// A configured fixed OTP is stored directly instead of reusing a Telegram
+	// chat binding that may belong to another bot.
 	if s.configuredOTP() != "" {
 		return s.createOTPFlow(ctx, purpose, phone, uuid.Nil)
 	}
@@ -587,9 +587,6 @@ func (s *Service) startData(token string, expires time.Time) dto.StartData {
 func (s *Service) hashOTP(code string) string { return helpers.HashHMAC(code, s.cfg.OTPPepper) }
 
 func (s *Service) configuredOTP() string {
-	if strings.EqualFold(strings.TrimSpace(s.cfg.AppEnv), "production") {
-		return ""
-	}
 	code := strings.TrimSpace(s.cfg.OTPDefaultCode)
 	if helpers.ValidOTP(code) {
 		return code

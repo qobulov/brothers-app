@@ -61,7 +61,8 @@ func TestConfiguredOTP(t *testing.T) {
 	}{
 		{name: "development fixed code", env: "development", code: "111111", expected: "111111"},
 		{name: "trim fixed code", env: "test", code: " 111111 ", expected: "111111"},
-		{name: "disabled in production", env: "production", code: "111111"},
+		{name: "production fixed code", env: "production", code: "111111", expected: "111111"},
+		{name: "empty production code ignored", env: "production"},
 		{name: "invalid code ignored", env: "development", code: "12345"},
 	}
 

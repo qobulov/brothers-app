@@ -182,7 +182,7 @@ Key environment variables in `.env.dev`:
 - `APP_ENV`: Application environment (e.g. `development`, `test`)
 - `JWT_SECRET`: Secret key for JWT token signing
 - `JWT_EXPIRATION`: JWT token expiration in seconds (default: `3600`)
-- `OTP_DEFAULT_CODE`: fixed local-development OTP; leave empty in production
+- `OTP_DEFAULT_CODE`: optional fixed OTP in every environment; leave empty to generate random OTP values. A fixed production OTP bypasses phone ownership verification and must only be used temporarily.
 - `TELEGRAM_WEBHOOK_SECRET`: authenticates Telegram webhook requests
 - `CORS_ALLOW_ORIGINS`: comma-separated allowed browser origins (default: `*`)
 - `CORS_ALLOW_CREDENTIALS`: whether credentialed browser requests are allowed (default: `false`)
