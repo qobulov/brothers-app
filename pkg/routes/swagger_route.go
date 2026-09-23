@@ -14,8 +14,20 @@ func SwaggerRoute(a *fiber.App) {
 	docs.SwaggerInfo.Host = ""
 	docs.SwaggerInfo.Schemes = nil
 
+	// The generated spec changes with the binary. Never let a browser keep an
+	// older endpoint list after a local restart or deployment.
+	a.Use(func(c *fiber.Ctx) error {
+		err := c.Next()
+		if c.Path() == "/api/v1/swagger.json" {
+			c.Set(fiber.HeaderCacheControl, "no-store, no-cache, must-revalidate")
+			c.Set(fiber.HeaderPragma, "no-cache")
+		}
+		return err
+	})
+
 	a.Use(swagger.New(swagger.Config{
 		BasePath:    "/api/v1/",
+		CacheAge:    -1,
 		FilePath:    "swagger.json",
 		FileContent: []byte(docs.SwaggerInfo.ReadDoc()),
 		Path:        "docs",

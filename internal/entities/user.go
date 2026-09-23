@@ -8,7 +8,6 @@ import (
 
 type User struct {
 	ID           uuid.UUID  `json:"id"`
-	Email        string     `json:"email,omitempty"`
 	Password     string     `json:"-"`
 	PasswordHash string     `json:"-"`
 	Name         string     `json:"name,omitempty"`

@@ -48,7 +48,7 @@ func TestSwaggerRouteRedirectsRootToDocs(t *testing.T) {
 	}
 }
 
-func TestSwaggerSigninUsesLoginRequestSchema(t *testing.T) {
+func TestSwaggerLoginUsesLoginRequestSchema(t *testing.T) {
 	app := fiber.New()
 	SwaggerRoute(app)
 
@@ -77,22 +77,22 @@ func TestSwaggerSigninUsesLoginRequestSchema(t *testing.T) {
 		t.Fatalf("decode Swagger spec: %v", err)
 	}
 
-	operation, ok := spec.Paths["/auth/signin"]
+	operation, ok := spec.Paths["/auth/login"]
 	if !ok || len(operation.Post.Parameters) != 1 {
-		t.Fatalf("signin request body schema is missing")
+		t.Fatalf("login request body schema is missing")
 	}
 	definitionName := strings.TrimPrefix(operation.Post.Parameters[0].Schema.Ref, "#/definitions/")
 	definition, ok := spec.Definitions[definitionName]
 	if !ok {
-		t.Fatalf("signin definition %q is missing", definitionName)
+		t.Fatalf("login definition %q is missing", definitionName)
 	}
 	for _, field := range []string{"login", "password"} {
 		if _, ok := definition.Properties[field]; !ok {
-			t.Errorf("signin request property %q is missing", field)
+			t.Errorf("login request property %q is missing", field)
 		}
 	}
 	if _, ok := definition.Properties["email"]; ok {
-		t.Error("signin request must not expose email")
+		t.Error("login request must not expose email")
 	}
 }
 
@@ -127,15 +127,29 @@ func TestSwaggerWriteRequestsExcludeDatabaseManagedFields(t *testing.T) {
 	if err := json.NewDecoder(response.Body).Decode(&spec); err != nil {
 		t.Fatalf("decode Swagger spec: %v", err)
 	}
+	for _, legacyPath := range []string{
+		"/auth/signin",
+		"/auth/signup",
+		"/auth/otp/verify",
+		"/auth/register/resend",
+		"/auth/password/resend",
+		"/me/phone-change/resend",
+	} {
+		if _, ok := spec.Paths[legacyPath]; ok {
+			t.Errorf("legacy Swagger path %q must not be documented", legacyPath)
+		}
+	}
 
 	tests := []struct {
-		name       string
-		operation  operation
-		bodyIndex  int
-		wantFields []string
+		name            string
+		operation       operation
+		bodyIndex       int
+		wantFields      []string
+		forbiddenFields []string
 	}{
-		{name: "auth register", operation: spec.Paths["/auth/register"].Post, wantFields: []string{"phone", "username", "password"}},
-		{name: "legacy signup", operation: spec.Paths["/auth/signup"].Post, wantFields: []string{"email", "password", "name"}},
+		{name: "auth register", operation: spec.Paths["/auth/register"].Post, wantFields: []string{"phone", "username", "password", "otp_code"}},
+		{name: "auth otp send", operation: spec.Paths["/auth/otp/send"].Post, wantFields: []string{"phone", "purpose"}},
+		{name: "password reset", operation: spec.Paths["/auth/password/reset"].Post, wantFields: []string{"reset_token", "password"}, forbiddenFields: []string{"confirm_password"}},
 		{name: "user patch", operation: spec.Paths["/users/{id}"].Patch, bodyIndex: 1, wantFields: []string{"name"}},
 		{name: "current profile patch", operation: spec.Paths["/me"].Patch, wantFields: []string{"first_name", "last_name", "avatar_url", "language"}},
 		{name: "order create", operation: spec.Paths["/orders"].Post, wantFields: []string{"total"}},
@@ -156,6 +170,11 @@ func TestSwaggerWriteRequestsExcludeDatabaseManagedFields(t *testing.T) {
 			for _, field := range test.wantFields {
 				if _, ok := definition.Properties[field]; !ok {
 					t.Errorf("request property %q is missing", field)
+				}
+			}
+			for _, field := range test.forbiddenFields {
+				if _, ok := definition.Properties[field]; ok {
+					t.Errorf("request property %q must not be accepted", field)
 				}
 			}
 			for _, field := range managedFields {
@@ -199,19 +218,16 @@ func TestSwaggerDocumentsAuthContract(t *testing.T) {
 		protected bool
 	}{
 		{method: http.MethodPost, path: "/auth/register"},
-		{method: http.MethodPost, path: "/auth/otp/verify"},
-		{method: http.MethodPost, path: "/auth/register/resend"},
+		{method: http.MethodPost, path: "/auth/otp/send"},
 		{method: http.MethodPost, path: "/auth/login"},
 		{method: http.MethodPost, path: "/auth/refresh"},
 		{method: http.MethodPost, path: "/auth/logout", protected: true},
 		{method: http.MethodPost, path: "/auth/password/forgot"},
-		{method: http.MethodPost, path: "/auth/password/resend"},
 		{method: http.MethodPost, path: "/auth/password/verify"},
 		{method: http.MethodPost, path: "/auth/password/reset"},
 		{method: http.MethodGet, path: "/me", protected: true},
 		{method: http.MethodPatch, path: "/me", protected: true},
 		{method: http.MethodPost, path: "/me/phone-change/request", protected: true},
-		{method: http.MethodPost, path: "/me/phone-change/resend", protected: true},
 		{method: http.MethodPost, path: "/me/phone-change/confirm", protected: true},
 	}
 

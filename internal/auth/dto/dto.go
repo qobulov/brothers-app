@@ -14,6 +14,12 @@ type RegisterRequest struct {
 	Password  string `json:"password" example:"strong-password"`
 	Language  string `json:"language" example:"uz"`
 	AvatarURL string `json:"avatar_url" example:"https://example.com/avatar.jpg"`
+	OTPCode   string `json:"otp_code" example:"111111"`
+}
+
+type SendOTPRequest struct {
+	Phone   string `json:"phone" example:"+998901234567"`
+	Purpose string `json:"purpose" enums:"registration" example:"registration"`
 }
 
 // LoginRequest contains username-or-phone credentials.
@@ -26,13 +32,9 @@ type RefreshRequest struct {
 	RefreshToken string `json:"refresh_token" example:"opaque-refresh-token"`
 }
 
-type PhoneRequest struct {
-	Phone string `json:"phone" example:"+998901234567"`
-}
-
 type OTPVerifyRequest struct {
 	Phone string `json:"phone" example:"+998901234567"`
-	OTP   string `json:"otp" example:"123456"`
+	OTP   string `json:"otp" example:"111111"`
 }
 
 type ForgotPasswordRequest struct {
@@ -40,9 +42,8 @@ type ForgotPasswordRequest struct {
 }
 
 type ResetPasswordRequest struct {
-	ResetToken      string `json:"reset_token" example:"opaque-reset-token"`
-	Password        string `json:"password" example:"new-strong-password"`
-	ConfirmPassword string `json:"confirm_password" example:"new-strong-password"`
+	ResetToken string `json:"reset_token" example:"opaque-reset-token"`
+	Password   string `json:"password" example:"new-strong-password"`
 }
 
 type PhoneChangeRequest struct {
@@ -51,7 +52,7 @@ type PhoneChangeRequest struct {
 
 type PhoneChangeConfirmRequest struct {
 	NewPhone string `json:"new_phone" example:"+998901234568"`
-	OTP      string `json:"otp" example:"123456"`
+	OTP      string `json:"otp" example:"111111"`
 }
 
 // UpdateProfileRequest contains only user-editable profile fields. Pointer
@@ -64,16 +65,35 @@ type UpdateProfileRequest struct {
 }
 
 type StartData struct {
-	TelegramDeepLink string `json:"telegram_deep_link"`
+	TelegramDeepLink string `json:"telegram_deep_link,omitempty"`
 	ExpiresAt        string `json:"expires_at"`
+	TTL              int    `json:"ttl"`
 	ResendIn         int    `json:"resend_in"`
+}
+
+type TokenData struct {
+	AccessToken      string `json:"access_token"`
+	AccessExpiresAt  string `json:"access_expires_at"`
+	RefreshToken     string `json:"refresh_token"`
+	RefreshExpiresAt string `json:"refresh_expires_at"`
+}
+
+type RegisterUserData struct {
+	ID       uuid.UUID `json:"id"`
+	FullName string    `json:"full_name"`
+	Phone    string    `json:"phone"`
+	Role     string    `json:"role"`
+}
+
+type RegisterData struct {
+	Tokens TokenData        `json:"tokens"`
+	User   RegisterUserData `json:"user"`
 }
 
 // AuthData contains the issued session tokens and authenticated user.
 type AuthData struct {
-	AccessToken  string   `json:"access_token"`
-	RefreshToken string   `json:"refresh_token"`
-	User         UserData `json:"user"`
+	Tokens TokenData `json:"tokens"`
+	User   UserData  `json:"user"`
 }
 
 type ResetVerifyData struct {

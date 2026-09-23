@@ -12,6 +12,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	dto "github.com/qobulov/brothers-app/internal/auth/dto"
@@ -47,72 +48,110 @@ func New(pool *pgxpool.Pool, otpCache *otp.Cache, cfg *config.Config, sender OTP
 	return &Service{pool: pool, queries: db.New(pool), otp: otpCache, cfg: cfg, otpSender: sender, now: time.Now}
 }
 
-func (s *Service) Register(ctx context.Context, req dto.RegisterRequest) (dto.StartData, error) {
+func (s *Service) SendOTP(ctx context.Context, req dto.SendOTPRequest) (dto.StartData, error) {
 	phone, err := helpers.NormalizePhone(req.Phone)
-	if err != nil || req.Password == "" || req.Username == "" || req.FirstName == "" || len(req.Password) < 8 || len(req.Username) > 50 {
+	if err != nil {
 		return dto.StartData{}, apperror.ErrInvalidData
+	}
+	purpose := strings.ToLower(strings.TrimSpace(req.Purpose))
+	if purpose == "" {
+		purpose = registrationPurpose
+	}
+	if purpose != registrationPurpose {
+		return dto.StartData{}, apperror.ErrInvalidData
+	}
+
+	_, err = s.queries.GetUserByPhone(ctx, db.GetUserByPhoneParams{Phone: text(phone)})
+	if err == nil {
+		return dto.StartData{}, apperror.ErrAlreadyExists
+	}
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return dto.StartData{}, fmt.Errorf("checking registration phone: %w", err)
+	}
+	// A configured development OTP is a local testing path. Store it directly
+	// instead of reusing a Telegram chat binding that may belong to another bot.
+	if s.configuredOTP() != "" {
+		return s.createOTPFlow(ctx, purpose, phone, uuid.Nil)
+	}
+
+	if _, err := s.otp.Get(ctx, s.chatKey(purpose, phone)); err == nil {
+		if err := s.Resend(ctx, purpose, phone, nil); err != nil {
+			return dto.StartData{}, err
+		}
+		expires := s.now().UTC().Add(time.Duration(s.cfg.OTPExpiration) * time.Second)
+		return s.startData("", expires), nil
+	} else if !errors.Is(err, otp.ErrNotFound) {
+		return dto.StartData{}, err
+	}
+
+	return s.createOTPFlow(ctx, purpose, phone, uuid.Nil)
+}
+
+func (s *Service) Register(ctx context.Context, req dto.RegisterRequest) (dto.RegisterData, error) {
+	phone, err := helpers.NormalizePhone(req.Phone)
+	username := strings.TrimSpace(req.Username)
+	firstName := strings.TrimSpace(req.FirstName)
+	lastName := strings.TrimSpace(req.LastName)
+	if err != nil || req.Password == "" || username == "" || firstName == "" || len(req.Password) < 8 || len(username) > 50 {
+		return dto.RegisterData{}, apperror.ErrInvalidData
+	}
+	if !helpers.ValidOTP(req.OTPCode) {
+		return dto.RegisterData{}, apperror.ErrInvalidOTP
 	}
 	if req.Language == "" {
 		req.Language = "uz"
 	}
+	req.Language = strings.ToLower(strings.TrimSpace(req.Language))
+	if req.Language != "uz" && req.Language != "ru" && req.Language != "en" {
+		return dto.RegisterData{}, apperror.ErrInvalidData
+	}
+	if req.AvatarURL != "" {
+		if _, err := optionalAvatarURL(&req.AvatarURL); err != nil {
+			return dto.RegisterData{}, err
+		}
+	}
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return dto.StartData{}, fmt.Errorf("hashing password: %w", err)
+		return dto.RegisterData{}, fmt.Errorf("hashing password: %w", err)
 	}
 
-	var user db.User
+	var result dto.RegisterData
 	err = s.withTx(ctx, func(q *db.Queries) error {
-		existing, findErr := q.GetRegistrationUserForUpdate(ctx, db.GetRegistrationUserForUpdateParams{Phone: text(phone), Username: text(req.Username)})
-		now := timestamp(s.now().UTC())
+		_, findErr := q.GetUserByPhoneOrUsername(ctx, db.GetUserByPhoneOrUsernameParams{Phone: text(phone), Username: text(username)})
 		if findErr == nil {
-			if existing.IsActive {
-				return apperror.ErrAlreadyExists
-			}
-			user, findErr = q.UpdatePendingUser(ctx, db.UpdatePendingUserParams{
-				ID: existing.ID, Email: text(phone + "@telegram.invalid"), PasswordHash: text(string(passwordHash)),
-				Name: text(strings.TrimSpace(req.FirstName + " " + req.LastName)), Phone: text(phone), Username: text(req.Username),
-				FirstName: text(req.FirstName), LastName: text(req.LastName), AvatarUrl: text(req.AvatarURL), Language: req.Language, UpdatedAt: now,
-			})
-			return findErr
+			return apperror.ErrAlreadyExists
 		}
-		if !errors.Is(findErr, pgx.ErrNoRows) {
-			return fmt.Errorf("finding registration user: %w", findErr)
+		if findErr != nil && !errors.Is(findErr, pgx.ErrNoRows) {
+			return fmt.Errorf("checking registration identity: %w", findErr)
 		}
-		user, findErr = q.CreatePendingUser(ctx, db.CreatePendingUserParams{
-			ID: pgUUID(uuid.New()), Email: text(phone + "@telegram.invalid"), PasswordHash: text(string(passwordHash)),
-			Name: text(strings.TrimSpace(req.FirstName + " " + req.LastName)), Phone: text(phone), Username: text(req.Username),
-			FirstName: text(req.FirstName), LastName: text(req.LastName), AvatarUrl: text(req.AvatarURL), Language: req.Language, CreatedAt: now,
-		})
-		return findErr
-	})
-	if err != nil {
-		return dto.StartData{}, err
-	}
-	return s.createOTPFlow(ctx, registrationPurpose, phone, uuidFromPG(user.ID))
-}
+		if err := s.consumeOTP(ctx, registrationPurpose, phone, req.OTPCode); err != nil {
+			return err
+		}
 
-func (s *Service) VerifyRegistration(ctx context.Context, phone, code string) (dto.AuthData, error) {
-	phone, err := helpers.NormalizePhone(phone)
-	if err != nil || !helpers.ValidOTP(code) || s.consumeOTP(ctx, registrationPurpose, phone, code) != nil {
-		return dto.AuthData{}, apperror.ErrInvalidOTP
-	}
-	userID, err := s.flowUserID(ctx, registrationPurpose, phone)
-	if err != nil {
-		return dto.AuthData{}, apperror.ErrInvalidOTP
-	}
-	var result dto.AuthData
-	err = s.withTx(ctx, func(q *db.Queries) error {
-		user, updateErr := q.ActivateUser(ctx, db.ActivateUserParams{ID: pgUUID(userID), UpdatedAt: timestamp(s.now().UTC())})
-		if updateErr != nil {
-			return fmt.Errorf("activating user: %w", updateErr)
+		now := timestamp(s.now().UTC())
+		user, findErr := q.CreateAuthUser(ctx, db.CreateAuthUserParams{
+			ID: pgUUID(uuid.New()), PasswordHash: text(string(passwordHash)),
+			Name: text(strings.TrimSpace(firstName + " " + lastName)), Phone: text(phone), Username: text(username),
+			FirstName: text(firstName), LastName: text(lastName), AvatarUrl: text(req.AvatarURL), Language: req.Language, CreatedAt: now,
+		})
+		if findErr != nil {
+			return fmt.Errorf("saving registration user: %w", findErr)
 		}
 		pair, issueErr := s.issueSession(ctx, q, user)
 		if issueErr != nil {
 			return issueErr
 		}
-		result = dto.AuthData{AccessToken: pair.AccessToken, RefreshToken: pair.RefreshToken, User: SafeUser(toEntity(user))}
+		result = dto.RegisterData{
+			Tokens: tokenData(pair),
+			User: dto.RegisterUserData{
+				ID: uuidFromPG(user.ID), FullName: user.Name.String, Phone: user.Phone.String, Role: "user",
+			},
+		}
 		return nil
 	})
+	if isUniqueViolation(err) {
+		return dto.RegisterData{}, apperror.ErrAlreadyExists
+	}
 	return result, err
 }
 
@@ -145,7 +184,10 @@ func (s *Service) Login(ctx context.Context, login, password string) (dto.AuthDa
 		if issueErr != nil {
 			return issueErr
 		}
-		result = dto.AuthData{AccessToken: pair.AccessToken, RefreshToken: pair.RefreshToken, User: SafeUser(toEntity(user))}
+		result = dto.AuthData{
+			Tokens: tokenData(pair),
+			User:   SafeUser(toEntity(user)),
+		}
 		return nil
 	})
 	return result, err
@@ -178,8 +220,9 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (dto.AuthDat
 		if tokenErr != nil {
 			return fmt.Errorf("creating refresh token: %w", tokenErr)
 		}
+		refreshExpiresAt := now.Add(30 * 24 * time.Hour)
 		_, queryErr = q.RotateSessionRefresh(ctx, db.RotateSessionRefreshParams{
-			ID: session.ID, RefreshTokenHash: helpers.HashSecret(newRefresh), ExpiresAt: timestamp(now.Add(30 * 24 * time.Hour)),
+			ID: session.ID, RefreshTokenHash: helpers.HashSecret(newRefresh), ExpiresAt: timestamp(refreshExpiresAt),
 			RefreshTokenHash_2: helpers.HashSecret(refreshToken), ExpiresAt_2: timestamp(now),
 		})
 		if queryErr != nil {
@@ -189,7 +232,15 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (dto.AuthDat
 		if tokenErr != nil {
 			return tokenErr
 		}
-		result = dto.AuthData{AccessToken: access, RefreshToken: newRefresh, User: SafeUser(toEntity(user))}
+		result = dto.AuthData{
+			Tokens: tokenData(tokenPair{
+				AccessToken:      access,
+				AccessExpiresAt:  now.Add(time.Duration(s.cfg.JWTExpiration) * time.Second),
+				RefreshToken:     newRefresh,
+				RefreshExpiresAt: refreshExpiresAt,
+			}),
+			User: SafeUser(toEntity(user)),
+		}
 		return nil
 	})
 	return result, err
@@ -278,7 +329,7 @@ func (s *Service) VerifyPasswordOTP(ctx context.Context, phone, code string) (dt
 }
 
 func (s *Service) ResetPassword(ctx context.Context, req dto.ResetPasswordRequest) error {
-	if req.Password == "" || len(req.Password) < 8 || req.Password != req.ConfirmPassword {
+	if req.Password == "" || len(req.Password) < 8 {
 		return apperror.ErrInvalidData
 	}
 	value, err := s.otp.Take(ctx, "reset:"+helpers.HashSecret(req.ResetToken))
@@ -358,7 +409,7 @@ func (s *Service) HandleBotStart(ctx context.Context, startToken string, chatID 
 		return apperror.ErrInvalidOTP
 	}
 	purpose, phone := parts[0], parts[1]
-	code, err := helpers.GenerateOTP()
+	code, err := s.generateOTP()
 	if err != nil {
 		return fmt.Errorf("generating otp: %w", err)
 	}
@@ -374,6 +425,9 @@ func (s *Service) HandleBotStart(ctx context.Context, startToken string, chatID 
 	}
 	if err := s.otpSender.SendMessage(ctx, chatID, "Ваш код подтверждения: "+code); err != nil {
 		return fmt.Errorf("sending telegram otp: %w", err)
+	}
+	if _, err := s.otp.Reserve(ctx, s.cooldownKey(purpose, phone), time.Duration(s.cfg.OTPResendCooldown)*time.Second); err != nil {
+		return err
 	}
 	return nil
 }
@@ -404,7 +458,7 @@ func (s *Service) Resend(ctx context.Context, purpose, phone string, userID *uui
 	if !reserved {
 		return apperror.ErrLimitExceeded
 	}
-	code, err := helpers.GenerateOTP()
+	code, err := s.generateOTP()
 	if err != nil {
 		return fmt.Errorf("generating otp: %w", err)
 	}
@@ -421,10 +475,26 @@ func (s *Service) Resend(ctx context.Context, purpose, phone string, userID *uui
 	return nil
 }
 
-type tokenPair struct{ AccessToken, RefreshToken string }
+type tokenPair struct {
+	AccessToken      string
+	AccessExpiresAt  time.Time
+	RefreshToken     string
+	RefreshExpiresAt time.Time
+}
+
+func tokenData(pair tokenPair) dto.TokenData {
+	return dto.TokenData{
+		AccessToken:      pair.AccessToken,
+		AccessExpiresAt:  pair.AccessExpiresAt.Format(time.RFC3339),
+		RefreshToken:     pair.RefreshToken,
+		RefreshExpiresAt: pair.RefreshExpiresAt.Format(time.RFC3339),
+	}
+}
 
 func (s *Service) issueSession(ctx context.Context, q *db.Queries, user db.User) (tokenPair, error) {
 	now := s.now().UTC()
+	accessExpiresAt := now.Add(time.Duration(s.cfg.JWTExpiration) * time.Second)
+	refreshExpiresAt := now.Add(30 * 24 * time.Hour)
 	refresh, err := helpers.RandomToken(32)
 	if err != nil {
 		return tokenPair{}, fmt.Errorf("creating refresh token: %w", err)
@@ -433,14 +503,17 @@ func (s *Service) issueSession(ctx context.Context, q *db.Queries, user db.User)
 		return tokenPair{}, fmt.Errorf("revoking previous session: %w", err)
 	}
 	sessionID := uuid.New()
-	if _, err := q.CreateSession(ctx, db.CreateSessionParams{ID: pgUUID(sessionID), UserID: user.ID, RefreshTokenHash: helpers.HashSecret(refresh), ExpiresAt: timestamp(now.Add(30 * 24 * time.Hour)), CreatedAt: timestamp(now)}); err != nil {
+	if _, err := q.CreateSession(ctx, db.CreateSessionParams{ID: pgUUID(sessionID), UserID: user.ID, RefreshTokenHash: helpers.HashSecret(refresh), ExpiresAt: timestamp(refreshExpiresAt), CreatedAt: timestamp(now)}); err != nil {
 		return tokenPair{}, fmt.Errorf("creating session: %w", err)
 	}
 	access, err := s.signAccessToken(toEntity(user), sessionID, now)
 	if err != nil {
 		return tokenPair{}, err
 	}
-	return tokenPair{AccessToken: access, RefreshToken: refresh}, nil
+	return tokenPair{
+		AccessToken: access, AccessExpiresAt: accessExpiresAt,
+		RefreshToken: refresh, RefreshExpiresAt: refreshExpiresAt,
+	}, nil
 }
 
 func (s *Service) signAccessToken(user entities.User, sessionID uuid.UUID, now time.Time) (string, error) {
@@ -464,6 +537,11 @@ func (s *Service) createOTPFlow(ctx context.Context, purpose, phone string, user
 	}
 	if userID != uuid.Nil {
 		if err := s.otp.Set(ctx, s.subjectKey(purpose, phone), userID.String(), ttl); err != nil {
+			return dto.StartData{}, err
+		}
+	}
+	if code := s.configuredOTP(); code != "" {
+		if err := s.otp.Set(ctx, s.codeKey(purpose, phone), s.hashOTP(code), ttl); err != nil {
 			return dto.StartData{}, err
 		}
 	}
@@ -498,10 +576,33 @@ func (s *Service) startData(token string, expires time.Time) dto.StartData {
 	if s.cfg.TelegramBotUsername != "" {
 		link = "https://t.me/" + strings.TrimPrefix(s.cfg.TelegramBotUsername, "@") + "?start=" + token
 	}
-	return dto.StartData{TelegramDeepLink: link, ExpiresAt: expires.Format(time.RFC3339), ResendIn: s.cfg.OTPResendCooldown}
+	return dto.StartData{
+		TelegramDeepLink: link,
+		ExpiresAt:        expires.Format(time.RFC3339),
+		TTL:              s.cfg.OTPExpiration,
+		ResendIn:         s.cfg.OTPResendCooldown,
+	}
 }
 
 func (s *Service) hashOTP(code string) string { return helpers.HashHMAC(code, s.cfg.OTPPepper) }
+
+func (s *Service) configuredOTP() string {
+	if strings.EqualFold(strings.TrimSpace(s.cfg.AppEnv), "production") {
+		return ""
+	}
+	code := strings.TrimSpace(s.cfg.OTPDefaultCode)
+	if helpers.ValidOTP(code) {
+		return code
+	}
+	return ""
+}
+
+func (s *Service) generateOTP() (string, error) {
+	if code := s.configuredOTP(); code != "" {
+		return code, nil
+	}
+	return helpers.GenerateOTP()
+}
 
 func (s *Service) withTx(ctx context.Context, fn func(*db.Queries) error) error {
 	tx, err := s.pool.Begin(ctx)
@@ -518,6 +619,11 @@ func (s *Service) withTx(ctx context.Context, fn func(*db.Queries) error) error 
 	return nil
 }
 
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
+}
+
 func text(value string) pgtype.Text { return pgtype.Text{String: value, Valid: true} }
 func timestamp(value time.Time) pgtype.Timestamptz {
 	return pgtype.Timestamptz{Time: value, Valid: true}
@@ -527,7 +633,7 @@ func uuidFromPG(value pgtype.UUID) uuid.UUID { return uuid.UUID(value.Bytes) }
 
 func toEntity(user db.User) entities.User {
 	result := entities.User{
-		ID: uuidFromPG(user.ID), Email: user.Email.String, Password: user.Password.String, PasswordHash: user.PasswordHash.String,
+		ID: uuidFromPG(user.ID), Password: user.Password.String, PasswordHash: user.PasswordHash.String,
 		Name: user.Name.String, Phone: user.Phone.String, Username: user.Username.String, FirstName: user.FirstName.String,
 		LastName: user.LastName.String, AvatarURL: user.AvatarUrl.String, Language: user.Language, IsActive: user.IsActive,
 		CreatedAt: user.CreatedAt.Time, UpdatedAt: user.UpdatedAt.Time,

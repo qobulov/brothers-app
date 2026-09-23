@@ -11,82 +11,8 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const createUser = `-- name: CreateUser :one
-INSERT INTO users (id, email, password, name, language, is_active, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, email, password, name
-`
-
-type CreateUserParams struct {
-	ID        pgtype.UUID        `json:"id"`
-	Email     pgtype.Text        `json:"email"`
-	Password  pgtype.Text        `json:"password"`
-	Name      pgtype.Text        `json:"name"`
-	Language  string             `json:"language"`
-	IsActive  bool               `json:"is_active"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
-}
-
-type CreateUserRow struct {
-	ID       pgtype.UUID `json:"id"`
-	Email    pgtype.Text `json:"email"`
-	Password pgtype.Text `json:"password"`
-	Name     pgtype.Text `json:"name"`
-}
-
-func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error) {
-	row := q.db.QueryRow(ctx, createUser,
-		arg.ID,
-		arg.Email,
-		arg.Password,
-		arg.Name,
-		arg.Language,
-		arg.IsActive,
-		arg.CreatedAt,
-		arg.UpdatedAt,
-	)
-	var i CreateUserRow
-	err := row.Scan(
-		&i.ID,
-		&i.Email,
-		&i.Password,
-		&i.Name,
-	)
-	return i, err
-}
-
-const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, password, name
-FROM users
-WHERE email = $1 AND deleted_at IS NULL
-`
-
-type GetUserByEmailParams struct {
-	Email pgtype.Text `json:"email"`
-}
-
-type GetUserByEmailRow struct {
-	ID       pgtype.UUID `json:"id"`
-	Email    pgtype.Text `json:"email"`
-	Password pgtype.Text `json:"password"`
-	Name     pgtype.Text `json:"name"`
-}
-
-func (q *Queries) GetUserByEmail(ctx context.Context, arg GetUserByEmailParams) (GetUserByEmailRow, error) {
-	row := q.db.QueryRow(ctx, getUserByEmail, arg.Email)
-	var i GetUserByEmailRow
-	err := row.Scan(
-		&i.ID,
-		&i.Email,
-		&i.Password,
-		&i.Name,
-	)
-	return i, err
-}
-
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, password, name
+SELECT id, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at
 FROM users
 WHERE id = $1 AND deleted_at IS NULL
 `
@@ -95,53 +21,61 @@ type GetUserByIDParams struct {
 	ID pgtype.UUID `json:"id"`
 }
 
-type GetUserByIDRow struct {
-	ID       pgtype.UUID `json:"id"`
-	Email    pgtype.Text `json:"email"`
-	Password pgtype.Text `json:"password"`
-	Name     pgtype.Text `json:"name"`
-}
-
-func (q *Queries) GetUserByID(ctx context.Context, arg GetUserByIDParams) (GetUserByIDRow, error) {
+func (q *Queries) GetUserByID(ctx context.Context, arg GetUserByIDParams) (User, error) {
 	row := q.db.QueryRow(ctx, getUserByID, arg.ID)
-	var i GetUserByIDRow
+	var i User
 	err := row.Scan(
 		&i.ID,
-		&i.Email,
 		&i.Password,
+		&i.PasswordHash,
 		&i.Name,
+		&i.Phone,
+		&i.Username,
+		&i.FirstName,
+		&i.LastName,
+		&i.AvatarUrl,
+		&i.Language,
+		&i.IsActive,
+		&i.LastLoginAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
 	)
 	return i, err
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, email, password, name
+SELECT id, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at
 FROM users
 WHERE deleted_at IS NULL
 ORDER BY created_at
 `
 
-type ListUsersRow struct {
-	ID       pgtype.UUID `json:"id"`
-	Email    pgtype.Text `json:"email"`
-	Password pgtype.Text `json:"password"`
-	Name     pgtype.Text `json:"name"`
-}
-
-func (q *Queries) ListUsers(ctx context.Context) ([]ListUsersRow, error) {
+func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 	rows, err := q.db.Query(ctx, listUsers)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListUsersRow{}
+	items := []User{}
 	for rows.Next() {
-		var i ListUsersRow
+		var i User
 		if err := rows.Scan(
 			&i.ID,
-			&i.Email,
 			&i.Password,
+			&i.PasswordHash,
 			&i.Name,
+			&i.Phone,
+			&i.Username,
+			&i.FirstName,
+			&i.LastName,
+			&i.AvatarUrl,
+			&i.Language,
+			&i.IsActive,
+			&i.LastLoginAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -175,7 +109,7 @@ const updateUserName = `-- name: UpdateUserName :one
 UPDATE users
 SET name = $2, updated_at = now()
 WHERE id = $1 AND deleted_at IS NULL
-RETURNING id, email, password, name
+RETURNING id, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at
 `
 
 type UpdateUserNameParams struct {
@@ -183,21 +117,25 @@ type UpdateUserNameParams struct {
 	Name pgtype.Text `json:"name"`
 }
 
-type UpdateUserNameRow struct {
-	ID       pgtype.UUID `json:"id"`
-	Email    pgtype.Text `json:"email"`
-	Password pgtype.Text `json:"password"`
-	Name     pgtype.Text `json:"name"`
-}
-
-func (q *Queries) UpdateUserName(ctx context.Context, arg UpdateUserNameParams) (UpdateUserNameRow, error) {
+func (q *Queries) UpdateUserName(ctx context.Context, arg UpdateUserNameParams) (User, error) {
 	row := q.db.QueryRow(ctx, updateUserName, arg.ID, arg.Name)
-	var i UpdateUserNameRow
+	var i User
 	err := row.Scan(
 		&i.ID,
-		&i.Email,
 		&i.Password,
+		&i.PasswordHash,
 		&i.Name,
+		&i.Phone,
+		&i.Username,
+		&i.FirstName,
+		&i.LastName,
+		&i.AvatarUrl,
+		&i.Language,
+		&i.IsActive,
+		&i.LastLoginAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
 	)
 	return i, err
 }

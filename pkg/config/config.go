@@ -33,6 +33,7 @@ type Config struct {
 	TelegramPollTimeout int
 	TelegramHTTPTimeout int
 	OTPPepper           string
+	OTPDefaultCode      string
 	OTPExpiration       int
 	OTPResendCooldown   int
 	OTPMaxAttempts      int
@@ -71,6 +72,7 @@ func LoadConfig(env string) *Config {
 		TelegramPollTimeout:  getEnvAsInt("TELEGRAM_POLL_TIMEOUT", 30),
 		TelegramHTTPTimeout:  getEnvAsInt("TELEGRAM_HTTP_TIMEOUT", 10),
 		OTPPepper:            getEnv("OTP_PEPPER", "development-only-change-me"),
+		OTPDefaultCode:       getEnv("OTP_DEFAULT_CODE", ""),
 		OTPExpiration:        getEnvAsInt("OTP_EXPIRATION", 300),
 		OTPResendCooldown:    getEnvAsInt("OTP_RESEND_COOLDOWN", 60),
 		OTPMaxAttempts:       getEnvAsInt("OTP_MAX_ATTEMPTS", 5),

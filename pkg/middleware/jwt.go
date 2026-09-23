@@ -16,15 +16,10 @@ import (
 
 func JWTMiddleware() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		auth := c.Get("Authorization")
-		if auth == "" {
+		tokenStr, ok := authorizationToken(c.Get("Authorization"))
+		if !ok {
 			return unauthorized(c)
 		}
-		parts := strings.Fields(auth)
-		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-			return unauthorized(c)
-		}
-		tokenStr := parts[1]
 
 		// tokenStr := c.Cookies("token") // Assuming the token is stored in a cookie named "token"
 		// if tokenStr == "" {
@@ -57,11 +52,11 @@ func JWTMiddleware() fiber.Handler {
 // referenced session is still active. It is used by the new auth endpoints.
 func SessionJWTMiddleware(queries *db.Queries, cfg *config.Config) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		parts := strings.Fields(c.Get("Authorization"))
-		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+		tokenString, ok := authorizationToken(c.Get("Authorization"))
+		if !ok {
 			return unauthorized(c)
 		}
-		token, err := jwt.Parse(parts[1], func(token *jwt.Token) (interface{}, error) {
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 			if token.Method != jwt.SigningMethodHS256 {
 				return nil, jwt.ErrSignatureInvalid
 			}
@@ -93,6 +88,17 @@ func SessionJWTMiddleware(queries *db.Queries, cfg *config.Config) fiber.Handler
 		c.Locals("auth_session_id", sessionID)
 		return c.Next()
 	}
+}
+
+func authorizationToken(header string) (string, bool) {
+	parts := strings.Fields(header)
+	if len(parts) == 2 && strings.EqualFold(parts[0], "Bearer") {
+		return parts[1], true
+	}
+	if len(parts) == 1 && strings.Count(parts[0], ".") == 2 {
+		return parts[0], true
+	}
+	return "", false
 }
 
 func unauthorized(c *fiber.Ctx) error {

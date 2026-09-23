@@ -3,31 +3,27 @@ package usecase_test
 import (
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	db "github.com/qobulov/brothers-app/internal/db"
 	"github.com/qobulov/brothers-app/internal/entities"
 	"github.com/qobulov/brothers-app/internal/user/repository"
 	"github.com/qobulov/brothers-app/internal/user/usecase"
-	"github.com/qobulov/brothers-app/pkg/apperror"
 	"github.com/qobulov/brothers-app/pkg/database"
 	"github.com/stretchr/testify/suite"
-	"golang.org/x/crypto/bcrypt"
 )
 
 type UserUseCaseTestSuite struct {
 	suite.Suite
 	db      *pgxpool.Pool
-	repo    repository.UserRepository
 	service usecase.UserUseCase
 	cleanup func()
 }
 
 func (s *UserUseCaseTestSuite) SetupTest() {
 	s.db, s.cleanup = database.SetupTestDB(s.T())
-	s.repo = repository.NewSQLCUserRepository(db.New(s.db))
-	s.service = usecase.NewUserService(s.repo)
-
-	s.T().Setenv("JWT_SECRET", "test-secret-key-for-jwt-token-generation")
+	repo := repository.NewSQLCUserRepository(db.New(s.db))
+	s.service = usecase.NewUserService(repo)
 }
 
 func (s *UserUseCaseTestSuite) TearDownTest() {
@@ -40,158 +36,49 @@ func TestUserUseCaseTestSuite(t *testing.T) {
 	suite.Run(t, new(UserUseCaseTestSuite))
 }
 
-func (s *UserUseCaseTestSuite) TestRegister() {
-	user := &entities.User{
-		Email:    "register@example.com",
-		Password: "password123",
-		Name:     "Register User",
-	}
-
-	err := s.service.Register(user)
-	s.NoError(err)
-	s.NotEmpty(user.ID)
-
-	// Verify password is hashed
-	s.NotEqual("password123", user.Password)
-	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte("password123"))
-	s.NoError(err)
-}
-
-func (s *UserUseCaseTestSuite) TestRegister_DuplicateEmail() {
-	user1 := &entities.User{
-		Email:    "duplicate@example.com",
-		Password: "password123",
-		Name:     "User 1",
-	}
-	err := s.service.Register(user1)
-	s.NoError(err)
-
-	// Try to register with same email
-	user2 := &entities.User{
-		Email:    "duplicate@example.com",
-		Password: "password456",
-		Name:     "User 2",
-	}
-	err = s.service.Register(user2)
-	s.Error(err)
-	s.Equal(apperror.ErrAlreadyExists, err)
-}
-
-func (s *UserUseCaseTestSuite) TestLogin() {
-	// Register a user first
-	user := &entities.User{
-		Email:    "login@example.com",
-		Password: "password123",
-		Name:     "Login User",
-	}
-	err := s.service.Register(user)
-	s.NoError(err)
-
-	// Login with correct credentials
-	token, loggedInUser, err := s.service.Login("login@example.com", "password123")
-	s.NoError(err)
-	s.NotEmpty(token)
-	s.NotNil(loggedInUser)
-	s.Equal(user.Email, loggedInUser.Email)
-}
-
-func (s *UserUseCaseTestSuite) TestLogin_WrongPassword() {
-	// Register a user first
-	user := &entities.User{
-		Email:    "wrongpass@example.com",
-		Password: "password123",
-		Name:     "Wrong Pass User",
-	}
-	err := s.service.Register(user)
-	s.NoError(err)
-
-	// Login with wrong password
-	token, loggedInUser, err := s.service.Login("wrongpass@example.com", "wrongpassword")
-	s.Error(err)
-	s.Empty(token)
-	s.Nil(loggedInUser)
-}
-
-func (s *UserUseCaseTestSuite) TestLogin_UserNotFound() {
-	token, loggedInUser, err := s.service.Login("notfound@example.com", "password123")
-	s.Error(err)
-	s.Empty(token)
-	s.Nil(loggedInUser)
+func (s *UserUseCaseTestSuite) createUser(name string) *entities.User {
+	s.T().Helper()
+	id := uuid.New()
+	username := "user_" + id.String()
+	phone := "+998" + id.String()[:9]
+	_, err := s.db.Exec(s.T().Context(), `
+		INSERT INTO users (id, name, phone, username, language, is_active, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, 'uz', true, now(), now())
+	`, id, name, phone, username)
+	s.Require().NoError(err)
+	return &entities.User{ID: id, Name: name, Phone: phone, Username: username}
 }
 
 func (s *UserUseCaseTestSuite) TestFindUserByID() {
-	// Register a user first
-	user := &entities.User{
-		Email:    "findbyid@example.com",
-		Password: "password123",
-		Name:     "Find By ID User",
-	}
-	err := s.service.Register(user)
-	s.NoError(err)
-
-	// Find by ID
+	user := s.createUser("Find By ID User")
 	found, err := s.service.FindUserByID(user.ID.String())
 	s.NoError(err)
-	s.NotNil(found)
 	s.Equal(user.ID, found.ID)
-	s.Equal(user.Email, found.Email)
+	s.Equal(user.Name, found.Name)
 }
 
 func (s *UserUseCaseTestSuite) TestFindAllUsers() {
-	// Register multiple users
-	users := []*entities.User{
-		{Email: "all1@example.com", Password: "pass1", Name: "User 1"},
-		{Email: "all2@example.com", Password: "pass2", Name: "User 2"},
-		{Email: "all3@example.com", Password: "pass3", Name: "User 3"},
-	}
+	s.createUser("User 1")
+	s.createUser("User 2")
+	s.createUser("User 3")
 
-	for _, user := range users {
-		err := s.service.Register(user)
-		s.NoError(err)
-	}
-
-	// Find all
-	allUsers, err := s.service.FindAllUsers()
+	users, err := s.service.FindAllUsers()
 	s.NoError(err)
-	s.Len(allUsers, 3)
+	s.Len(users, 3)
 }
 
 func (s *UserUseCaseTestSuite) TestPatchUser() {
-	// Register a user first
-	user := &entities.User{
-		Email:    "patch@example.com",
-		Password: "password123",
-		Name:     "Original Name",
-	}
-	err := s.service.Register(user)
+	user := s.createUser("Original Name")
+	updated, err := s.service.PatchUser(user.ID.String(), &entities.User{Name: "Updated Name"})
 	s.NoError(err)
-
-	// Update user
-	updateData := &entities.User{
-		Name: "Updated Name",
-	}
-	updated, err := s.service.PatchUser(user.ID.String(), updateData)
-	s.NoError(err)
-	s.NotNil(updated)
 	s.Equal("Updated Name", updated.Name)
-	s.Equal(user.Email, updated.Email)
+	s.Equal(user.Phone, updated.Phone)
 }
 
 func (s *UserUseCaseTestSuite) TestDeleteUser() {
-	// Register a user first
-	user := &entities.User{
-		Email:    "delete@example.com",
-		Password: "password123",
-		Name:     "Delete User",
-	}
-	err := s.service.Register(user)
-	s.NoError(err)
+	user := s.createUser("Delete User")
+	s.NoError(s.service.DeleteUser(user.ID.String()))
 
-	// Delete user
-	err = s.service.DeleteUser(user.ID.String())
-	s.NoError(err)
-
-	// Verify deletion
 	found, err := s.service.FindUserByID(user.ID.String())
 	s.Error(err)
 	s.Nil(found)

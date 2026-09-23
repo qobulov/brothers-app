@@ -22,6 +22,34 @@
 
 Follow the steps below to set up and run the project:
 
+### Quick local start with Make
+
+```bash
+cp .env.example .env.dev # only when .env.dev does not exist yet
+make local
+```
+
+`make local` starts Homebrew PostgreSQL and Redis, applies local migrations,
+regenerates Swagger, and runs the API. Other useful commands are listed by
+`make help`.
+
+To regenerate only Swagger documentation:
+
+```bash
+make swag
+```
+
+If the same Telegram bot is already running in another deployment, start the local API
+without its polling worker to avoid Telegram `409 Conflict` errors:
+
+```bash
+make run-no-bot
+```
+
+Both `make run` and `make run-no-bot` automatically start the local Homebrew
+PostgreSQL and Redis services, wait until they are ready, and regenerate Swagger
+before starting the Go process. Docker is not required for this local flow.
+
 ### 1. Install Go module dependencies
 
 ```bash
@@ -138,6 +166,7 @@ Key environment variables in `.env.dev`:
 - `APP_ENV`: Application environment (e.g. `development`, `test`)
 - `JWT_SECRET`: Secret key for JWT token signing
 - `JWT_EXPIRATION`: JWT token expiration in seconds (default: `3600`)
+- `OTP_DEFAULT_CODE`: fixed local-development OTP; leave empty in production
 - `CORS_ALLOW_ORIGINS`: comma-separated allowed browser origins (default: `*`)
 - `CORS_ALLOW_CREDENTIALS`: whether credentialed browser requests are allowed (default: `false`)
 

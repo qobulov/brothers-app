@@ -19,46 +19,6 @@ func NewHttpUserHandler(useCase usecase.UserUseCase) *HttpUserHandler {
 	return &HttpUserHandler{userUseCase: useCase}
 }
 
-// Register godoc
-// @Summary Register a new user
-// @Tags users
-// @Accept json
-// @Produce json
-// @Param user body userdto.RegisterRequest true "User registration payload"
-// @Success 201 {object} userdto.UserResponse
-// @Router /auth/signup [post]
-func (h *HttpUserHandler) Register(c *fiber.Ctx) error {
-	req := new(userdto.RegisterRequest)
-	if err := c.BodyParser(req); err != nil {
-		return responses.Error(c, apperror.ErrInvalidData)
-	}
-
-	userEntity := userdto.ToUserEntity(req)
-	if err := h.userUseCase.Register(userEntity); err != nil {
-		return responses.Error(c, err)
-	}
-
-	return responses.Success(c, fiber.StatusCreated, userdto.ToUserResponse(userEntity), "Запрос успешно обработан")
-}
-
-// Login authenticates a legacy email/password user.
-func (h *HttpUserHandler) Login(c *fiber.Ctx) error {
-	loginReq := new(userdto.LoginRequest)
-	if err := c.BodyParser(loginReq); err != nil {
-		return responses.Error(c, apperror.ErrInvalidData)
-	}
-
-	token, userEntity, err := h.userUseCase.Login(loginReq.Email, loginReq.Password)
-	if err != nil {
-		return responses.ErrorWithMessage(c, apperror.ErrUnauthorized, "invalid email or password")
-	}
-
-	return responses.Success(c, fiber.StatusOK, fiber.Map{
-		"user":  userdto.ToUserResponse(userEntity),
-		"token": token,
-	}, "Запрос успешно обработан")
-}
-
 // GetUser godoc
 // @Summary Get currently authenticated user
 // @Tags users

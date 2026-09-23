@@ -66,7 +66,10 @@ func (c *Client) call(ctx context.Context, method string, values url.Values, out
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	response, err := c.httpClient.Do(request)
 	if err != nil {
-		return fmt.Errorf("calling telegram api: %w", err)
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return fmt.Errorf("calling telegram api method %s: %w", method, ctxErr)
+		}
+		return fmt.Errorf("calling telegram api method %s: request failed", method)
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {

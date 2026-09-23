@@ -18,6 +18,15 @@ type StartResponse struct {
 	Meta    ResponseMeta `json:"meta"`
 }
 
+type RegisterResponse struct {
+	Success bool         `json:"success" example:"true"`
+	Code    int          `json:"code" example:"0"`
+	Slug    string       `json:"slug" example:"ok"`
+	Message string       `json:"message" example:"Request processed successfully"`
+	Data    RegisterData `json:"data"`
+	Meta    ResponseMeta `json:"meta"`
+}
+
 type AuthResponse struct {
 	Success bool         `json:"success" example:"true"`
 	Code    int          `json:"code" example:"0"`

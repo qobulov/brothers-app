@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -86,21 +87,30 @@ func SetupTestDB(t *testing.T) (*pgxpool.Pool, func()) {
 
 func applyTestSchema(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
-	var schema []byte
-	var err error
-	for _, path := range []string{"migrations/000001_auth_foundation.up.sql", "../../migrations/000001_auth_foundation.up.sql", "../../../migrations/000001_auth_foundation.up.sql"} {
-		schema, err = os.ReadFile(path)
-		if err == nil {
+	var migrationPaths []string
+	for _, pattern := range []string{"migrations/*.up.sql", "../../migrations/*.up.sql", "../../../migrations/*.up.sql"} {
+		matches, err := filepath.Glob(pattern)
+		if err != nil {
+			t.Fatalf("find test migrations: %v", err)
+		}
+		if len(matches) > 0 {
+			migrationPaths = matches
 			break
 		}
 	}
-	if err != nil {
-		t.Fatalf("read test schema: %v", err)
+	if len(migrationPaths) == 0 {
+		t.Fatal("no test migrations found")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), testDatabaseTimeout)
 	defer cancel()
-	if _, err := pool.Exec(ctx, string(schema)); err != nil {
-		t.Fatalf("apply test schema: %v", err)
+	for _, path := range migrationPaths {
+		schema, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read test migration %s: %v", path, err)
+		}
+		if _, err := pool.Exec(ctx, string(schema)); err != nil {
+			t.Fatalf("apply test migration %s: %v", path, err)
+		}
 	}
 }
 

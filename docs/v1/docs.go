@@ -98,9 +98,9 @@ const docTemplate = `{
                 }
             }
         },
-        "/auth/otp/verify": {
+        "/auth/otp/send": {
             "post": {
-                "description": "Verifies the Telegram-delivered registration OTP and issues a token pair.",
+                "description": "Starts Telegram OTP delivery for an unregistered phone. Open the returned deep link and press Start before registering.",
                 "consumes": [
                     "application/json"
                 ],
@@ -110,15 +110,15 @@ const docTemplate = `{
                 "tags": [
                     "auth"
                 ],
-                "summary": "Verify registration OTP",
+                "summary": "Send registration OTP",
                 "parameters": [
                     {
-                        "description": "Phone and OTP",
-                        "name": "verification",
+                        "description": "Phone and OTP purpose",
+                        "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/authdto.OTPVerifyRequest"
+                            "$ref": "#/definitions/authdto.SendOTPRequest"
                         }
                     }
                 ],
@@ -126,11 +126,17 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/authdto.AuthResponse"
+                            "$ref": "#/definitions/authdto.StartResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
                         "schema": {
                             "$ref": "#/definitions/authdto.ErrorResponse"
                         }
@@ -177,58 +183,6 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/authdto.ErrorResponse"
-                        }
-                    },
-                    "429": {
-                        "description": "Too Many Requests",
-                        "schema": {
-                            "$ref": "#/definitions/authdto.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/auth/password/resend": {
-            "post": {
-                "description": "Sends a replacement password-reset OTP to the bound Telegram chat.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "auth"
-                ],
-                "summary": "Resend password-reset OTP",
-                "parameters": [
-                    {
-                        "description": "Account phone",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/authdto.PhoneRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/authdto.EmptyResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/authdto.ErrorResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
                         "schema": {
                             "$ref": "#/definitions/authdto.ErrorResponse"
                         }
@@ -388,7 +342,7 @@ const docTemplate = `{
         },
         "/auth/register": {
             "post": {
-                "description": "Creates a pending user and starts Telegram OTP verification.",
+                "description": "Verifies the registration OTP, creates the user, and issues a token pair. Request an OTP first through POST /auth/otp/send.",
                 "consumes": [
                     "application/json"
                 ],
@@ -398,7 +352,7 @@ const docTemplate = `{
                 "tags": [
                     "auth"
                 ],
-                "summary": "Start user registration",
+                "summary": "Register user",
                 "parameters": [
                     {
                         "description": "Registration payload",
@@ -411,10 +365,10 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "201": {
-                        "description": "Created",
+                    "200": {
+                        "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/authdto.StartResponse"
+                            "$ref": "#/definitions/authdto.RegisterResponse"
                         }
                     },
                     "400": {
@@ -427,149 +381,6 @@ const docTemplate = `{
                         "description": "Conflict",
                         "schema": {
                             "$ref": "#/definitions/authdto.ErrorResponse"
-                        }
-                    },
-                    "429": {
-                        "description": "Too Many Requests",
-                        "schema": {
-                            "$ref": "#/definitions/authdto.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/auth/register/resend": {
-            "post": {
-                "description": "Sends a replacement OTP to the Telegram chat bound by the registration flow.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "auth"
-                ],
-                "summary": "Resend registration OTP",
-                "parameters": [
-                    {
-                        "description": "Registration phone",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/authdto.PhoneRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/authdto.EmptyResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/authdto.ErrorResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/authdto.ErrorResponse"
-                        }
-                    },
-                    "429": {
-                        "description": "Too Many Requests",
-                        "schema": {
-                            "$ref": "#/definitions/authdto.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/auth/signin": {
-            "post": {
-                "description": "Authenticates an active user using a username or phone number and password.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "auth"
-                ],
-                "summary": "Sign in with username or phone",
-                "parameters": [
-                    {
-                        "description": "Login credentials",
-                        "name": "credentials",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/authdto.LoginRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/authdto.AuthResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/authdto.ErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/authdto.ErrorResponse"
-                        }
-                    },
-                    "429": {
-                        "description": "Too Many Requests",
-                        "schema": {
-                            "$ref": "#/definitions/authdto.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/auth/signup": {
-            "post": {
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "users"
-                ],
-                "summary": "Register a new user",
-                "parameters": [
-                    {
-                        "description": "User registration payload",
-                        "name": "user",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/userdto.RegisterRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/userdto.UserResponse"
                         }
                     }
                 }
@@ -762,69 +573,6 @@ const docTemplate = `{
                     },
                     "409": {
                         "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/authdto.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/me/phone-change/resend": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Sends a replacement phone-change OTP to the bound Telegram chat.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "profile"
-                ],
-                "summary": "Resend phone-change OTP",
-                "parameters": [
-                    {
-                        "description": "New phone",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/authdto.PhoneChangeRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/authdto.EmptyResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/authdto.ErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/authdto.ErrorResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/authdto.ErrorResponse"
-                        }
-                    },
-                    "429": {
-                        "description": "Too Many Requests",
                         "schema": {
                             "$ref": "#/definitions/authdto.ErrorResponse"
                         }
@@ -1115,11 +863,8 @@ const docTemplate = `{
         "authdto.AuthData": {
             "type": "object",
             "properties": {
-                "access_token": {
-                    "type": "string"
-                },
-                "refresh_token": {
-                    "type": "string"
+                "tokens": {
+                    "$ref": "#/definitions/authdto.TokenData"
                 },
                 "user": {
                     "$ref": "#/definitions/authdto.UserData"
@@ -1234,7 +979,7 @@ const docTemplate = `{
             "properties": {
                 "otp": {
                     "type": "string",
-                    "example": "123456"
+                    "example": "111111"
                 },
                 "phone": {
                     "type": "string",
@@ -1251,7 +996,7 @@ const docTemplate = `{
                 },
                 "otp": {
                     "type": "string",
-                    "example": "123456"
+                    "example": "111111"
                 }
             }
         },
@@ -1264,21 +1009,23 @@ const docTemplate = `{
                 }
             }
         },
-        "authdto.PhoneRequest": {
-            "type": "object",
-            "properties": {
-                "phone": {
-                    "type": "string",
-                    "example": "+998901234567"
-                }
-            }
-        },
         "authdto.RefreshRequest": {
             "type": "object",
             "properties": {
                 "refresh_token": {
                     "type": "string",
                     "example": "opaque-refresh-token"
+                }
+            }
+        },
+        "authdto.RegisterData": {
+            "type": "object",
+            "properties": {
+                "tokens": {
+                    "$ref": "#/definitions/authdto.TokenData"
+                },
+                "user": {
+                    "$ref": "#/definitions/authdto.RegisterUserData"
                 }
             }
         },
@@ -1301,6 +1048,10 @@ const docTemplate = `{
                     "type": "string",
                     "example": "Qobulov"
                 },
+                "otp_code": {
+                    "type": "string",
+                    "example": "111111"
+                },
                 "password": {
                     "type": "string",
                     "example": "strong-password"
@@ -1315,13 +1066,53 @@ const docTemplate = `{
                 }
             }
         },
+        "authdto.RegisterResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "data": {
+                    "$ref": "#/definitions/authdto.RegisterData"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Request processed successfully"
+                },
+                "meta": {
+                    "$ref": "#/definitions/authdto.ResponseMeta"
+                },
+                "slug": {
+                    "type": "string",
+                    "example": "ok"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "authdto.RegisterUserData": {
+            "type": "object",
+            "properties": {
+                "full_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                }
+            }
+        },
         "authdto.ResetPasswordRequest": {
             "type": "object",
             "properties": {
-                "confirm_password": {
-                    "type": "string",
-                    "example": "new-strong-password"
-                },
                 "password": {
                     "type": "string",
                     "example": "new-strong-password"
@@ -1395,6 +1186,22 @@ const docTemplate = `{
                 }
             }
         },
+        "authdto.SendOTPRequest": {
+            "type": "object",
+            "properties": {
+                "phone": {
+                    "type": "string",
+                    "example": "+998901234567"
+                },
+                "purpose": {
+                    "type": "string",
+                    "enum": [
+                        "registration"
+                    ],
+                    "example": "registration"
+                }
+            }
+        },
         "authdto.StartData": {
             "type": "object",
             "properties": {
@@ -1406,6 +1213,9 @@ const docTemplate = `{
                 },
                 "telegram_deep_link": {
                     "type": "string"
+                },
+                "ttl": {
+                    "type": "integer"
                 }
             }
         },
@@ -1433,6 +1243,23 @@ const docTemplate = `{
                 "success": {
                     "type": "boolean",
                     "example": true
+                }
+            }
+        },
+        "authdto.TokenData": {
+            "type": "object",
+            "properties": {
+                "access_expires_at": {
+                    "type": "string"
+                },
+                "access_token": {
+                    "type": "string"
+                },
+                "refresh_expires_at": {
+                    "type": "string"
+                },
+                "refresh_token": {
+                    "type": "string"
                 }
             }
         },
@@ -1569,32 +1396,9 @@ const docTemplate = `{
                 }
             }
         },
-        "userdto.RegisterRequest": {
-            "type": "object",
-            "required": [
-                "email",
-                "name",
-                "password"
-            ],
-            "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "password": {
-                    "type": "string",
-                    "minLength": 6
-                }
-            }
-        },
         "userdto.UserResponse": {
             "type": "object",
             "properties": {
-                "email": {
-                    "type": "string"
-                },
                 "id": {
                     "type": "string"
                 },
@@ -1606,7 +1410,7 @@ const docTemplate = `{
     },
     "securityDefinitions": {
         "BearerAuth": {
-            "description": "Type \"Bearer\" followed by a space and JWT token.",
+            "description": "Paste the access token only. Standard clients may send \"Bearer \u003ctoken\u003e\"; Swagger UI sends the token value directly.",
             "type": "apiKey",
             "name": "Authorization",
             "in": "header"

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/qobulov/brothers-app/pkg/apperror"
+	"github.com/qobulov/brothers-app/pkg/config"
 	"github.com/qobulov/brothers-app/pkg/helpers"
 )
 
@@ -48,6 +49,29 @@ func TestGenerateOTP(t *testing.T) {
 		if !helpers.ValidOTP(value) {
 			t.Fatalf("generated invalid otp %q", value)
 		}
+	}
+}
+
+func TestConfiguredOTP(t *testing.T) {
+	tests := []struct {
+		name     string
+		env      string
+		code     string
+		expected string
+	}{
+		{name: "development fixed code", env: "development", code: "111111", expected: "111111"},
+		{name: "trim fixed code", env: "test", code: " 111111 ", expected: "111111"},
+		{name: "disabled in production", env: "production", code: "111111"},
+		{name: "invalid code ignored", env: "development", code: "12345"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			service := &Service{cfg: &config.Config{AppEnv: test.env, OTPDefaultCode: test.code}}
+			if got := service.configuredOTP(); got != test.expected {
+				t.Fatalf("configuredOTP() = %q, want %q", got, test.expected)
+			}
+		})
 	}
 }
 

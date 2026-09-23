@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"errors"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -19,30 +18,6 @@ func NewSQLCUserRepository(queries *db.Queries) UserRepository {
 	return &SQLCUserRepository{queries: queries}
 }
 
-func (r *SQLCUserRepository) Save(user *entities.User) error {
-	if user.ID == uuid.Nil {
-		user.ID = uuid.New()
-	}
-	now := time.Now().UTC()
-	row, err := r.queries.CreateUser(context.Background(), db.CreateUserParams{
-		ID: uuidValue(user.ID), Email: textValue(user.Email), Password: textValue(user.Password),
-		Name: textValue(user.Name), Language: "uz", IsActive: true, CreatedAt: timeValue(now), UpdatedAt: timeValue(now),
-	})
-	if err != nil {
-		return err
-	}
-	user.ID = uuid.UUID(row.ID.Bytes)
-	return nil
-}
-
-func (r *SQLCUserRepository) FindByEmail(email string) (*entities.User, error) {
-	row, err := r.queries.GetUserByEmail(context.Background(), db.GetUserByEmailParams{Email: textValue(email)})
-	if err != nil {
-		return nil, mapNotFound(err)
-	}
-	return userFromFields(row.ID, row.Email, row.Password, row.Name), nil
-}
-
 func (r *SQLCUserRepository) FindByID(id string) (*entities.User, error) {
 	parsed, err := uuid.Parse(id)
 	if err != nil {
@@ -52,7 +27,7 @@ func (r *SQLCUserRepository) FindByID(id string) (*entities.User, error) {
 	if err != nil {
 		return nil, mapNotFound(err)
 	}
-	return userFromFields(row.ID, row.Email, row.Password, row.Name), nil
+	return userFromModel(row), nil
 }
 
 func (r *SQLCUserRepository) FindAll() ([]*entities.User, error) {
@@ -62,7 +37,7 @@ func (r *SQLCUserRepository) FindAll() ([]*entities.User, error) {
 	}
 	users := make([]*entities.User, 0, len(rows))
 	for _, row := range rows {
-		users = append(users, userFromFields(row.ID, row.Email, row.Password, row.Name))
+		users = append(users, userFromModel(row))
 	}
 	return users, nil
 }
@@ -85,15 +60,33 @@ func (r *SQLCUserRepository) Delete(id string) error {
 	return mapNotFound(err)
 }
 
-func userFromFields(id pgtype.UUID, email, password, name pgtype.Text) *entities.User {
-	return &entities.User{ID: uuid.UUID(id.Bytes), Email: email.String, Password: password.String, Name: name.String}
+func userFromModel(user db.User) *entities.User {
+	result := &entities.User{
+		ID:           uuid.UUID(user.ID.Bytes),
+		Password:     user.Password.String,
+		PasswordHash: user.PasswordHash.String,
+		Name:         user.Name.String,
+		Phone:        user.Phone.String,
+		Username:     user.Username.String,
+		FirstName:    user.FirstName.String,
+		LastName:     user.LastName.String,
+		AvatarURL:    user.AvatarUrl.String,
+		Language:     user.Language,
+		IsActive:     user.IsActive,
+		CreatedAt:    user.CreatedAt.Time,
+		UpdatedAt:    user.UpdatedAt.Time,
+	}
+	if user.LastLoginAt.Valid {
+		result.LastLoginAt = &user.LastLoginAt.Time
+	}
+	if user.DeletedAt.Valid {
+		result.DeletedAt = &user.DeletedAt.Time
+	}
+	return result
 }
 
 func uuidValue(value uuid.UUID) pgtype.UUID { return pgtype.UUID{Bytes: value, Valid: true} }
 func textValue(value string) pgtype.Text    { return pgtype.Text{String: value, Valid: true} }
-func timeValue(value time.Time) pgtype.Timestamptz {
-	return pgtype.Timestamptz{Time: value, Valid: true}
-}
 func mapNotFound(err error) error {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return apperror.ErrRecordNotFound

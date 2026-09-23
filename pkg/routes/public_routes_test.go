@@ -67,30 +67,15 @@ func (s *PublicRoutesTestSuite) TestGetUserByID_NotFound() {
 
 // === AUTH ROUTES ===
 
-func (s *PublicRoutesTestSuite) TestSignup() {
-	body := map[string]string{
-		"email":    "testuser@example.com",
-		"password": "securepassword123",
-	}
-	jsonBody, _ := json.Marshal(body)
-
-	req := httptest.NewRequest("POST", "/api/v1/auth/signup", bytes.NewBuffer(jsonBody))
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := s.app.Test(req, -1)
-	s.NoError(err)
-	s.True(resp.StatusCode == fiber.StatusOK || resp.StatusCode == fiber.StatusCreated)
-}
-
-func (s *PublicRoutesTestSuite) TestSignin() {
+func (s *PublicRoutesTestSuite) TestLogin() {
 	const password = "securepassword123"
-	s.createLoginUser("signinuser", "+998901234567", password)
+	s.createLoginUser("loginuser", "+998901234567", password)
 
 	tests := []struct {
 		name  string
 		login string
 	}{
-		{name: "username", login: "signinuser"},
+		{name: "username", login: "loginuser"},
 		{name: "phone", login: "+998 90 123 45 67"},
 	}
 	for _, test := range tests {
@@ -99,7 +84,7 @@ func (s *PublicRoutesTestSuite) TestSignin() {
 			jsonBody, err := json.Marshal(body)
 			s.Require().NoError(err)
 
-			req := httptest.NewRequest("POST", "/api/v1/auth/signin", bytes.NewBuffer(jsonBody))
+			req := httptest.NewRequest("POST", "/api/v1/auth/login", bytes.NewBuffer(jsonBody))
 			req.Header.Set("Content-Type", "application/json")
 			resp, err := s.app.Test(req, -1)
 			s.Require().NoError(err)
@@ -109,19 +94,61 @@ func (s *PublicRoutesTestSuite) TestSignin() {
 	}
 }
 
-func (s *PublicRoutesTestSuite) TestSignin_InvalidCredentials() {
+func (s *PublicRoutesTestSuite) TestLogin_InvalidCredentials() {
 	body := map[string]string{
 		"login":    "nonexistent-user",
 		"password": "wrongpassword",
 	}
 	jsonBody, _ := json.Marshal(body)
 
-	req := httptest.NewRequest("POST", "/api/v1/auth/signin", bytes.NewBuffer(jsonBody))
+	req := httptest.NewRequest("POST", "/api/v1/auth/login", bytes.NewBuffer(jsonBody))
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := s.app.Test(req, -1)
 	s.NoError(err)
 	s.Equal(fiber.StatusUnauthorized, resp.StatusCode)
+}
+
+func (s *PublicRoutesTestSuite) TestLegacyAuthRoutesNotRegistered() {
+	legacyPaths := map[string]bool{
+		"/api/v1/auth/signin":            false,
+		"/api/v1/auth/signup":            false,
+		"/api/v1/auth/otp/verify":        false,
+		"/api/v1/auth/register/resend":   false,
+		"/api/v1/auth/password/resend":   false,
+		"/api/v1/me/phone-change/resend": false,
+	}
+	for _, route := range s.app.GetRoutes() {
+		if route.Method == fiber.MethodPost {
+			if _, legacy := legacyPaths[route.Path]; legacy {
+				legacyPaths[route.Path] = true
+			}
+		}
+	}
+	for path, registered := range legacyPaths {
+		if registered {
+			s.T().Errorf("legacy route %s is still registered", path)
+		}
+	}
+}
+
+func (s *PublicRoutesTestSuite) TestRegistrationRoutesRegistered() {
+	wanted := map[string]bool{
+		"/api/v1/auth/otp/send": false,
+		"/api/v1/auth/register": false,
+	}
+	for _, route := range s.app.GetRoutes() {
+		if route.Method == fiber.MethodPost {
+			if _, ok := wanted[route.Path]; ok {
+				wanted[route.Path] = true
+			}
+		}
+	}
+	for path, registered := range wanted {
+		if !registered {
+			s.T().Errorf("registration route %s is missing", path)
+		}
+	}
 }
 
 func (s *PublicRoutesTestSuite) TestCurrentProfilePatch() {
@@ -139,11 +166,19 @@ func (s *PublicRoutesTestSuite) TestCurrentProfilePatch() {
 
 	var loginEnvelope struct {
 		Data struct {
-			AccessToken string `json:"access_token"`
+			Tokens struct {
+				AccessToken      string `json:"access_token"`
+				AccessExpiresAt  string `json:"access_expires_at"`
+				RefreshToken     string `json:"refresh_token"`
+				RefreshExpiresAt string `json:"refresh_expires_at"`
+			} `json:"tokens"`
 		} `json:"data"`
 	}
 	s.Require().NoError(json.NewDecoder(loginResponse.Body).Decode(&loginEnvelope))
-	s.Require().NotEmpty(loginEnvelope.Data.AccessToken)
+	s.Require().NotEmpty(loginEnvelope.Data.Tokens.AccessToken)
+	s.Require().NotEmpty(loginEnvelope.Data.Tokens.AccessExpiresAt)
+	s.Require().NotEmpty(loginEnvelope.Data.Tokens.RefreshToken)
+	s.Require().NotEmpty(loginEnvelope.Data.Tokens.RefreshExpiresAt)
 
 	patchBody, err := json.Marshal(map[string]any{
 		"first_name": "Qobul",
@@ -156,7 +191,9 @@ func (s *PublicRoutesTestSuite) TestCurrentProfilePatch() {
 	s.Require().NoError(err)
 	patchRequest := httptest.NewRequest("PATCH", "/api/v1/me", bytes.NewBuffer(patchBody))
 	patchRequest.Header.Set("Content-Type", "application/json")
-	patchRequest.Header.Set("Authorization", "Bearer "+loginEnvelope.Data.AccessToken)
+	// Swagger UI sends apiKey values exactly as entered, without adding a
+	// Bearer prefix. Raw access tokens must therefore work on protected routes.
+	patchRequest.Header.Set("Authorization", loginEnvelope.Data.Tokens.AccessToken)
 	patchResponse, err := s.app.Test(patchRequest, -1)
 	s.Require().NoError(err)
 	defer patchResponse.Body.Close()
@@ -184,9 +221,9 @@ func (s *PublicRoutesTestSuite) createLoginUser(username, phone, password string
 
 	_, err = s.db.Exec(s.T().Context(), `
 		INSERT INTO users (
-			id, email, password_hash, name, phone, username, is_active, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, true, now(), now())
-	`, uuid.New(), username+"@test.invalid", string(passwordHash), username, phone, username)
+			id, password_hash, name, phone, username, is_active, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, true, now(), now())
+	`, uuid.New(), string(passwordHash), username, phone, username)
 	s.Require().NoError(err)
 }
 

@@ -12,7 +12,7 @@ import (
 // @securityDefinitions.apikey BearerAuth
 // @in header
 // @name Authorization
-// @description Type "Bearer" followed by a space and JWT token.
+// @description Paste the access token only. Standard clients may send "Bearer <token>"; Swagger UI sends the token value directly.
 func main() {
 	app.Start()
 }

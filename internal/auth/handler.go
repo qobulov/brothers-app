@@ -14,16 +14,15 @@ type Handler struct{ service *service.Service }
 func NewHandler(authService *service.Service) *Handler { return &Handler{service: authService} }
 
 // Register godoc
-// @Summary Start user registration
-// @Description Creates a pending user and starts Telegram OTP verification.
+// @Summary Register user
+// @Description Verifies the registration OTP, creates the user, and issues a token pair. Request an OTP first through POST /auth/otp/send.
 // @Tags auth
 // @Accept json
 // @Produce json
 // @Param user body authdto.RegisterRequest true "Registration payload"
-// @Success 201 {object} authdto.StartResponse
+// @Success 200 {object} authdto.RegisterResponse
 // @Failure 400 {object} authdto.ErrorResponse
 // @Failure 409 {object} authdto.ErrorResponse
-// @Failure 429 {object} authdto.ErrorResponse
 // @Router /auth/register [post]
 func (h *Handler) Register(c *fiber.Ctx) error {
 	var request authdto.RegisterRequest
@@ -34,7 +33,31 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 	if err != nil {
 		return responses.Error(c, err)
 	}
-	return responses.Success(c, fiber.StatusCreated, data, "Запрос успешно обработан")
+	return responses.Success(c, fiber.StatusOK, data, "Request processed successfully")
+}
+
+// SendOTP godoc
+// @Summary Send registration OTP
+// @Description Starts Telegram OTP delivery for an unregistered phone. Open the returned deep link and press Start before registering.
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body authdto.SendOTPRequest true "Phone and OTP purpose"
+// @Success 200 {object} authdto.StartResponse
+// @Failure 400 {object} authdto.ErrorResponse
+// @Failure 409 {object} authdto.ErrorResponse
+// @Failure 429 {object} authdto.ErrorResponse
+// @Router /auth/otp/send [post]
+func (h *Handler) SendOTP(c *fiber.Ctx) error {
+	var request authdto.SendOTPRequest
+	if err := c.BodyParser(&request); err != nil {
+		return responses.Error(c, apperror.ErrInvalidData)
+	}
+	data, err := h.service.SendOTP(c.UserContext(), request)
+	if err != nil {
+		return responses.Error(c, err)
+	}
+	return responses.Success(c, fiber.StatusOK, data, "Request processed successfully")
 }
 
 // Login godoc
@@ -48,7 +71,6 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 // @Failure 400 {object} authdto.ErrorResponse
 // @Failure 401 {object} authdto.ErrorResponse
 // @Failure 429 {object} authdto.ErrorResponse
-// @Router /auth/signin [post]
 // @Router /auth/login [post]
 func (h *Handler) Login(c *fiber.Ctx) error {
 	var request authdto.LoginRequest
@@ -135,52 +157,6 @@ func (h *Handler) UpdateCurrentUser(c *fiber.Ctx) error {
 	return responses.Success(c, fiber.StatusOK, data, "Запрос успешно обработан")
 }
 
-// VerifyRegistration godoc
-// @Summary Verify registration OTP
-// @Description Verifies the Telegram-delivered registration OTP and issues a token pair.
-// @Tags auth
-// @Accept json
-// @Produce json
-// @Param verification body authdto.OTPVerifyRequest true "Phone and OTP"
-// @Success 200 {object} authdto.AuthResponse
-// @Failure 400 {object} authdto.ErrorResponse
-// @Failure 429 {object} authdto.ErrorResponse
-// @Router /auth/otp/verify [post]
-func (h *Handler) VerifyRegistration(c *fiber.Ctx) error {
-	var request authdto.OTPVerifyRequest
-	if err := c.BodyParser(&request); err != nil {
-		return responses.Error(c, apperror.ErrInvalidData)
-	}
-	data, err := h.service.VerifyRegistration(c.UserContext(), request.Phone, request.OTP)
-	if err != nil {
-		return responses.Error(c, err)
-	}
-	return responses.Success(c, fiber.StatusOK, data, "Запрос успешно обработан")
-}
-
-// ResendRegistration godoc
-// @Summary Resend registration OTP
-// @Description Sends a replacement OTP to the Telegram chat bound by the registration flow.
-// @Tags auth
-// @Accept json
-// @Produce json
-// @Param request body authdto.PhoneRequest true "Registration phone"
-// @Success 200 {object} authdto.EmptyResponse
-// @Failure 400 {object} authdto.ErrorResponse
-// @Failure 409 {object} authdto.ErrorResponse
-// @Failure 429 {object} authdto.ErrorResponse
-// @Router /auth/register/resend [post]
-func (h *Handler) ResendRegistration(c *fiber.Ctx) error {
-	var request authdto.PhoneRequest
-	if err := c.BodyParser(&request); err != nil {
-		return responses.Error(c, apperror.ErrInvalidData)
-	}
-	if err := h.service.Resend(c.UserContext(), "registration", request.Phone, nil); err != nil {
-		return responses.Error(c, err)
-	}
-	return responses.Success[any](c, fiber.StatusOK, nil, "Запрос успешно обработан")
-}
-
 // ForgotPassword godoc
 // @Summary Start password reset
 // @Description Starts the Telegram OTP password-reset flow.
@@ -202,29 +178,6 @@ func (h *Handler) ForgotPassword(c *fiber.Ctx) error {
 		return responses.Error(c, err)
 	}
 	return responses.Success(c, fiber.StatusOK, data, "Запрос успешно обработан")
-}
-
-// ResendPassword godoc
-// @Summary Resend password-reset OTP
-// @Description Sends a replacement password-reset OTP to the bound Telegram chat.
-// @Tags auth
-// @Accept json
-// @Produce json
-// @Param request body authdto.PhoneRequest true "Account phone"
-// @Success 200 {object} authdto.EmptyResponse
-// @Failure 400 {object} authdto.ErrorResponse
-// @Failure 409 {object} authdto.ErrorResponse
-// @Failure 429 {object} authdto.ErrorResponse
-// @Router /auth/password/resend [post]
-func (h *Handler) ResendPassword(c *fiber.Ctx) error {
-	var request authdto.PhoneRequest
-	if err := c.BodyParser(&request); err != nil {
-		return responses.Error(c, apperror.ErrInvalidData)
-	}
-	if err := h.service.Resend(c.UserContext(), "password_reset", request.Phone, nil); err != nil {
-		return responses.Error(c, err)
-	}
-	return responses.Success[any](c, fiber.StatusOK, nil, "Запрос успешно обработан")
 }
 
 // VerifyPassword godoc
@@ -319,35 +272,6 @@ func (h *Handler) PhoneChangeRequest(c *fiber.Ctx) error {
 		return responses.Error(c, err)
 	}
 	return responses.Success(c, fiber.StatusOK, data, "Запрос успешно обработан")
-}
-
-// PhoneChangeResend godoc
-// @Summary Resend phone-change OTP
-// @Description Sends a replacement phone-change OTP to the bound Telegram chat.
-// @Tags profile
-// @Accept json
-// @Produce json
-// @Param request body authdto.PhoneChangeRequest true "New phone"
-// @Success 200 {object} authdto.EmptyResponse
-// @Failure 400 {object} authdto.ErrorResponse
-// @Failure 401 {object} authdto.ErrorResponse
-// @Failure 409 {object} authdto.ErrorResponse
-// @Failure 429 {object} authdto.ErrorResponse
-// @Security BearerAuth
-// @Router /me/phone-change/resend [post]
-func (h *Handler) PhoneChangeResend(c *fiber.Ctx) error {
-	userID, _, err := authLocals(c)
-	if err != nil {
-		return responses.Error(c, err)
-	}
-	var request authdto.PhoneChangeRequest
-	if err := c.BodyParser(&request); err != nil {
-		return responses.Error(c, apperror.ErrInvalidData)
-	}
-	if err := h.service.Resend(c.UserContext(), "phone_change", request.NewPhone, &userID); err != nil {
-		return responses.Error(c, err)
-	}
-	return responses.Success[any](c, fiber.StatusOK, nil, "Запрос успешно обработан")
 }
 
 // PhoneChangeConfirm godoc

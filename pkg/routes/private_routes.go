@@ -25,7 +25,6 @@ func RegisterPrivateRoutes(app fiber.Router, pool *pgxpool.Pool, otpCache *otp.C
 	secureRoute.Patch("/me", handler.UpdateCurrentUser)
 	secureRoute.Post("/auth/logout", handler.Logout)
 	secureRoute.Post("/me/phone-change/request", handler.PhoneChangeRequest)
-	secureRoute.Post("/me/phone-change/resend", handler.PhoneChangeResend)
 	secureRoute.Post("/me/phone-change/confirm", handler.PhoneChangeConfirm)
 
 }

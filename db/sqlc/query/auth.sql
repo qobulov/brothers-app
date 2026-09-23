@@ -1,26 +1,13 @@
--- name: GetRegistrationUserForUpdate :one
+-- name: GetUserByPhoneOrUsername :one
 SELECT * FROM users
 WHERE (phone = $1 OR username = $2) AND deleted_at IS NULL
 FOR UPDATE;
 
--- name: CreatePendingUser :one
+-- name: CreateAuthUser :one
 INSERT INTO users (
-    id, email, password_hash, name, phone, username, first_name, last_name,
+    id, password_hash, name, phone, username, first_name, last_name,
     avatar_url, language, is_active, created_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, false, $11, $11)
-RETURNING *;
-
--- name: UpdatePendingUser :one
-UPDATE users SET
-    email = $2, password_hash = $3, name = $4, phone = $5, username = $6,
-    first_name = $7, last_name = $8, avatar_url = $9, language = $10,
-    is_active = false, updated_at = $11
-WHERE id = $1 AND deleted_at IS NULL
-RETURNING *;
-
--- name: ActivateUser :one
-UPDATE users SET is_active = true, updated_at = $2
-WHERE id = $1 AND deleted_at IS NULL
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true, $10, $10)
 RETURNING *;
 
 -- name: GetUserByLogin :one

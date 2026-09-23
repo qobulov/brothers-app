@@ -51,7 +51,6 @@ type Order struct {
 
 type User struct {
 	ID           pgtype.UUID        `json:"id"`
-	Email        pgtype.Text        `json:"email"`
 	Password     pgtype.Text        `json:"password"`
 	PasswordHash pgtype.Text        `json:"password_hash"`
 	Name         pgtype.Text        `json:"name"`

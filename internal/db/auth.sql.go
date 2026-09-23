@@ -11,52 +11,16 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const activateUser = `-- name: ActivateUser :one
-UPDATE users SET is_active = true, updated_at = $2
-WHERE id = $1 AND deleted_at IS NULL
-RETURNING id, email, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at
-`
-
-type ActivateUserParams struct {
-	ID        pgtype.UUID        `json:"id"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
-}
-
-func (q *Queries) ActivateUser(ctx context.Context, arg ActivateUserParams) (User, error) {
-	row := q.db.QueryRow(ctx, activateUser, arg.ID, arg.UpdatedAt)
-	var i User
-	err := row.Scan(
-		&i.ID,
-		&i.Email,
-		&i.Password,
-		&i.PasswordHash,
-		&i.Name,
-		&i.Phone,
-		&i.Username,
-		&i.FirstName,
-		&i.LastName,
-		&i.AvatarUrl,
-		&i.Language,
-		&i.IsActive,
-		&i.LastLoginAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.DeletedAt,
-	)
-	return i, err
-}
-
-const createPendingUser = `-- name: CreatePendingUser :one
+const createAuthUser = `-- name: CreateAuthUser :one
 INSERT INTO users (
-    id, email, password_hash, name, phone, username, first_name, last_name,
+    id, password_hash, name, phone, username, first_name, last_name,
     avatar_url, language, is_active, created_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, false, $11, $11)
-RETURNING id, email, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true, $10, $10)
+RETURNING id, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at
 `
 
-type CreatePendingUserParams struct {
+type CreateAuthUserParams struct {
 	ID           pgtype.UUID        `json:"id"`
-	Email        pgtype.Text        `json:"email"`
 	PasswordHash pgtype.Text        `json:"password_hash"`
 	Name         pgtype.Text        `json:"name"`
 	Phone        pgtype.Text        `json:"phone"`
@@ -68,10 +32,9 @@ type CreatePendingUserParams struct {
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 }
 
-func (q *Queries) CreatePendingUser(ctx context.Context, arg CreatePendingUserParams) (User, error) {
-	row := q.db.QueryRow(ctx, createPendingUser,
+func (q *Queries) CreateAuthUser(ctx context.Context, arg CreateAuthUserParams) (User, error) {
+	row := q.db.QueryRow(ctx, createAuthUser,
 		arg.ID,
-		arg.Email,
 		arg.PasswordHash,
 		arg.Name,
 		arg.Phone,
@@ -85,7 +48,6 @@ func (q *Queries) CreatePendingUser(ctx context.Context, arg CreatePendingUserPa
 	var i User
 	err := row.Scan(
 		&i.ID,
-		&i.Email,
 		&i.Password,
 		&i.PasswordHash,
 		&i.Name,
@@ -169,7 +131,7 @@ func (q *Queries) GetActiveSession(ctx context.Context, arg GetActiveSessionPara
 }
 
 const getActiveUser = `-- name: GetActiveUser :one
-SELECT id, email, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at FROM users WHERE id = $1 AND is_active = true AND deleted_at IS NULL
+SELECT id, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at FROM users WHERE id = $1 AND is_active = true AND deleted_at IS NULL
 `
 
 type GetActiveUserParams struct {
@@ -181,42 +143,6 @@ func (q *Queries) GetActiveUser(ctx context.Context, arg GetActiveUserParams) (U
 	var i User
 	err := row.Scan(
 		&i.ID,
-		&i.Email,
-		&i.Password,
-		&i.PasswordHash,
-		&i.Name,
-		&i.Phone,
-		&i.Username,
-		&i.FirstName,
-		&i.LastName,
-		&i.AvatarUrl,
-		&i.Language,
-		&i.IsActive,
-		&i.LastLoginAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.DeletedAt,
-	)
-	return i, err
-}
-
-const getRegistrationUserForUpdate = `-- name: GetRegistrationUserForUpdate :one
-SELECT id, email, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at FROM users
-WHERE (phone = $1 OR username = $2) AND deleted_at IS NULL
-FOR UPDATE
-`
-
-type GetRegistrationUserForUpdateParams struct {
-	Phone    pgtype.Text `json:"phone"`
-	Username pgtype.Text `json:"username"`
-}
-
-func (q *Queries) GetRegistrationUserForUpdate(ctx context.Context, arg GetRegistrationUserForUpdateParams) (User, error) {
-	row := q.db.QueryRow(ctx, getRegistrationUserForUpdate, arg.Phone, arg.Username)
-	var i User
-	err := row.Scan(
-		&i.ID,
-		&i.Email,
 		&i.Password,
 		&i.PasswordHash,
 		&i.Name,
@@ -263,7 +189,7 @@ func (q *Queries) GetSessionByRefreshHash(ctx context.Context, arg GetSessionByR
 }
 
 const getUserByLogin = `-- name: GetUserByLogin :one
-SELECT id, email, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at FROM users
+SELECT id, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at FROM users
 WHERE (username = $1 OR phone = $2) AND is_active = true AND deleted_at IS NULL
 FOR UPDATE
 `
@@ -278,7 +204,6 @@ func (q *Queries) GetUserByLogin(ctx context.Context, arg GetUserByLoginParams) 
 	var i User
 	err := row.Scan(
 		&i.ID,
-		&i.Email,
 		&i.Password,
 		&i.PasswordHash,
 		&i.Name,
@@ -298,7 +223,7 @@ func (q *Queries) GetUserByLogin(ctx context.Context, arg GetUserByLoginParams) 
 }
 
 const getUserByPhone = `-- name: GetUserByPhone :one
-SELECT id, email, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at FROM users WHERE phone = $1 AND deleted_at IS NULL
+SELECT id, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at FROM users WHERE phone = $1 AND deleted_at IS NULL
 `
 
 type GetUserByPhoneParams struct {
@@ -310,7 +235,40 @@ func (q *Queries) GetUserByPhone(ctx context.Context, arg GetUserByPhoneParams) 
 	var i User
 	err := row.Scan(
 		&i.ID,
-		&i.Email,
+		&i.Password,
+		&i.PasswordHash,
+		&i.Name,
+		&i.Phone,
+		&i.Username,
+		&i.FirstName,
+		&i.LastName,
+		&i.AvatarUrl,
+		&i.Language,
+		&i.IsActive,
+		&i.LastLoginAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
+const getUserByPhoneOrUsername = `-- name: GetUserByPhoneOrUsername :one
+SELECT id, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at FROM users
+WHERE (phone = $1 OR username = $2) AND deleted_at IS NULL
+FOR UPDATE
+`
+
+type GetUserByPhoneOrUsernameParams struct {
+	Phone    pgtype.Text `json:"phone"`
+	Username pgtype.Text `json:"username"`
+}
+
+func (q *Queries) GetUserByPhoneOrUsername(ctx context.Context, arg GetUserByPhoneOrUsernameParams) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByPhoneOrUsername, arg.Phone, arg.Username)
+	var i User
+	err := row.Scan(
+		&i.ID,
 		&i.Password,
 		&i.PasswordHash,
 		&i.Name,
@@ -399,67 +357,8 @@ func (q *Queries) RotateSessionRefresh(ctx context.Context, arg RotateSessionRef
 	return i, err
 }
 
-const updatePendingUser = `-- name: UpdatePendingUser :one
-UPDATE users SET
-    email = $2, password_hash = $3, name = $4, phone = $5, username = $6,
-    first_name = $7, last_name = $8, avatar_url = $9, language = $10,
-    is_active = false, updated_at = $11
-WHERE id = $1 AND deleted_at IS NULL
-RETURNING id, email, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at
-`
-
-type UpdatePendingUserParams struct {
-	ID           pgtype.UUID        `json:"id"`
-	Email        pgtype.Text        `json:"email"`
-	PasswordHash pgtype.Text        `json:"password_hash"`
-	Name         pgtype.Text        `json:"name"`
-	Phone        pgtype.Text        `json:"phone"`
-	Username     pgtype.Text        `json:"username"`
-	FirstName    pgtype.Text        `json:"first_name"`
-	LastName     pgtype.Text        `json:"last_name"`
-	AvatarUrl    pgtype.Text        `json:"avatar_url"`
-	Language     string             `json:"language"`
-	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
-}
-
-func (q *Queries) UpdatePendingUser(ctx context.Context, arg UpdatePendingUserParams) (User, error) {
-	row := q.db.QueryRow(ctx, updatePendingUser,
-		arg.ID,
-		arg.Email,
-		arg.PasswordHash,
-		arg.Name,
-		arg.Phone,
-		arg.Username,
-		arg.FirstName,
-		arg.LastName,
-		arg.AvatarUrl,
-		arg.Language,
-		arg.UpdatedAt,
-	)
-	var i User
-	err := row.Scan(
-		&i.ID,
-		&i.Email,
-		&i.Password,
-		&i.PasswordHash,
-		&i.Name,
-		&i.Phone,
-		&i.Username,
-		&i.FirstName,
-		&i.LastName,
-		&i.AvatarUrl,
-		&i.Language,
-		&i.IsActive,
-		&i.LastLoginAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.DeletedAt,
-	)
-	return i, err
-}
-
 const updateUserLogin = `-- name: UpdateUserLogin :one
-UPDATE users SET last_login_at = $2, updated_at = $2 WHERE id = $1 RETURNING id, email, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at
+UPDATE users SET last_login_at = $2, updated_at = $2 WHERE id = $1 RETURNING id, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at
 `
 
 type UpdateUserLoginParams struct {
@@ -472,7 +371,6 @@ func (q *Queries) UpdateUserLogin(ctx context.Context, arg UpdateUserLoginParams
 	var i User
 	err := row.Scan(
 		&i.ID,
-		&i.Email,
 		&i.Password,
 		&i.PasswordHash,
 		&i.Name,
@@ -539,7 +437,7 @@ UPDATE users SET
     )),
     updated_at = $5
 WHERE id = $6 AND is_active = true AND deleted_at IS NULL
-RETURNING id, email, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at
+RETURNING id, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at
 `
 
 type UpdateUserProfileParams struct {
@@ -563,7 +461,6 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 	var i User
 	err := row.Scan(
 		&i.ID,
-		&i.Email,
 		&i.Password,
 		&i.PasswordHash,
 		&i.Name,

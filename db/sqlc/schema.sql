@@ -2,7 +2,6 @@ CREATE TABLE users (
     id uuid PRIMARY KEY,
     phone varchar(20),
     username varchar(50),
-    email text,
     password text,
     password_hash text,
     first_name varchar(100),
