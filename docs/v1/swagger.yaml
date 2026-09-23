@@ -42,7 +42,6 @@ definitions:
         example: example message
         type: string
     type: object
-host: localhost:8000
 info:
   contact: {}
   description: REST API for Brothers App following Clean Architecture.

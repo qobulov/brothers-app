@@ -101,6 +101,8 @@ Set these environment variables in the Vercel project before deploying:
 - `REDIS_URL`: hosted Redis connection URL used for OTP records
 - `JWT_SECRET`: a strong random signing secret
 - `OTP_PEPPER`: a separate strong random secret for hashing OTP values
+- `CORS_ALLOW_ORIGINS`: comma-separated frontend origins allowed to call the API
+- `CORS_ALLOW_CREDENTIALS`: set to `true` only with explicit origins, never with `*`
 - `TELEGRAM_BOT_TOKEN` and `TELEGRAM_BOT_USERNAME` when Telegram auth is enabled
 
 Do not set `PORT` in Vercel; the platform injects it automatically.
@@ -115,6 +117,8 @@ Key environment variables in `.env.dev`:
 - `APP_ENV`: Application environment (e.g. `development`, `test`)
 - `JWT_SECRET`: Secret key for JWT token signing
 - `JWT_EXPIRATION`: JWT token expiration in seconds (default: `3600`)
+- `CORS_ALLOW_ORIGINS`: comma-separated allowed browser origins (default: `*`)
+- `CORS_ALLOW_CREDENTIALS`: whether credentialed browser requests are allowed (default: `false`)
 
 ### Development Database
 - `DATABASE_URL`: Hosted PostgreSQL connection URL; it takes precedence over the individual `DB_*` values

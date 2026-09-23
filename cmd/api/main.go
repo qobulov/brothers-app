@@ -8,7 +8,6 @@ import (
 // @title Brothers App API
 // @version 1.0
 // @description REST API for Brothers App following Clean Architecture.
-// @host localhost:8000
 // @BasePath /api/v1
 // @securityDefinitions.apikey BearerAuth
 // @in header

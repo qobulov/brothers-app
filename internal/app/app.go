@@ -17,7 +17,9 @@ import (
 // SetupRestServer configures Fiber and registers routes
 func SetupRestServer(pool *pgxpool.Pool, otpCache *otp.Cache, cfg *config.Config) (*fiber.App, error) {
 	app := fiber.New()
-	middleware.FiberMiddleware(app)
+	if err := middleware.FiberMiddleware(app, cfg); err != nil {
+		return nil, err
+	}
 	responses.Middleware(app)
 	routes.SwaggerRoute(app)
 	routes.RegisterPublicRoutes(app, pool, otpCache, cfg)
