@@ -1,7 +1,6 @@
 package usecase_test
 
 import (
-	"os"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -28,15 +27,13 @@ func (s *UserUseCaseTestSuite) SetupTest() {
 	s.repo = repository.NewSQLCUserRepository(db.New(s.db))
 	s.service = usecase.NewUserService(s.repo)
 
-	// Set JWT_SECRET for testing
-	os.Setenv("JWT_SECRET", "test-secret-key-for-jwt-token-generation")
+	s.T().Setenv("JWT_SECRET", "test-secret-key-for-jwt-token-generation")
 }
 
 func (s *UserUseCaseTestSuite) TearDownTest() {
 	if s.cleanup != nil {
 		s.cleanup()
 	}
-	os.Unsetenv("JWT_SECRET")
 }
 
 func TestUserUseCaseTestSuite(t *testing.T) {
