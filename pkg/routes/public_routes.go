@@ -53,6 +53,7 @@ func RegisterPublicRoutes(app fiber.Router, pool *pgxpool.Pool, otpCache *otp.Ca
 	authGroup.Post("/password/forgot", authHandler.ForgotPassword)
 	authGroup.Post("/password/verify", authHandler.VerifyPassword)
 	authGroup.Post("/password/reset", authHandler.ResetPassword)
+	api.Post("/telegram/webhook", telegramWebhookHandler(cfg.TelegramWebhookSecret, authService))
 
 	// User routes
 	userGroup := api.Group("/users")

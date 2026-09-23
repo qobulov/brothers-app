@@ -3,11 +3,14 @@ package app
 import (
 	"context"
 	"log"
+	"os"
+	"strings"
 
 	"github.com/qobulov/brothers-app/internal/auth/otp"
 	authService "github.com/qobulov/brothers-app/internal/auth/service"
 	"github.com/qobulov/brothers-app/internal/auth/telegram"
 	cachepkg "github.com/qobulov/brothers-app/pkg/cache"
+	"github.com/qobulov/brothers-app/pkg/config"
 	"github.com/qobulov/brothers-app/pkg/database"
 	"github.com/qobulov/brothers-app/utils"
 )
@@ -32,7 +35,7 @@ func Start() {
 	}
 
 	workerContext, stopWorker := context.WithCancel(context.Background())
-	if cfg.TelegramBotToken != "" {
+	if shouldStartTelegramPolling(cfg) {
 		telegramClient := telegram.NewClient(cfg.TelegramBotToken, cfg.TelegramBotAPIURL, cfg.TelegramHTTPTimeout, cfg.TelegramPollTimeout)
 		auth := authService.New(pool, otpCache, cfg, telegramClient)
 		worker := telegram.NewWorker(telegramClient, auth)
@@ -69,4 +72,13 @@ func Start() {
 		},
 	})
 
+}
+
+func shouldStartTelegramPolling(cfg *config.Config) bool {
+	if cfg == nil || strings.TrimSpace(cfg.TelegramBotToken) == "" {
+		return false
+	}
+	// Telegram webhook and getUpdates are mutually exclusive. Vercel receives
+	// updates through the webhook route; persistent local/server processes poll.
+	return strings.TrimSpace(cfg.TelegramWebhookSecret) == "" && os.Getenv("VERCEL") == ""
 }

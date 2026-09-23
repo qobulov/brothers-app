@@ -5,16 +5,19 @@ import (
 	"errors"
 	"log"
 	"strings"
-
-	"github.com/qobulov/brothers-app/internal/auth/service"
+	"time"
 )
+
+type StartHandler interface {
+	HandleBotStart(ctx context.Context, startToken string, chatID int64) error
+}
 
 type Worker struct {
 	client *Client
-	auth   *service.Service
+	auth   StartHandler
 }
 
-func NewWorker(client *Client, auth *service.Service) *Worker {
+func NewWorker(client *Client, auth StartHandler) *Worker {
 	return &Worker{client: client, auth: auth}
 }
 
@@ -23,6 +26,7 @@ func (w *Worker) Run(ctx context.Context) error {
 		return nil
 	}
 	var offset int64
+	retryDelay := time.Second
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -32,33 +36,50 @@ func (w *Worker) Run(ctx context.Context) error {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return err
 			}
-			log.Printf("telegram long poll failed: %v", err)
+			log.Printf("telegram long poll failed: %v; retrying in %s", err, retryDelay)
+			if err := waitForRetry(ctx, retryDelay); err != nil {
+				return err
+			}
+			retryDelay = min(retryDelay*2, 30*time.Second)
 			continue
 		}
+		retryDelay = time.Second
 		for _, update := range updates {
 			if update.UpdateID < offset {
 				continue
 			}
-			if update.Message == nil || update.Message.Chat.Type != "private" {
-				offset = update.UpdateID + 1
-				continue
-			}
-			text := strings.TrimSpace(update.Message.Text)
-			if !strings.HasPrefix(text, "/start ") {
-				offset = update.UpdateID + 1
-				continue
-			}
-			startToken := strings.TrimSpace(strings.TrimPrefix(text, "/start "))
-			if startToken == "" {
-				offset = update.UpdateID + 1
-				continue
-			}
-			if err := w.auth.HandleBotStart(ctx, startToken, update.Message.Chat.ID); err != nil {
+			if err := HandleUpdate(ctx, w.auth, update); err != nil {
 				log.Printf("telegram update %d rejected: %v", update.UpdateID, err)
 			}
-			// Advance only after this update has been durably accepted or rejected.
-			// The offset is process-local until the persistent update-offset store is added.
+			// Advance after this update has been accepted or rejected. The
+			// offset is process-local; hosted serverless deployments use webhook mode.
 			offset = update.UpdateID + 1
 		}
+	}
+}
+
+func HandleUpdate(ctx context.Context, auth StartHandler, update Update) error {
+	if auth == nil || update.Message == nil || update.Message.Chat.Type != "private" {
+		return nil
+	}
+	text := strings.TrimSpace(update.Message.Text)
+	if !strings.HasPrefix(text, "/start ") {
+		return nil
+	}
+	startToken := strings.TrimSpace(strings.TrimPrefix(text, "/start "))
+	if startToken == "" {
+		return nil
+	}
+	return auth.HandleBotStart(ctx, startToken, update.Message.Chat.ID)
+}
+
+func waitForRetry(ctx context.Context, delay time.Duration) error {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
 	}
 }

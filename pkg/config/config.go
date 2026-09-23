@@ -27,16 +27,17 @@ type Config struct {
 	JWTIssuer     string
 	JWTAudience   string
 
-	TelegramBotToken    string
-	TelegramBotUsername string
-	TelegramBotAPIURL   string
-	TelegramPollTimeout int
-	TelegramHTTPTimeout int
-	OTPPepper           string
-	OTPDefaultCode      string
-	OTPExpiration       int
-	OTPResendCooldown   int
-	OTPMaxAttempts      int
+	TelegramBotToken      string
+	TelegramBotUsername   string
+	TelegramBotAPIURL     string
+	TelegramPollTimeout   int
+	TelegramHTTPTimeout   int
+	TelegramWebhookSecret string
+	OTPPepper             string
+	OTPDefaultCode        string
+	OTPExpiration         int
+	OTPResendCooldown     int
+	OTPMaxAttempts        int
 }
 
 func LoadConfig(env string) *Config {
@@ -52,30 +53,31 @@ func LoadConfig(env string) *Config {
 	jwtExp := getEnvAsInt("JWT_EXPIRATION", 3600)
 
 	cfg := &Config{
-		AppPort:              getEnv("PORT", getEnv("APP_PORT", "8000")),
-		AppEnv:               getEnv("APP_ENV", "development"),
-		DBHost:               getEnv("DB_HOST", "localhost"),
-		DBPort:               getEnv("DB_PORT", "5432"),
-		DBUser:               getEnv("DB_USER", "postgres"),
-		DBPassword:           getEnv("DB_PASSWORD", "brothers"),
-		DBName:               getEnv("DB_NAME", "test"),
-		RedisURL:             getEnv("REDIS_URL", "redis://localhost:6379/0"),
-		CORSAllowOrigins:     getEnv("CORS_ALLOW_ORIGINS", "*"),
-		CORSAllowCredentials: getEnvAsBool("CORS_ALLOW_CREDENTIALS", false),
-		JWTSecret:            getEnv("JWT_SECRET", "changeme"),
-		JWTExpiration:        jwtExp,
-		JWTIssuer:            getEnv("JWT_ISSUER", "brothers-app"),
-		JWTAudience:          getEnv("JWT_AUDIENCE", "brothers-api"),
-		TelegramBotToken:     getEnv("TELEGRAM_BOT_TOKEN", ""),
-		TelegramBotUsername:  getEnv("TELEGRAM_BOT_USERNAME", ""),
-		TelegramBotAPIURL:    getEnv("TELEGRAM_BOT_API_URL", "https://api.telegram.org"),
-		TelegramPollTimeout:  getEnvAsInt("TELEGRAM_POLL_TIMEOUT", 30),
-		TelegramHTTPTimeout:  getEnvAsInt("TELEGRAM_HTTP_TIMEOUT", 10),
-		OTPPepper:            getEnv("OTP_PEPPER", "development-only-change-me"),
-		OTPDefaultCode:       getEnv("OTP_DEFAULT_CODE", ""),
-		OTPExpiration:        getEnvAsInt("OTP_EXPIRATION", 300),
-		OTPResendCooldown:    getEnvAsInt("OTP_RESEND_COOLDOWN", 60),
-		OTPMaxAttempts:       getEnvAsInt("OTP_MAX_ATTEMPTS", 5),
+		AppPort:               getEnv("PORT", getEnv("APP_PORT", "8000")),
+		AppEnv:                getEnv("APP_ENV", "development"),
+		DBHost:                getEnv("DB_HOST", "localhost"),
+		DBPort:                getEnv("DB_PORT", "5432"),
+		DBUser:                getEnv("DB_USER", "postgres"),
+		DBPassword:            getEnv("DB_PASSWORD", "brothers"),
+		DBName:                getEnv("DB_NAME", "test"),
+		RedisURL:              getEnv("REDIS_URL", "redis://localhost:6379/0"),
+		CORSAllowOrigins:      getEnv("CORS_ALLOW_ORIGINS", "*"),
+		CORSAllowCredentials:  getEnvAsBool("CORS_ALLOW_CREDENTIALS", false),
+		JWTSecret:             getEnv("JWT_SECRET", "changeme"),
+		JWTExpiration:         jwtExp,
+		JWTIssuer:             getEnv("JWT_ISSUER", "brothers-app"),
+		JWTAudience:           getEnv("JWT_AUDIENCE", "brothers-api"),
+		TelegramBotToken:      getEnv("TELEGRAM_BOT_TOKEN", ""),
+		TelegramBotUsername:   getEnv("TELEGRAM_BOT_USERNAME", ""),
+		TelegramBotAPIURL:     getEnv("TELEGRAM_BOT_API_URL", "https://api.telegram.org"),
+		TelegramPollTimeout:   getEnvAsInt("TELEGRAM_POLL_TIMEOUT", 30),
+		TelegramHTTPTimeout:   getEnvAsInt("TELEGRAM_HTTP_TIMEOUT", 10),
+		TelegramWebhookSecret: getEnv("TELEGRAM_WEBHOOK_SECRET", ""),
+		OTPPepper:             getEnv("OTP_PEPPER", "development-only-change-me"),
+		OTPDefaultCode:        getEnv("OTP_DEFAULT_CODE", ""),
+		OTPExpiration:         getEnvAsInt("OTP_EXPIRATION", 300),
+		OTPResendCooldown:     getEnvAsInt("OTP_RESEND_COOLDOWN", 60),
+		OTPMaxAttempts:        getEnvAsInt("OTP_MAX_ATTEMPTS", 5),
 	}
 
 	databaseDSNFallback := fmt.Sprintf(
