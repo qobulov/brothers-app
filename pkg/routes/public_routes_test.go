@@ -151,6 +151,52 @@ func (s *PublicRoutesTestSuite) TestRegistrationRoutesRegistered() {
 	}
 }
 
+func (s *PublicRoutesTestSuite) TestRegisterConflictLocalized() {
+	s.createLoginUser("existing-user", "+998901234577", "securepassword123")
+
+	tests := []struct {
+		name     string
+		language string
+		want     string
+	}{
+		{name: "uzbek", language: "uz", want: "Telefon raqami yoki foydalanuvchi nomi allaqachon mavjud"},
+		{name: "russian", language: "ru", want: "Номер телефона или имя пользователя уже существует"},
+		{name: "english", language: "en", want: "Phone or username already exists"},
+	}
+
+	for _, test := range tests {
+		s.Run(test.name, func() {
+			body, err := json.Marshal(map[string]string{
+				"phone":      "+998901234577",
+				"username":   "new-" + test.language,
+				"first_name": "Qobul",
+				"last_name":  "Qobulov",
+				"password":   "strong-password",
+				"language":   test.language,
+				"otp_code":   "111111",
+			})
+			s.Require().NoError(err)
+
+			req := httptest.NewRequest("POST", "/api/v1/auth/register", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			resp, err := s.app.Test(req, -1)
+			s.Require().NoError(err)
+			defer resp.Body.Close()
+			s.Require().Equal(fiber.StatusConflict, resp.StatusCode)
+
+			var envelope struct {
+				Code    int    `json:"code"`
+				Slug    string `json:"slug"`
+				Message string `json:"message"`
+			}
+			s.Require().NoError(json.NewDecoder(resp.Body).Decode(&envelope))
+			s.Equal(1409, envelope.Code)
+			s.Equal("phone_or_username_exists", envelope.Slug)
+			s.Equal(test.want, envelope.Message)
+		})
+	}
+}
+
 func (s *PublicRoutesTestSuite) TestCurrentProfilePatch() {
 	const password = "securepassword123"
 	s.createLoginUser("profileuser", "+998901234568", password)

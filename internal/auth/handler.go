@@ -29,9 +29,12 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 	if err := c.BodyParser(&request); err != nil {
 		return responses.Error(c, apperror.ErrInvalidData)
 	}
+	if request.Language == "" {
+		request.Language = "uz"
+	}
 	data, err := h.service.Register(c.UserContext(), request)
 	if err != nil {
-		return responses.Error(c, err)
+		return responses.ErrorLocalized(c, err, request.Language)
 	}
 	return responses.Success(c, fiber.StatusOK, data, "Request processed successfully")
 }

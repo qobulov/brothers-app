@@ -2,6 +2,7 @@ package apperror
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -65,16 +66,17 @@ var (
 	ErrUnprocessable = errors.New("unprocessable entity")   // 422
 
 	// Business logic / domain-specific errors
-	ErrAlreadyExists       = errors.New("already exists")   // 409
-	ErrNotAvailable        = errors.New("not available")    // 409
-	ErrLimitExceeded       = errors.New("limit exceeded")   // 429
-	ErrOperationDenied     = errors.New("operation denied") // 403
-	ErrInvalidOTP          = errors.New("invalid or expired otp")
-	ErrBotNotStarted       = errors.New("telegram bot was not started")
-	ErrInvalidResetToken   = errors.New("invalid or expired reset token")
-	ErrInvalidCredentials  = errors.New("invalid credentials")
-	ErrSessionRevoked      = errors.New("session revoked")
-	ErrTelegramUnavailable = errors.New("telegram unavailable")
+	ErrAlreadyExists              = errors.New("already exists")                                // 409
+	ErrRegistrationIdentityExists = errors.New("registration phone or username already exists") // 409
+	ErrNotAvailable               = errors.New("not available")                                 // 409
+	ErrLimitExceeded              = errors.New("limit exceeded")                                // 429
+	ErrOperationDenied            = errors.New("operation denied")                              // 403
+	ErrInvalidOTP                 = errors.New("invalid or expired otp")
+	ErrBotNotStarted              = errors.New("telegram bot was not started")
+	ErrInvalidResetToken          = errors.New("invalid or expired reset token")
+	ErrInvalidCredentials         = errors.New("invalid credentials")
+	ErrSessionRevoked             = errors.New("session revoked")
+	ErrTelegramUnavailable        = errors.New("telegram unavailable")
 
 	// Other errors
 	ErrConflict         = errors.New("conflict")            // 409
@@ -100,7 +102,8 @@ func StatusCode(err error) int {
 	// Database errors
 	case errors.Is(err, ErrRecordNotFound):
 		return fiber.StatusNotFound
-	case errors.Is(err, ErrDuplicatedKey), errors.Is(err, ErrConflict), errors.Is(err, ErrAlreadyExists), errors.Is(err, ErrNotAvailable):
+	case errors.Is(err, ErrDuplicatedKey), errors.Is(err, ErrConflict), errors.Is(err, ErrAlreadyExists),
+		errors.Is(err, ErrRegistrationIdentityExists), errors.Is(err, ErrNotAvailable):
 		return fiber.StatusConflict
 	case errors.Is(err, ErrDependencyFail):
 		return fiber.StatusBadGateway
@@ -141,7 +144,8 @@ func Code(err error) int {
 		return 1403
 	case errors.Is(err, ErrRecordNotFound):
 		return 1404
-	case errors.Is(err, ErrAlreadyExists), errors.Is(err, ErrConflict), errors.Is(err, ErrDuplicatedKey):
+	case errors.Is(err, ErrAlreadyExists), errors.Is(err, ErrRegistrationIdentityExists),
+		errors.Is(err, ErrConflict), errors.Is(err, ErrDuplicatedKey):
 		return 1409
 	case errors.Is(err, ErrLimitExceeded):
 		return 1429
@@ -170,6 +174,8 @@ func Slug(err error) string {
 		return "forbidden"
 	case errors.Is(err, ErrRecordNotFound):
 		return "not_found"
+	case errors.Is(err, ErrRegistrationIdentityExists):
+		return "phone_or_username_exists"
 	case errors.Is(err, ErrAlreadyExists), errors.Is(err, ErrConflict), errors.Is(err, ErrDuplicatedKey):
 		return "conflict"
 	case errors.Is(err, ErrLimitExceeded):
@@ -186,30 +192,62 @@ func Slug(err error) string {
 }
 
 func Message(err error) string {
+	return MessageForLanguage(err, "en")
+}
+
+// MessageForLanguage returns a user-facing error message in Uzbek, Russian, or
+// English. It accepts both a plain language code and an Accept-Language value.
+func MessageForLanguage(err error, language string) string {
+	language = supportedLanguage(language)
+
 	switch {
 	case errors.Is(err, ErrUnauthorized):
-		return "Неверные учетные данные"
+		return localized(language, "Hisob ma'lumotlari noto'g'ri", "Неверные учетные данные", "Invalid credentials")
 	case errors.Is(err, ErrInvalidCredentials):
-		return "Неверные учетные данные"
+		return localized(language, "Login yoki parol noto'g'ri", "Неверные учетные данные", "Invalid credentials")
 	case errors.Is(err, ErrInvalidResetToken):
-		return "Недействительный или просроченный токен сброса"
+		return localized(language, "Parolni tiklash tokeni noto'g'ri yoki muddati o'tgan", "Недействительный или просроченный токен сброса", "Invalid or expired reset token")
 	case errors.Is(err, ErrSessionRevoked):
-		return "Сессия отозвана"
+		return localized(language, "Sessiya bekor qilingan", "Сессия отозвана", "Session revoked")
 	case errors.Is(err, ErrForbidden), errors.Is(err, ErrOperationDenied):
-		return "Доступ запрещен"
+		return localized(language, "Ruxsat berilmagan", "Доступ запрещен", "Access denied")
 	case errors.Is(err, ErrRecordNotFound):
-		return "Ресурс не найден"
+		return localized(language, "Resurs topilmadi", "Ресурс не найден", "Resource not found")
+	case errors.Is(err, ErrRegistrationIdentityExists):
+		return localized(language, "Telefon raqami yoki foydalanuvchi nomi allaqachon mavjud", "Номер телефона или имя пользователя уже существует", "Phone or username already exists")
 	case errors.Is(err, ErrAlreadyExists), errors.Is(err, ErrConflict), errors.Is(err, ErrDuplicatedKey):
-		return "Конфликт данных"
+		return localized(language, "Ma'lumotlar ziddiyati", "Конфликт данных", "Data conflict")
 	case errors.Is(err, ErrLimitExceeded):
-		return "Слишком много запросов"
+		return localized(language, "Juda ko'p so'rov yuborildi", "Слишком много запросов", "Too many requests")
 	case errors.Is(err, ErrInvalidOTP):
-		return "Неверный или просроченный код"
+		return localized(language, "Tasdiqlash kodi noto'g'ri yoki muddati o'tgan", "Неверный или просроченный код", "Invalid or expired verification code")
 	case errors.Is(err, ErrBotNotStarted):
-		return "Сначала откройте Telegram-бота по ссылке"
+		return localized(language, "Avval havola orqali Telegram botni oching", "Сначала откройте Telegram-бота по ссылке", "Open the Telegram bot using the link first")
 	case errors.Is(err, ErrInvalidData), errors.Is(err, ErrRequiredField), errors.Is(err, ErrInvalidFormat):
-		return "Некорректные данные"
+		return localized(language, "Ma'lumotlar noto'g'ri", "Некорректные данные", "Invalid data")
 	default:
-		return "Внутренняя ошибка сервера"
+		return localized(language, "Serverda ichki xatolik yuz berdi", "Внутренняя ошибка сервера", "Internal server error")
+	}
+}
+
+func supportedLanguage(value string) string {
+	for _, candidate := range strings.Split(strings.ToLower(value), ",") {
+		candidate = strings.TrimSpace(strings.SplitN(candidate, ";", 2)[0])
+		candidate = strings.SplitN(candidate, "-", 2)[0]
+		if candidate == "uz" || candidate == "ru" || candidate == "en" {
+			return candidate
+		}
+	}
+	return "en"
+}
+
+func localized(language, uz, ru, en string) string {
+	switch language {
+	case "uz":
+		return uz
+	case "ru":
+		return ru
+	default:
+		return en
 	}
 }

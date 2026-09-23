@@ -63,7 +63,7 @@ func (s *Service) SendOTP(ctx context.Context, req dto.SendOTPRequest) (dto.Star
 
 	_, err = s.queries.GetUserByPhone(ctx, db.GetUserByPhoneParams{Phone: text(phone)})
 	if err == nil {
-		return dto.StartData{}, apperror.ErrAlreadyExists
+		return dto.StartData{}, apperror.ErrRegistrationIdentityExists
 	}
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return dto.StartData{}, fmt.Errorf("checking registration phone: %w", err)
@@ -119,7 +119,7 @@ func (s *Service) Register(ctx context.Context, req dto.RegisterRequest) (dto.Re
 	err = s.withTx(ctx, func(q *db.Queries) error {
 		_, findErr := q.GetUserByPhoneOrUsername(ctx, db.GetUserByPhoneOrUsernameParams{Phone: text(phone), Username: text(username)})
 		if findErr == nil {
-			return apperror.ErrAlreadyExists
+			return apperror.ErrRegistrationIdentityExists
 		}
 		if findErr != nil && !errors.Is(findErr, pgx.ErrNoRows) {
 			return fmt.Errorf("checking registration identity: %w", findErr)
@@ -150,7 +150,7 @@ func (s *Service) Register(ctx context.Context, req dto.RegisterRequest) (dto.Re
 		return nil
 	})
 	if isUniqueViolation(err) {
-		return dto.RegisterData{}, apperror.ErrAlreadyExists
+		return dto.RegisterData{}, apperror.ErrRegistrationIdentityExists
 	}
 	return result, err
 }
