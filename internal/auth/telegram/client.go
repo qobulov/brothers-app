@@ -33,6 +33,12 @@ type Chat struct {
 	Type string `json:"type"`
 }
 
+type Bot struct {
+	ID       int64  `json:"id"`
+	IsBot    bool   `json:"is_bot"`
+	Username string `json:"username"`
+}
+
 func NewClient(token, baseURL string, requestTimeout, pollTimeout int) *Client {
 	if requestTimeout < pollTimeout+5 {
 		requestTimeout = pollTimeout + 5
@@ -43,6 +49,14 @@ func NewClient(token, baseURL string, requestTimeout, pollTimeout int) *Client {
 func (c *Client) SendMessage(ctx context.Context, chatID int64, text string) error {
 	var ignored struct{}
 	return c.call(ctx, "sendMessage", url.Values{"chat_id": {strconv.FormatInt(chatID, 10)}, "text": {text}}, &ignored)
+}
+
+func (c *Client) GetMe(ctx context.Context) (Bot, error) {
+	var bot Bot
+	if err := c.call(ctx, "getMe", nil, &bot); err != nil {
+		return Bot{}, err
+	}
+	return bot, nil
 }
 
 func (c *Client) GetUpdates(ctx context.Context, offset int64) ([]Update, error) {
@@ -69,7 +83,7 @@ func (c *Client) call(ctx context.Context, method string, values url.Values, out
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return fmt.Errorf("calling telegram api method %s: %w", method, ctxErr)
 		}
-		return fmt.Errorf("calling telegram api method %s: request failed", method)
+		return fmt.Errorf("calling telegram api method %s: %s", method, redactCredential(err.Error(), c.token))
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
@@ -92,4 +106,11 @@ func (c *Client) call(ctx context.Context, method string, values url.Values, out
 		}
 	}
 	return nil
+}
+
+func redactCredential(message, credential string) string {
+	if credential == "" {
+		return message
+	}
+	return strings.ReplaceAll(message, credential, "[redacted]")
 }

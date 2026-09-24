@@ -3,7 +3,7 @@ package telegram
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"strings"
 	"time"
 )
@@ -36,7 +36,7 @@ func (w *Worker) Run(ctx context.Context) error {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return err
 			}
-			log.Printf("telegram long poll failed: %v; retrying in %s", err, retryDelay)
+			slog.WarnContext(ctx, "telegram long poll failed", "error", err, "retry_in", retryDelay)
 			if err := waitForRetry(ctx, retryDelay); err != nil {
 				return err
 			}
@@ -49,7 +49,7 @@ func (w *Worker) Run(ctx context.Context) error {
 				continue
 			}
 			if err := HandleUpdate(ctx, w.auth, update); err != nil {
-				log.Printf("telegram update %d rejected: %v", update.UpdateID, err)
+				slog.ErrorContext(ctx, "telegram update rejected", "update_id", update.UpdateID, "error", err)
 			}
 			// Advance after this update has been accepted or rejected. The
 			// offset is process-local; hosted serverless deployments use webhook mode.

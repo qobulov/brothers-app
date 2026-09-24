@@ -3,7 +3,7 @@ package routes
 import (
 	"crypto/subtle"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -25,12 +25,16 @@ func telegramWebhookHandler(secret string, auth telegram.StartHandler) fiber.Han
 
 		var update telegram.Update
 		if err := json.Unmarshal(c.Body(), &update); err != nil {
+			slog.WarnContext(c.UserContext(), "telegram webhook rejected", "reason", "invalid_json", "error", err)
 			return c.SendStatus(fiber.StatusBadRequest)
 		}
+		slog.InfoContext(c.UserContext(), "telegram webhook received", "update_id", update.UpdateID)
 		if err := telegram.HandleUpdate(c.UserContext(), auth, update); err != nil {
 			// Acknowledge rejected updates so Telegram does not retry a consumed
 			// or invalid deep-link token indefinitely.
-			log.Printf("telegram webhook update %d rejected: %v", update.UpdateID, err)
+			slog.ErrorContext(c.UserContext(), "telegram webhook update rejected", "update_id", update.UpdateID, "error", err)
+		} else {
+			slog.InfoContext(c.UserContext(), "telegram webhook update handled", "update_id", update.UpdateID)
 		}
 		return c.SendStatus(fiber.StatusOK)
 	}
