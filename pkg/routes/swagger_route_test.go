@@ -222,13 +222,15 @@ func TestSwaggerDocumentsAuthContract(t *testing.T) {
 		{method: http.MethodPost, path: "/auth/login"},
 		{method: http.MethodPost, path: "/auth/refresh"},
 		{method: http.MethodPost, path: "/auth/logout", protected: true},
-		{method: http.MethodPost, path: "/auth/password/forgot"},
 		{method: http.MethodPost, path: "/auth/password/verify"},
 		{method: http.MethodPost, path: "/auth/password/reset"},
 		{method: http.MethodGet, path: "/me", protected: true},
 		{method: http.MethodPatch, path: "/me", protected: true},
 		{method: http.MethodPost, path: "/me/phone-change/request", protected: true},
 		{method: http.MethodPost, path: "/me/phone-change/confirm", protected: true},
+	}
+	if _, exists := spec.Paths["/auth/password/forgot"]; exists {
+		t.Error("removed password forgot endpoint is still documented")
 	}
 
 	for _, test := range tests {

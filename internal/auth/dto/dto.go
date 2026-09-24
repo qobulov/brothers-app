@@ -19,7 +19,7 @@ type RegisterRequest struct {
 
 type SendOTPRequest struct {
 	Phone   string `json:"phone" example:"+998901234567"`
-	Purpose string `json:"purpose" enums:"registration" example:"registration"`
+	Purpose string `json:"purpose" enums:"registration,password_reset" example:"registration"`
 }
 
 // LoginRequest contains username-or-phone credentials.
@@ -35,10 +35,6 @@ type RefreshRequest struct {
 type OTPVerifyRequest struct {
 	Phone string `json:"phone" example:"+998901234567"`
 	OTP   string `json:"otp" example:"111111"`
-}
-
-type ForgotPasswordRequest struct {
-	Phone string `json:"phone" example:"+998901234567"`
 }
 
 type ResetPasswordRequest struct {

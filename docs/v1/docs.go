@@ -100,7 +100,7 @@ const docTemplate = `{
         },
         "/auth/otp/send": {
             "post": {
-                "description": "Starts Telegram OTP delivery for an unregistered phone. Open the returned deep link and press Start before registering.",
+                "description": "Starts Telegram OTP delivery for registration or password reset. Use purpose registration or password_reset, then open the returned deep link and press Start.",
                 "consumes": [
                     "application/json"
                 ],
@@ -110,7 +110,7 @@ const docTemplate = `{
                 "tags": [
                     "auth"
                 ],
-                "summary": "Send registration OTP",
+                "summary": "Send OTP",
                 "parameters": [
                     {
                         "description": "Phone and OTP purpose",
@@ -137,52 +137,6 @@ const docTemplate = `{
                     },
                     "409": {
                         "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/authdto.ErrorResponse"
-                        }
-                    },
-                    "429": {
-                        "description": "Too Many Requests",
-                        "schema": {
-                            "$ref": "#/definitions/authdto.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/auth/password/forgot": {
-            "post": {
-                "description": "Starts the Telegram OTP password-reset flow.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "auth"
-                ],
-                "summary": "Start password reset",
-                "parameters": [
-                    {
-                        "description": "Account phone",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/authdto.ForgotPasswordRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/authdto.StartResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/authdto.ErrorResponse"
                         }
@@ -952,15 +906,6 @@ const docTemplate = `{
                 }
             }
         },
-        "authdto.ForgotPasswordRequest": {
-            "type": "object",
-            "properties": {
-                "phone": {
-                    "type": "string",
-                    "example": "+998901234567"
-                }
-            }
-        },
         "authdto.LoginRequest": {
             "type": "object",
             "properties": {
@@ -1196,7 +1141,8 @@ const docTemplate = `{
                 "purpose": {
                     "type": "string",
                     "enum": [
-                        "registration"
+                        "registration",
+                        "password_reset"
                     ],
                     "example": "registration"
                 }

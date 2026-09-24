@@ -115,6 +115,7 @@ func (s *PublicRoutesTestSuite) TestLegacyAuthRoutesNotRegistered() {
 		"/api/v1/auth/signup":            false,
 		"/api/v1/auth/otp/verify":        false,
 		"/api/v1/auth/register/resend":   false,
+		"/api/v1/auth/password/forgot":   false,
 		"/api/v1/auth/password/resend":   false,
 		"/api/v1/me/phone-change/resend": false,
 	}

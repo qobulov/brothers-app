@@ -40,8 +40,8 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 }
 
 // SendOTP godoc
-// @Summary Send registration OTP
-// @Description Starts Telegram OTP delivery for an unregistered phone. Open the returned deep link and press Start before registering.
+// @Summary Send OTP
+// @Description Starts Telegram OTP delivery for registration or password reset. Use purpose registration or password_reset, then open the returned deep link and press Start.
 // @Tags auth
 // @Accept json
 // @Produce json
@@ -154,29 +154,6 @@ func (h *Handler) UpdateCurrentUser(c *fiber.Ctx) error {
 		return responses.Error(c, apperror.ErrInvalidData)
 	}
 	data, err := h.service.UpdateCurrentUser(c.UserContext(), userID, request)
-	if err != nil {
-		return responses.Error(c, err)
-	}
-	return responses.Success(c, fiber.StatusOK, data, "Запрос успешно обработан")
-}
-
-// ForgotPassword godoc
-// @Summary Start password reset
-// @Description Starts the Telegram OTP password-reset flow.
-// @Tags auth
-// @Accept json
-// @Produce json
-// @Param request body authdto.ForgotPasswordRequest true "Account phone"
-// @Success 200 {object} authdto.StartResponse
-// @Failure 400 {object} authdto.ErrorResponse
-// @Failure 429 {object} authdto.ErrorResponse
-// @Router /auth/password/forgot [post]
-func (h *Handler) ForgotPassword(c *fiber.Ctx) error {
-	var request authdto.ForgotPasswordRequest
-	if err := c.BodyParser(&request); err != nil {
-		return responses.Error(c, apperror.ErrInvalidData)
-	}
-	data, err := h.service.ForgotPassword(c.UserContext(), request.Phone)
 	if err != nil {
 		return responses.Error(c, err)
 	}

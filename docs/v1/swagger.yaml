@@ -64,12 +64,6 @@ definitions:
         example: false
         type: boolean
     type: object
-  authdto.ForgotPasswordRequest:
-    properties:
-      phone:
-        example: "+998901234567"
-        type: string
-    type: object
   authdto.LoginRequest:
     properties:
       login:
@@ -234,6 +228,7 @@ definitions:
       purpose:
         enum:
         - registration
+        - password_reset
         example: registration
         type: string
     type: object
@@ -439,8 +434,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Starts Telegram OTP delivery for an unregistered phone. Open the
-        returned deep link and press Start before registering.
+      description: Starts Telegram OTP delivery for registration or password reset.
+        Use purpose registration or password_reset, then open the returned deep link
+        and press Start.
       parameters:
       - description: Phone and OTP purpose
         in: body
@@ -467,37 +463,7 @@ paths:
           description: Too Many Requests
           schema:
             $ref: '#/definitions/authdto.ErrorResponse'
-      summary: Send registration OTP
-      tags:
-      - auth
-  /auth/password/forgot:
-    post:
-      consumes:
-      - application/json
-      description: Starts the Telegram OTP password-reset flow.
-      parameters:
-      - description: Account phone
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/authdto.ForgotPasswordRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/authdto.StartResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/authdto.ErrorResponse'
-        "429":
-          description: Too Many Requests
-          schema:
-            $ref: '#/definitions/authdto.ErrorResponse'
-      summary: Start password reset
+      summary: Send OTP
       tags:
       - auth
   /auth/password/reset:

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -71,6 +72,46 @@ func TestConfiguredOTP(t *testing.T) {
 			service := &Service{cfg: &config.Config{AppEnv: test.env, OTPDefaultCode: test.code}}
 			if got := service.configuredOTP(); got != test.expected {
 				t.Fatalf("configuredOTP() = %q, want %q", got, test.expected)
+			}
+		})
+	}
+}
+
+func TestConsumeOTPAcceptsConfiguredCodeWithoutCachedFlow(t *testing.T) {
+	service := &Service{cfg: &config.Config{OTPDefaultCode: "111111"}}
+
+	if err := service.consumeOTP(context.Background(), registrationPurpose, "+998930693005", "111111"); err != nil {
+		t.Fatalf("consumeOTP() error = %v, want nil", err)
+	}
+}
+
+func TestNormalizeOTPPurpose(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		want    string
+		wantErr bool
+	}{
+		{name: "defaults to registration", want: registrationPurpose},
+		{name: "registration", input: " registration ", want: registrationPurpose},
+		{name: "password reset", input: " PASSWORD_RESET ", want: passwordResetPurpose},
+		{name: "unsupported purpose", input: "login", wantErr: true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := normalizeOTPPurpose(test.input)
+			if test.wantErr {
+				if !errors.Is(err, apperror.ErrInvalidData) {
+					t.Fatalf("normalizeOTPPurpose() error = %v, want ErrInvalidData", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("normalizeOTPPurpose() error = %v", err)
+			}
+			if got != test.want {
+				t.Fatalf("normalizeOTPPurpose() = %q, want %q", got, test.want)
 			}
 		})
 	}

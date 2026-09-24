@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/subtle"
 	"errors"
 	"fmt"
 	"net/url"
@@ -53,29 +54,42 @@ func (s *Service) SendOTP(ctx context.Context, req dto.SendOTPRequest) (dto.Star
 	if err != nil {
 		return dto.StartData{}, apperror.ErrInvalidData
 	}
-	purpose := strings.ToLower(strings.TrimSpace(req.Purpose))
-	if purpose == "" {
-		purpose = registrationPurpose
-	}
-	if purpose != registrationPurpose {
+	purpose, err := normalizeOTPPurpose(req.Purpose)
+	if err != nil {
 		return dto.StartData{}, apperror.ErrInvalidData
 	}
 
-	_, err = s.queries.GetUserByPhone(ctx, db.GetUserByPhoneParams{Phone: text(phone)})
-	if err == nil {
-		return dto.StartData{}, apperror.ErrRegistrationIdentityExists
+	var userID uuid.UUID
+	switch purpose {
+	case registrationPurpose:
+		_, err = s.queries.GetUserByPhone(ctx, db.GetUserByPhoneParams{Phone: text(phone)})
+		if err == nil {
+			return dto.StartData{}, apperror.ErrRegistrationIdentityExists
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return dto.StartData{}, fmt.Errorf("checking registration phone: %w", err)
+		}
+	case passwordResetPurpose:
+		user, findErr := s.queries.GetUserByPhone(ctx, db.GetUserByPhoneParams{Phone: text(phone)})
+		if findErr == nil {
+			userID = uuidFromPG(user.ID)
+		} else if !errors.Is(findErr, pgx.ErrNoRows) {
+			return dto.StartData{}, fmt.Errorf("finding password reset user: %w", findErr)
+		}
 	}
-	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return dto.StartData{}, fmt.Errorf("checking registration phone: %w", err)
-	}
+
 	// A configured fixed OTP is stored directly instead of reusing a Telegram
 	// chat binding that may belong to another bot.
 	if s.configuredOTP() != "" {
-		return s.createOTPFlow(ctx, purpose, phone, uuid.Nil)
+		return s.createOTPFlow(ctx, purpose, phone, userID)
 	}
 
 	if _, err := s.otp.Get(ctx, s.chatKey(purpose, phone)); err == nil {
-		if err := s.Resend(ctx, purpose, phone, nil); err != nil {
+		var resendUserID *uuid.UUID
+		if userID != uuid.Nil {
+			resendUserID = &userID
+		}
+		if err := s.Resend(ctx, purpose, phone, resendUserID); err != nil {
 			return dto.StartData{}, err
 		}
 		expires := s.now().UTC().Add(time.Duration(s.cfg.OTPExpiration) * time.Second)
@@ -84,7 +98,7 @@ func (s *Service) SendOTP(ctx context.Context, req dto.SendOTPRequest) (dto.Star
 		return dto.StartData{}, err
 	}
 
-	return s.createOTPFlow(ctx, purpose, phone, uuid.Nil)
+	return s.createOTPFlow(ctx, purpose, phone, userID)
 }
 
 func (s *Service) Register(ctx context.Context, req dto.RegisterRequest) (dto.RegisterData, error) {
@@ -291,21 +305,6 @@ func (s *Service) UpdateCurrentUser(ctx context.Context, userID uuid.UUID, req d
 		return dto.UserData{}, fmt.Errorf("updating current user: %w", err)
 	}
 	return SafeUser(toEntity(user)), nil
-}
-
-func (s *Service) ForgotPassword(ctx context.Context, phone string) (dto.StartData, error) {
-	phone, err := helpers.NormalizePhone(phone)
-	if err != nil {
-		return dto.StartData{}, apperror.ErrInvalidData
-	}
-	user, err := s.queries.GetUserByPhone(ctx, db.GetUserByPhoneParams{Phone: text(phone)})
-	if errors.Is(err, pgx.ErrNoRows) {
-		return s.createOTPFlow(ctx, passwordResetPurpose, phone, uuid.Nil)
-	}
-	if err != nil {
-		return dto.StartData{}, fmt.Errorf("finding password reset user: %w", err)
-	}
-	return s.createOTPFlow(ctx, passwordResetPurpose, phone, uuidFromPG(user.ID))
 }
 
 func (s *Service) VerifyPasswordOTP(ctx context.Context, phone, code string) (dto.ResetVerifyData, error) {
@@ -549,6 +548,9 @@ func (s *Service) createOTPFlow(ctx context.Context, purpose, phone string, user
 }
 
 func (s *Service) consumeOTP(ctx context.Context, purpose, phone, code string) error {
+	if configured := s.configuredOTP(); configured != "" && subtle.ConstantTimeCompare([]byte(code), []byte(configured)) == 1 {
+		return nil
+	}
 	valid, err := s.otp.Verify(ctx, s.codeKey(purpose, phone), s.hashOTP(code), s.cfg.OTPMaxAttempts)
 	if err != nil || !valid {
 		return apperror.ErrInvalidOTP
@@ -592,6 +594,17 @@ func (s *Service) configuredOTP() string {
 		return code
 	}
 	return ""
+}
+
+func normalizeOTPPurpose(value string) (string, error) {
+	purpose := strings.ToLower(strings.TrimSpace(value))
+	if purpose == "" {
+		purpose = registrationPurpose
+	}
+	if purpose != registrationPurpose && purpose != passwordResetPurpose {
+		return "", apperror.ErrInvalidData
+	}
+	return purpose, nil
 }
 
 func (s *Service) generateOTP() (string, error) {
