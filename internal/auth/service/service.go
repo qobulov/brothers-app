@@ -93,7 +93,7 @@ func (s *Service) SendOTP(ctx context.Context, req dto.SendOTPRequest) (dto.Star
 		} else if errors.Is(findErr, pgx.ErrNoRows) {
 			expires := s.now().UTC().Add(time.Duration(s.cfg.OTPExpiration) * time.Second)
 			return s.startData(expires), nil
-		} else if !errors.Is(findErr, pgx.ErrNoRows) {
+		} else {
 			return dto.StartData{}, fmt.Errorf("finding password reset user by email: %w", findErr)
 		}
 	}
