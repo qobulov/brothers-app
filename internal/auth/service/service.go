@@ -370,6 +370,7 @@ func (s *Service) VerifyPasswordOTP(ctx context.Context, email, code string) (dt
 			return dto.ResetVerifyData{}, fmt.Errorf("loading default password reset subject: %w", findErr)
 		}
 		userID = uuidFromPG(user.ID)
+		err = nil
 	}
 	if err != nil {
 		return dto.ResetVerifyData{}, fmt.Errorf("loading password reset subject: %w", err)
