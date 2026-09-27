@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS group_invitations (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     group_id uuid NOT NULL REFERENCES groups(id),
     invited_by uuid NOT NULL REFERENCES users(id),
-    location_name varchar(255);
+    location_name varchar(255),
     phone varchar(20) NOT NULL,
     role user_role NOT NULL,
     token_hash text NOT NULL UNIQUE,
