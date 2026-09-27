@@ -100,7 +100,7 @@ const docTemplate = `{
         },
         "/auth/otp/send": {
             "post": {
-                "description": "Sends an OTP to the provided email for registration or password reset.",
+                "description": "Sends an OTP for registration or password reset. Password reset accepts either email or username and returns the recipient email when delivery is started.",
                 "consumes": [
                     "application/json"
                 ],
@@ -113,7 +113,7 @@ const docTemplate = `{
                 "summary": "Send OTP",
                 "parameters": [
                     {
-                        "description": "Email and OTP purpose",
+                        "description": "OTP purpose and email or username",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -1253,6 +1253,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "email": {
+                    "description": "Email is required for registration. For password_reset, provide exactly\none of Email or Username.",
                     "type": "string",
                     "example": "ali@example.com"
                 },
@@ -1263,12 +1264,20 @@ const docTemplate = `{
                         "password_reset"
                     ],
                     "example": "registration"
+                },
+                "username": {
+                    "type": "string",
+                    "example": "qobulov"
                 }
             }
         },
         "authdto.StartData": {
             "type": "object",
             "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "ali@example.com"
+                },
                 "expires_at": {
                     "type": "string"
                 },

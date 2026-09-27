@@ -215,6 +215,9 @@ definitions:
   authdto.SendOTPRequest:
     properties:
       email:
+        description: |-
+          Email is required for registration. For password_reset, provide exactly
+          one of Email or Username.
         example: ali@example.com
         type: string
       purpose:
@@ -223,9 +226,15 @@ definitions:
         - password_reset
         example: registration
         type: string
+      username:
+        example: qobulov
+        type: string
     type: object
   authdto.StartData:
     properties:
+      email:
+        example: ali@example.com
+        type: string
       expires_at:
         type: string
       resend_in:
@@ -672,10 +681,11 @@ paths:
     post:
       consumes:
       - application/json
-      description: Sends an OTP to the provided email for registration or password
-        reset.
+      description: Sends an OTP for registration or password reset. Password reset
+        accepts either email or username and returns the recipient email when delivery
+        is started.
       parameters:
-      - description: Email and OTP purpose
+      - description: OTP purpose and email or username
         in: body
         name: request
         required: true

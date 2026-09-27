@@ -50,18 +50,19 @@ func New(pool *pgxpool.Pool, otpCache *otp.Cache, sessions sessionpkg.Store, cfg
 }
 
 func (s *Service) SendOTP(ctx context.Context, req dto.SendOTPRequest) (dto.StartData, error) {
-	email, err := helpers.NormalizeEmail(req.Email)
-	if err != nil {
-		return dto.StartData{}, apperror.ErrInvalidData
-	}
 	purpose, err := normalizeOTPPurpose(req.Purpose)
 	if err != nil {
 		return dto.StartData{}, apperror.ErrInvalidData
 	}
 
+	var email string
 	var userID uuid.UUID
 	switch purpose {
 	case registrationPurpose:
+		email, err = helpers.NormalizeEmail(req.Email)
+		if err != nil || strings.TrimSpace(req.Username) != "" {
+			return dto.StartData{}, apperror.ErrInvalidData
+		}
 		_, err = s.queries.GetUserByEmail(ctx, db.GetUserByEmailParams{Email: text(email)})
 		if err == nil {
 			return dto.StartData{}, apperror.ErrRegistrationIdentityExists
@@ -70,8 +71,23 @@ func (s *Service) SendOTP(ctx context.Context, req dto.SendOTPRequest) (dto.Star
 			return dto.StartData{}, fmt.Errorf("checking registration email: %w", err)
 		}
 	case passwordResetPurpose:
-		user, findErr := s.queries.GetUserByEmail(ctx, db.GetUserByEmailParams{Email: text(email)})
+		lookupEmail, username, lookupErr := passwordResetIdentifier(req)
+		if lookupErr != nil {
+			return dto.StartData{}, apperror.ErrInvalidData
+		}
+
+		var user db.User
+		var findErr error
+		if username != "" {
+			user, findErr = s.queries.GetUserByLogin(ctx, db.GetUserByLoginParams{Username: text(username), Email: text("")})
+		} else {
+			user, findErr = s.queries.GetUserByEmail(ctx, db.GetUserByEmailParams{Email: text(lookupEmail)})
+		}
 		if findErr == nil {
+			email, err = helpers.NormalizeEmail(user.Email.String)
+			if err != nil {
+				return dto.StartData{}, apperror.ErrInvalidData
+			}
 			userID = uuidFromPG(user.ID)
 		} else if errors.Is(findErr, pgx.ErrNoRows) {
 			expires := s.now().UTC().Add(time.Duration(s.cfg.OTPExpiration) * time.Second)
@@ -81,6 +97,25 @@ func (s *Service) SendOTP(ctx context.Context, req dto.SendOTPRequest) (dto.Star
 		}
 	}
 	return s.createOTPFlow(ctx, purpose, email, userID)
+}
+
+// passwordResetIdentifier accepts either an email address or a username, but
+// never both. The resolved account email is later used as the OTP recipient
+// and as the OTP cache key.
+func passwordResetIdentifier(req dto.SendOTPRequest) (email, username string, err error) {
+	emailInput := strings.TrimSpace(req.Email)
+	username = strings.TrimSpace(req.Username)
+	if (emailInput == "" && username == "") || (emailInput != "" && username != "") {
+		return "", "", apperror.ErrInvalidData
+	}
+	if username != "" {
+		return "", username, nil
+	}
+	email, err = helpers.NormalizeEmail(emailInput)
+	if err != nil {
+		return "", "", apperror.ErrInvalidData
+	}
+	return email, "", nil
 }
 
 func (s *Service) Register(ctx context.Context, req dto.RegisterRequest) (dto.RegisterData, error) {
@@ -494,7 +529,7 @@ func (s *Service) createOTPFlow(ctx context.Context, purpose, email string, user
 		}
 		return dto.StartData{}, fmt.Errorf("%w: %w", apperror.ErrEmailUnavailable, err)
 	}
-	return s.startData(expires), nil
+	return s.startData(expires, email), nil
 }
 
 func (s *Service) consumeOTP(ctx context.Context, purpose, email, code string) error {
@@ -522,12 +557,16 @@ func (s *Service) cooldownKey(purpose, email string) string {
 	return "cooldown:" + purpose + ":" + email
 }
 
-func (s *Service) startData(expires time.Time) dto.StartData {
-	return dto.StartData{
+func (s *Service) startData(expires time.Time, recipient ...string) dto.StartData {
+	data := dto.StartData{
 		ExpiresAt: expires.Format(time.RFC3339),
 		TTL:       s.cfg.OTPExpiration,
 		ResendIn:  s.cfg.OTPResendCooldown,
 	}
+	if len(recipient) > 0 {
+		data.Email = recipient[0]
+	}
+	return data
 }
 
 func (s *Service) hashOTP(code string) string { return helpers.HashHMAC(code, s.cfg.OTPPepper) }

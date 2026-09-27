@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/qobulov/brothers-app/internal/auth/dto"
 	"github.com/qobulov/brothers-app/internal/auth/otp"
@@ -119,6 +120,48 @@ func TestNormalizeOTPPurpose(t *testing.T) {
 				t.Fatalf("normalizeOTPPurpose() = %q, want %q", got, test.want)
 			}
 		})
+	}
+}
+
+func TestPasswordResetIdentifier(t *testing.T) {
+	tests := []struct {
+		name         string
+		request      authdto.SendOTPRequest
+		wantEmail    string
+		wantUsername string
+		wantErr      bool
+	}{
+		{name: "email", request: authdto.SendOTPRequest{Email: " Ali@Example.COM "}, wantEmail: "ali@example.com"},
+		{name: "username", request: authdto.SendOTPRequest{Username: " qobulov "}, wantUsername: "qobulov"},
+		{name: "both identifiers", request: authdto.SendOTPRequest{Email: "ali@example.com", Username: "qobulov"}, wantErr: true},
+		{name: "missing identifier", request: authdto.SendOTPRequest{}, wantErr: true},
+		{name: "invalid email", request: authdto.SendOTPRequest{Email: "invalid"}, wantErr: true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			email, username, err := passwordResetIdentifier(test.request)
+			if test.wantErr {
+				if !errors.Is(err, apperror.ErrInvalidData) {
+					t.Fatalf("passwordResetIdentifier() error = %v, want ErrInvalidData", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("passwordResetIdentifier() error = %v", err)
+			}
+			if email != test.wantEmail || username != test.wantUsername {
+				t.Fatalf("passwordResetIdentifier() = (%q, %q), want (%q, %q)", email, username, test.wantEmail, test.wantUsername)
+			}
+		})
+	}
+}
+
+func TestStartDataIncludesRecipientEmail(t *testing.T) {
+	s := &Service{cfg: &config.Config{OTPExpiration: 300, OTPResendCooldown: 60}}
+	data := s.startData(time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC), "ali@example.com")
+	if data.Email != "ali@example.com" {
+		t.Fatalf("StartData.Email = %q, want recipient email", data.Email)
 	}
 }
 

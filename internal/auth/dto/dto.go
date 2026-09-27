@@ -19,8 +19,11 @@ type RegisterRequest struct {
 }
 
 type SendOTPRequest struct {
-	Email   string `json:"email" example:"ali@example.com"`
-	Purpose string `json:"purpose" enums:"registration,password_reset" example:"registration"`
+	// Email is required for registration. For password_reset, provide exactly
+	// one of Email or Username.
+	Email    string `json:"email,omitempty" example:"ali@example.com"`
+	Username string `json:"username,omitempty" example:"qobulov"`
+	Purpose  string `json:"purpose" enums:"registration,password_reset" example:"registration"`
 }
 
 // LoginRequest contains username-or-email credentials.
@@ -56,6 +59,7 @@ type StartData struct {
 	ExpiresAt string `json:"expires_at"`
 	TTL       int    `json:"ttl"`
 	ResendIn  int    `json:"resend_in"`
+	Email     string `json:"email,omitempty" example:"ali@example.com"`
 }
 
 type TokenData struct {

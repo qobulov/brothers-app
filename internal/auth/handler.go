@@ -39,11 +39,11 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 
 // SendOTP godoc
 // @Summary Send OTP
-// @Description Sends an OTP to the provided email for registration or password reset.
+// @Description Sends an OTP for registration or password reset. Password reset accepts either email or username and returns the recipient email when delivery is started.
 // @Tags auth
 // @Accept json
 // @Produce json
-// @Param request body authdto.SendOTPRequest true "Email and OTP purpose"
+// @Param request body authdto.SendOTPRequest true "OTP purpose and email or username"
 // @Success 200 {object} authdto.StartResponse
 // @Failure 400 {object} authdto.ErrorResponse
 // @Failure 409 {object} authdto.ErrorResponse
