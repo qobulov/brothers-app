@@ -42,6 +42,13 @@ func TestPasswordFlowsPreserveCacheErrors(t *testing.T) {
 	}
 }
 
+func TestDefaultOTPSkipsCacheVerification(t *testing.T) {
+	s := &Service{otp: otp.NewCache(failingOTPCache{err: errors.New("redis unavailable")}), cfg: &config.Config{}}
+	if err := s.consumeOTP(context.Background(), registrationPurpose, "ali@example.com", defaultOTP); err != nil {
+		t.Fatalf("consumeOTP() = %v, want default OTP accepted without Redis", err)
+	}
+}
+
 func TestNormalizeEmail(t *testing.T) {
 	tests := []struct {
 		name     string
