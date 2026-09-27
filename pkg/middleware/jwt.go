@@ -1,15 +1,15 @@
 package middleware
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
-	db "github.com/qobulov/brothers-app/internal/db"
+	"github.com/qobulov/brothers-app/internal/auth/session"
 	"github.com/qobulov/brothers-app/pkg/config"
 	"github.com/qobulov/brothers-app/pkg/responses"
 )
@@ -50,7 +50,7 @@ func JWTMiddleware() fiber.Handler {
 
 // SessionJWTMiddleware validates an access token and checks that its single
 // referenced session is still active. It is used by the new auth endpoints.
-func SessionJWTMiddleware(queries *db.Queries, cfg *config.Config) fiber.Handler {
+func SessionJWTMiddleware(sessions session.Store, cfg *config.Config) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		tokenString, ok := authorizationToken(c.Get("Authorization"))
 		if !ok {
@@ -76,12 +76,17 @@ func SessionJWTMiddleware(queries *db.Queries, cfg *config.Config) fiber.Handler
 		if !okSub || !okSID || userErr != nil || sessionErr != nil {
 			return unauthorized(c)
 		}
-		_, err = queries.GetActiveSession(c.UserContext(), db.GetActiveSessionParams{
-			ID:        pgtype.UUID{Bytes: sessionID, Valid: true},
-			UserID:    pgtype.UUID{Bytes: userID, Valid: true},
-			ExpiresAt: pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true},
-		})
+		if sessions == nil {
+			return responses.Error(c, fmt.Errorf("session store is not configured"))
+		}
+		active, err := sessions.Validate(c.UserContext(), userID, sessionID)
 		if err != nil {
+			if errors.Is(err, session.ErrNotFound) {
+				return unauthorized(c)
+			}
+			return responses.Error(c, fmt.Errorf("checking redis session: %w", err))
+		}
+		if !active {
 			return unauthorized(c)
 		}
 		c.Locals("auth_user_id", userID)

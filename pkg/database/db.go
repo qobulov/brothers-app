@@ -16,6 +16,13 @@ func Connect(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parsing database config: %w", err)
 	}
+	if config.ConnConfig.RuntimeParams == nil {
+		config.ConnConfig.RuntimeParams = make(map[string]string)
+	}
+	// PostgreSQL timestamptz values are persisted as UTC instants. Pin every
+	// connection to UTC so database-generated values (for example now()) and
+	// scanned time.Time values consistently use RFC3339's Z offset.
+	config.ConnConfig.RuntimeParams["TimeZone"] = "UTC"
 	config.MaxConns = 25
 	config.MinConns = 2
 	config.MaxConnLifetime = 5 * time.Minute

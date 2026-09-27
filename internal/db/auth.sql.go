@@ -13,16 +13,17 @@ import (
 
 const createAuthUser = `-- name: CreateAuthUser :one
 INSERT INTO users (
-    id, password_hash, name, phone, username, first_name, last_name,
+    id, password_hash, name, email, phone, username, first_name, last_name,
     avatar_url, language, is_active, created_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true, $10, $10)
-RETURNING id, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true, $11, $11)
+RETURNING id, email, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at
 `
 
 type CreateAuthUserParams struct {
 	ID           pgtype.UUID        `json:"id"`
 	PasswordHash pgtype.Text        `json:"password_hash"`
 	Name         pgtype.Text        `json:"name"`
+	Email        pgtype.Text        `json:"email"`
 	Phone        pgtype.Text        `json:"phone"`
 	Username     pgtype.Text        `json:"username"`
 	FirstName    pgtype.Text        `json:"first_name"`
@@ -37,6 +38,7 @@ func (q *Queries) CreateAuthUser(ctx context.Context, arg CreateAuthUserParams) 
 		arg.ID,
 		arg.PasswordHash,
 		arg.Name,
+		arg.Email,
 		arg.Phone,
 		arg.Username,
 		arg.FirstName,
@@ -48,6 +50,7 @@ func (q *Queries) CreateAuthUser(ctx context.Context, arg CreateAuthUserParams) 
 	var i User
 	err := row.Scan(
 		&i.ID,
+		&i.Email,
 		&i.Password,
 		&i.PasswordHash,
 		&i.Name,
@@ -66,72 +69,8 @@ func (q *Queries) CreateAuthUser(ctx context.Context, arg CreateAuthUserParams) 
 	return i, err
 }
 
-const createSession = `-- name: CreateSession :one
-INSERT INTO user_sessions (id, user_id, refresh_token_hash, expires_at, created_at)
-VALUES ($1, $2, $3, $4, $5) RETURNING id, user_id, refresh_token_hash, device_id, device_name, platform, expires_at, created_at, revoked_at
-`
-
-type CreateSessionParams struct {
-	ID               pgtype.UUID        `json:"id"`
-	UserID           pgtype.UUID        `json:"user_id"`
-	RefreshTokenHash string             `json:"refresh_token_hash"`
-	ExpiresAt        pgtype.Timestamptz `json:"expires_at"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-}
-
-func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (UserSession, error) {
-	row := q.db.QueryRow(ctx, createSession,
-		arg.ID,
-		arg.UserID,
-		arg.RefreshTokenHash,
-		arg.ExpiresAt,
-		arg.CreatedAt,
-	)
-	var i UserSession
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.RefreshTokenHash,
-		&i.DeviceID,
-		&i.DeviceName,
-		&i.Platform,
-		&i.ExpiresAt,
-		&i.CreatedAt,
-		&i.RevokedAt,
-	)
-	return i, err
-}
-
-const getActiveSession = `-- name: GetActiveSession :one
-SELECT id, user_id, refresh_token_hash, device_id, device_name, platform, expires_at, created_at, revoked_at FROM user_sessions
-WHERE id = $1 AND user_id = $2 AND revoked_at IS NULL AND expires_at > $3
-`
-
-type GetActiveSessionParams struct {
-	ID        pgtype.UUID        `json:"id"`
-	UserID    pgtype.UUID        `json:"user_id"`
-	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
-}
-
-func (q *Queries) GetActiveSession(ctx context.Context, arg GetActiveSessionParams) (UserSession, error) {
-	row := q.db.QueryRow(ctx, getActiveSession, arg.ID, arg.UserID, arg.ExpiresAt)
-	var i UserSession
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.RefreshTokenHash,
-		&i.DeviceID,
-		&i.DeviceName,
-		&i.Platform,
-		&i.ExpiresAt,
-		&i.CreatedAt,
-		&i.RevokedAt,
-	)
-	return i, err
-}
-
 const getActiveUser = `-- name: GetActiveUser :one
-SELECT id, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at FROM users WHERE id = $1 AND is_active = true AND deleted_at IS NULL
+SELECT id, email, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at FROM users WHERE id = $1 AND is_active = true AND deleted_at IS NULL
 `
 
 type GetActiveUserParams struct {
@@ -143,6 +82,7 @@ func (q *Queries) GetActiveUser(ctx context.Context, arg GetActiveUserParams) (U
 	var i User
 	err := row.Scan(
 		&i.ID,
+		&i.Email,
 		&i.Password,
 		&i.PasswordHash,
 		&i.Name,
@@ -161,49 +101,90 @@ func (q *Queries) GetActiveUser(ctx context.Context, arg GetActiveUserParams) (U
 	return i, err
 }
 
-const getSessionByRefreshHash = `-- name: GetSessionByRefreshHash :one
-SELECT id, user_id, refresh_token_hash, device_id, device_name, platform, expires_at, created_at, revoked_at FROM user_sessions
-WHERE refresh_token_hash = $1 AND revoked_at IS NULL AND expires_at > $2 FOR UPDATE
+const getUserByEmail = `-- name: GetUserByEmail :one
+SELECT id, email, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at FROM users WHERE email = $1 AND deleted_at IS NULL
 `
 
-type GetSessionByRefreshHashParams struct {
-	RefreshTokenHash string             `json:"refresh_token_hash"`
-	ExpiresAt        pgtype.Timestamptz `json:"expires_at"`
+type GetUserByEmailParams struct {
+	Email pgtype.Text `json:"email"`
 }
 
-func (q *Queries) GetSessionByRefreshHash(ctx context.Context, arg GetSessionByRefreshHashParams) (UserSession, error) {
-	row := q.db.QueryRow(ctx, getSessionByRefreshHash, arg.RefreshTokenHash, arg.ExpiresAt)
-	var i UserSession
+func (q *Queries) GetUserByEmail(ctx context.Context, arg GetUserByEmailParams) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByEmail, arg.Email)
+	var i User
 	err := row.Scan(
 		&i.ID,
-		&i.UserID,
-		&i.RefreshTokenHash,
-		&i.DeviceID,
-		&i.DeviceName,
-		&i.Platform,
-		&i.ExpiresAt,
+		&i.Email,
+		&i.Password,
+		&i.PasswordHash,
+		&i.Name,
+		&i.Phone,
+		&i.Username,
+		&i.FirstName,
+		&i.LastName,
+		&i.AvatarUrl,
+		&i.Language,
+		&i.IsActive,
+		&i.LastLoginAt,
 		&i.CreatedAt,
-		&i.RevokedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
+const getUserByEmailOrUsername = `-- name: GetUserByEmailOrUsername :one
+SELECT id, email, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at FROM users
+WHERE (email = $1 OR username = $2) AND deleted_at IS NULL
+FOR UPDATE
+`
+
+type GetUserByEmailOrUsernameParams struct {
+	Email    pgtype.Text `json:"email"`
+	Username pgtype.Text `json:"username"`
+}
+
+func (q *Queries) GetUserByEmailOrUsername(ctx context.Context, arg GetUserByEmailOrUsernameParams) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByEmailOrUsername, arg.Email, arg.Username)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Password,
+		&i.PasswordHash,
+		&i.Name,
+		&i.Phone,
+		&i.Username,
+		&i.FirstName,
+		&i.LastName,
+		&i.AvatarUrl,
+		&i.Language,
+		&i.IsActive,
+		&i.LastLoginAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
 	)
 	return i, err
 }
 
 const getUserByLogin = `-- name: GetUserByLogin :one
-SELECT id, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at FROM users
-WHERE (username = $1 OR phone = $2) AND is_active = true AND deleted_at IS NULL
+SELECT id, email, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at FROM users
+WHERE (username = $1 OR email = $2) AND is_active = true AND deleted_at IS NULL
 FOR UPDATE
 `
 
 type GetUserByLoginParams struct {
 	Username pgtype.Text `json:"username"`
-	Phone    pgtype.Text `json:"phone"`
+	Email    pgtype.Text `json:"email"`
 }
 
 func (q *Queries) GetUserByLogin(ctx context.Context, arg GetUserByLoginParams) (User, error) {
-	row := q.db.QueryRow(ctx, getUserByLogin, arg.Username, arg.Phone)
+	row := q.db.QueryRow(ctx, getUserByLogin, arg.Username, arg.Email)
 	var i User
 	err := row.Scan(
 		&i.ID,
+		&i.Email,
 		&i.Password,
 		&i.PasswordHash,
 		&i.Name,
@@ -218,147 +199,12 @@ func (q *Queries) GetUserByLogin(ctx context.Context, arg GetUserByLoginParams) 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
-	)
-	return i, err
-}
-
-const getUserByPhone = `-- name: GetUserByPhone :one
-SELECT id, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at FROM users WHERE phone = $1 AND deleted_at IS NULL
-`
-
-type GetUserByPhoneParams struct {
-	Phone pgtype.Text `json:"phone"`
-}
-
-func (q *Queries) GetUserByPhone(ctx context.Context, arg GetUserByPhoneParams) (User, error) {
-	row := q.db.QueryRow(ctx, getUserByPhone, arg.Phone)
-	var i User
-	err := row.Scan(
-		&i.ID,
-		&i.Password,
-		&i.PasswordHash,
-		&i.Name,
-		&i.Phone,
-		&i.Username,
-		&i.FirstName,
-		&i.LastName,
-		&i.AvatarUrl,
-		&i.Language,
-		&i.IsActive,
-		&i.LastLoginAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.DeletedAt,
-	)
-	return i, err
-}
-
-const getUserByPhoneOrUsername = `-- name: GetUserByPhoneOrUsername :one
-SELECT id, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at FROM users
-WHERE (phone = $1 OR username = $2) AND deleted_at IS NULL
-FOR UPDATE
-`
-
-type GetUserByPhoneOrUsernameParams struct {
-	Phone    pgtype.Text `json:"phone"`
-	Username pgtype.Text `json:"username"`
-}
-
-func (q *Queries) GetUserByPhoneOrUsername(ctx context.Context, arg GetUserByPhoneOrUsernameParams) (User, error) {
-	row := q.db.QueryRow(ctx, getUserByPhoneOrUsername, arg.Phone, arg.Username)
-	var i User
-	err := row.Scan(
-		&i.ID,
-		&i.Password,
-		&i.PasswordHash,
-		&i.Name,
-		&i.Phone,
-		&i.Username,
-		&i.FirstName,
-		&i.LastName,
-		&i.AvatarUrl,
-		&i.Language,
-		&i.IsActive,
-		&i.LastLoginAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.DeletedAt,
-	)
-	return i, err
-}
-
-const revokeActiveSession = `-- name: RevokeActiveSession :exec
-UPDATE user_sessions SET revoked_at = $2 WHERE user_id = $1 AND revoked_at IS NULL
-`
-
-type RevokeActiveSessionParams struct {
-	UserID    pgtype.UUID        `json:"user_id"`
-	RevokedAt pgtype.Timestamptz `json:"revoked_at"`
-}
-
-func (q *Queries) RevokeActiveSession(ctx context.Context, arg RevokeActiveSessionParams) error {
-	_, err := q.db.Exec(ctx, revokeActiveSession, arg.UserID, arg.RevokedAt)
-	return err
-}
-
-const revokeSession = `-- name: RevokeSession :execrows
-UPDATE user_sessions SET revoked_at = $3
-WHERE id = $1 AND user_id = $2 AND revoked_at IS NULL
-`
-
-type RevokeSessionParams struct {
-	ID        pgtype.UUID        `json:"id"`
-	UserID    pgtype.UUID        `json:"user_id"`
-	RevokedAt pgtype.Timestamptz `json:"revoked_at"`
-}
-
-func (q *Queries) RevokeSession(ctx context.Context, arg RevokeSessionParams) (int64, error) {
-	result, err := q.db.Exec(ctx, revokeSession, arg.ID, arg.UserID, arg.RevokedAt)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
-}
-
-const rotateSessionRefresh = `-- name: RotateSessionRefresh :one
-UPDATE user_sessions SET refresh_token_hash = $2, expires_at = $3
-WHERE id = $1 AND refresh_token_hash = $4 AND revoked_at IS NULL AND expires_at > $5
-RETURNING id, user_id, refresh_token_hash, device_id, device_name, platform, expires_at, created_at, revoked_at
-`
-
-type RotateSessionRefreshParams struct {
-	ID                 pgtype.UUID        `json:"id"`
-	RefreshTokenHash   string             `json:"refresh_token_hash"`
-	ExpiresAt          pgtype.Timestamptz `json:"expires_at"`
-	RefreshTokenHash_2 string             `json:"refresh_token_hash_2"`
-	ExpiresAt_2        pgtype.Timestamptz `json:"expires_at_2"`
-}
-
-func (q *Queries) RotateSessionRefresh(ctx context.Context, arg RotateSessionRefreshParams) (UserSession, error) {
-	row := q.db.QueryRow(ctx, rotateSessionRefresh,
-		arg.ID,
-		arg.RefreshTokenHash,
-		arg.ExpiresAt,
-		arg.RefreshTokenHash_2,
-		arg.ExpiresAt_2,
-	)
-	var i UserSession
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.RefreshTokenHash,
-		&i.DeviceID,
-		&i.DeviceName,
-		&i.Platform,
-		&i.ExpiresAt,
-		&i.CreatedAt,
-		&i.RevokedAt,
 	)
 	return i, err
 }
 
 const updateUserLogin = `-- name: UpdateUserLogin :one
-UPDATE users SET last_login_at = $2, updated_at = $2 WHERE id = $1 RETURNING id, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at
+UPDATE users SET last_login_at = $2, updated_at = $2 WHERE id = $1 RETURNING id, email, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at
 `
 
 type UpdateUserLoginParams struct {
@@ -371,6 +217,7 @@ func (q *Queries) UpdateUserLogin(ctx context.Context, arg UpdateUserLoginParams
 	var i User
 	err := row.Scan(
 		&i.ID,
+		&i.Email,
 		&i.Password,
 		&i.PasswordHash,
 		&i.Name,
@@ -407,24 +254,6 @@ func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPassword
 	return result.RowsAffected(), nil
 }
 
-const updateUserPhone = `-- name: UpdateUserPhone :execrows
-UPDATE users SET phone = $2, updated_at = $3 WHERE id = $1 AND deleted_at IS NULL
-`
-
-type UpdateUserPhoneParams struct {
-	ID        pgtype.UUID        `json:"id"`
-	Phone     pgtype.Text        `json:"phone"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
-}
-
-func (q *Queries) UpdateUserPhone(ctx context.Context, arg UpdateUserPhoneParams) (int64, error) {
-	result, err := q.db.Exec(ctx, updateUserPhone, arg.ID, arg.Phone, arg.UpdatedAt)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
-}
-
 const updateUserProfile = `-- name: UpdateUserProfile :one
 UPDATE users SET
     first_name = COALESCE($1, first_name),
@@ -437,7 +266,7 @@ UPDATE users SET
     )),
     updated_at = $5
 WHERE id = $6 AND is_active = true AND deleted_at IS NULL
-RETURNING id, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at
+RETURNING id, email, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at
 `
 
 type UpdateUserProfileParams struct {
@@ -461,6 +290,7 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 	var i User
 	err := row.Scan(
 		&i.ID,
+		&i.Email,
 		&i.Password,
 		&i.PasswordHash,
 		&i.Name,
@@ -477,20 +307,4 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 		&i.DeletedAt,
 	)
 	return i, err
-}
-
-const userPhoneExistsOther = `-- name: UserPhoneExistsOther :one
-SELECT EXISTS(SELECT 1 FROM users WHERE phone = $1 AND id <> $2 AND deleted_at IS NULL)
-`
-
-type UserPhoneExistsOtherParams struct {
-	Phone pgtype.Text `json:"phone"`
-	ID    pgtype.UUID `json:"id"`
-}
-
-func (q *Queries) UserPhoneExistsOther(ctx context.Context, arg UserPhoneExistsOtherParams) (bool, error) {
-	row := q.db.QueryRow(ctx, userPhoneExistsOther, arg.Phone, arg.ID)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
 }

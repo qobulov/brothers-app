@@ -39,16 +39,9 @@ To regenerate only Swagger documentation:
 make swag
 ```
 
-If the same Telegram bot is already running in another deployment, start the local API
-without its polling worker to avoid Telegram `409 Conflict` errors:
-
-```bash
-make run-no-bot
-```
-
-Both `make run` and `make run-no-bot` automatically start the local Homebrew
-PostgreSQL and Redis services, wait until they are ready, and regenerate Swagger
-before starting the Go process. Docker is not required for this local flow.
+`make run` automatically starts the local Homebrew PostgreSQL and Redis services,
+waits until they are ready, and regenerates Swagger before starting the Go process.
+Docker is not required for this local flow.
 
 ### 1. Install Go module dependencies
 
@@ -131,25 +124,10 @@ Set these environment variables in the Vercel project before deploying:
 - `OTP_PEPPER`: a separate strong random secret for hashing OTP values
 - `CORS_ALLOW_ORIGINS`: comma-separated frontend origins allowed to call the API
 - `CORS_ALLOW_CREDENTIALS`: set to `true` only with explicit origins, never with `*`
-- `TELEGRAM_BOT_TOKEN` and `TELEGRAM_BOT_USERNAME` when Telegram auth is enabled
-- `TELEGRAM_WEBHOOK_SECRET`: random value containing only letters, digits, `_`, or `-`
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`: SMTP relay settings
+- `SMTP_FROM`: verified sender identity; delivery uses STARTTLS, as in Formula
 
 Do not set `PORT` in Vercel; the platform injects it automatically.
-
-After deploying, register the production webhook once. Use the same secret that
-is configured in Vercel:
-
-```bash
-curl -fsS "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook" \
-  --data-urlencode "url=https://brothers-app.vercel.app/api/v1/telegram/webhook" \
-  --data-urlencode "secret_token=${TELEGRAM_WEBHOOK_SECRET}" \
-  --data-urlencode "allowed_updates=[\"message\"]" \
-  --data-urlencode "drop_pending_updates=true"
-```
-
-Telegram webhook and `getUpdates` polling cannot run simultaneously. Local
-polling is intended only when the production webhook has been removed or when a
-different development bot token is used.
 
 ### Run production database migrations
 
@@ -182,8 +160,8 @@ Key environment variables in `.env.dev`:
 - `APP_ENV`: Application environment (e.g. `development`, `test`)
 - `JWT_SECRET`: Secret key for JWT token signing
 - `JWT_EXPIRATION`: JWT token expiration in seconds (default: `3600`)
-- `OTP_DEFAULT_CODE`: optional fixed OTP in every environment; leave empty to generate random OTP values. A fixed production OTP bypasses phone ownership verification and must only be used temporarily.
-- `TELEGRAM_WEBHOOK_SECRET`: authenticates Telegram webhook requests
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`: SMTP relay settings for OTP delivery
+- `SMTP_FROM`: verified sender identity
 - `CORS_ALLOW_ORIGINS`: comma-separated allowed browser origins (default: `*`)
 - `CORS_ALLOW_CREDENTIALS`: whether credentialed browser requests are allowed (default: `false`)
 

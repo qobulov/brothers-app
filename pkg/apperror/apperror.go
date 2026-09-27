@@ -1,10 +1,14 @@
 package apperror
 
 import (
+	"context"
 	"errors"
+	"net/http"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type AppError struct {
@@ -14,7 +18,62 @@ type AppError struct {
 }
 
 func (e *AppError) Error() string {
+	if e.Err != nil {
+		return e.Message + ": " + e.Err.Error()
+	}
 	return e.Message
+}
+
+func (e *AppError) Unwrap() error { return e.Err }
+
+// Normalize classifies driver/framework errors while retaining the original cause.
+func Normalize(err error) error {
+	if err == nil {
+		return ErrInternalServer
+	}
+	var kind error
+	var pgErr *pgconn.PgError
+	var httpErr *fiber.Error
+	switch {
+	case errors.Is(err, ErrEmailUnavailable):
+		return err
+	case errors.Is(err, pgx.ErrNoRows):
+		kind = ErrRecordNotFound
+	case errors.Is(err, context.DeadlineExceeded):
+		kind = ErrTimeout
+	case errors.As(err, &pgErr):
+		switch pgErr.Code {
+		case "23505":
+			kind = ErrDuplicatedKey
+		case "23503":
+			kind = ErrForeignKeyViolated
+		case "23514":
+			kind = ErrCheckConstraintViolated
+		case "23502", "22P02", "22003", "22007", "22008":
+			kind = ErrInvalidData
+		}
+	case errors.As(err, &httpErr):
+		switch httpErr.Code {
+		case fiber.StatusBadRequest:
+			kind = ErrInvalidData
+		case fiber.StatusUnauthorized:
+			kind = ErrUnauthorized
+		case fiber.StatusForbidden:
+			kind = ErrForbidden
+		case fiber.StatusNotFound:
+			kind = ErrRecordNotFound
+		case fiber.StatusConflict:
+			kind = ErrConflict
+		case fiber.StatusUnprocessableEntity:
+			kind = ErrUnprocessable
+		case fiber.StatusTooManyRequests:
+			kind = ErrLimitExceeded
+		}
+	}
+	if kind != nil && !errors.Is(err, kind) {
+		return errors.Join(kind, err)
+	}
+	return err
 }
 
 func NewAppError(code int, msg string, err error) *AppError {
@@ -66,17 +125,16 @@ var (
 	ErrUnprocessable = errors.New("unprocessable entity")   // 422
 
 	// Business logic / domain-specific errors
-	ErrAlreadyExists              = errors.New("already exists")                                // 409
-	ErrRegistrationIdentityExists = errors.New("registration phone or username already exists") // 409
-	ErrNotAvailable               = errors.New("not available")                                 // 409
-	ErrLimitExceeded              = errors.New("limit exceeded")                                // 429
-	ErrOperationDenied            = errors.New("operation denied")                              // 403
+	ErrAlreadyExists              = errors.New("already exists")                                        // 409
+	ErrRegistrationIdentityExists = errors.New("registration email, phone, or username already exists") // 409
+	ErrNotAvailable               = errors.New("not available")                                         // 409
+	ErrLimitExceeded              = errors.New("limit exceeded")                                        // 429
+	ErrOperationDenied            = errors.New("operation denied")                                      // 403
 	ErrInvalidOTP                 = errors.New("invalid or expired otp")
-	ErrBotNotStarted              = errors.New("telegram bot was not started")
 	ErrInvalidResetToken          = errors.New("invalid or expired reset token")
 	ErrInvalidCredentials         = errors.New("invalid credentials")
 	ErrSessionRevoked             = errors.New("session revoked")
-	ErrTelegramUnavailable        = errors.New("telegram unavailable")
+	ErrEmailUnavailable           = errors.New("email delivery unavailable")
 
 	// Other errors
 	ErrConflict         = errors.New("conflict")            // 409
@@ -86,12 +144,19 @@ var (
 
 // StatusCode maps errors to Fiber HTTP status codes
 func StatusCode(err error) int {
+	err = Normalize(err)
+	var httpErr *fiber.Error
+	if errors.As(err, &httpErr) && httpErr.Code >= 400 && httpErr.Code <= 599 {
+		return httpErr.Code
+	}
 	switch {
 	// Generic
 	case errors.Is(err, ErrInternalServer), errors.Is(err, ErrUnknown), errors.Is(err, ErrTransactionAbort):
 		return fiber.StatusInternalServerError
 	case errors.Is(err, ErrTimeout):
 		return fiber.StatusGatewayTimeout
+	case errors.Is(err, ErrEmailUnavailable):
+		return fiber.StatusServiceUnavailable
 	case errors.Is(err, ErrUnauthorized), errors.Is(err, ErrInvalidCredentials), errors.Is(err, ErrInvalidResetToken), errors.Is(err, ErrSessionRevoked):
 		return fiber.StatusUnauthorized
 	case errors.Is(err, ErrForbidden), errors.Is(err, ErrOperationDenied):
@@ -103,7 +168,7 @@ func StatusCode(err error) int {
 	case errors.Is(err, ErrRecordNotFound):
 		return fiber.StatusNotFound
 	case errors.Is(err, ErrDuplicatedKey), errors.Is(err, ErrConflict), errors.Is(err, ErrAlreadyExists),
-		errors.Is(err, ErrRegistrationIdentityExists), errors.Is(err, ErrNotAvailable):
+		errors.Is(err, ErrRegistrationIdentityExists), errors.Is(err, ErrNotAvailable), errors.Is(err, ErrRegistered):
 		return fiber.StatusConflict
 	case errors.Is(err, ErrDependencyFail):
 		return fiber.StatusBadGateway
@@ -112,7 +177,7 @@ func StatusCode(err error) int {
 		errors.Is(err, ErrModelValueRequired), errors.Is(err, ErrModelAccessibleFieldsRequired),
 		errors.Is(err, ErrSubQueryRequired), errors.Is(err, ErrUnsupportData),
 		errors.Is(err, ErrUnsupportedDriver), errors.Is(err, ErrEmptySlice),
-		errors.Is(err, ErrDryRunModeUnsupported), errors.Is(err, ErrPreloadNotAllowed),
+		errors.Is(err, ErrDryRunModeUnsupported), errors.Is(err, ErrPreloadNotAllowed), errors.Is(err, ErrInvalidDB),
 		errors.Is(err, ErrForeignKeyViolated), errors.Is(err, ErrCheckConstraintViolated):
 		return fiber.StatusBadRequest
 
@@ -125,7 +190,7 @@ func StatusCode(err error) int {
 		return fiber.StatusUnprocessableEntity
 	case errors.Is(err, ErrLimitExceeded):
 		return fiber.StatusTooManyRequests
-	case errors.Is(err, ErrInvalidOTP), errors.Is(err, ErrBotNotStarted):
+	case errors.Is(err, ErrInvalidOTP):
 		return fiber.StatusBadRequest
 
 	// Default
@@ -135,6 +200,7 @@ func StatusCode(err error) int {
 }
 
 func Code(err error) int {
+	err = Normalize(err)
 	switch {
 	case errors.Is(err, ErrUnauthorized):
 		return 1401
@@ -151,16 +217,17 @@ func Code(err error) int {
 		return 1429
 	case errors.Is(err, ErrInvalidOTP):
 		return 1404
-	case errors.Is(err, ErrBotNotStarted):
-		return 1409
+	case errors.Is(err, ErrEmailUnavailable):
+		return 1503
 	case errors.Is(err, ErrInvalidData), errors.Is(err, ErrRequiredField), errors.Is(err, ErrInvalidFormat):
 		return 1400
 	default:
-		return 1500
+		return 1000 + StatusCode(err)
 	}
 }
 
 func Slug(err error) string {
+	err = Normalize(err)
 	switch {
 	case errors.Is(err, ErrUnauthorized):
 		return "unauthorized"
@@ -175,19 +242,38 @@ func Slug(err error) string {
 	case errors.Is(err, ErrRecordNotFound):
 		return "not_found"
 	case errors.Is(err, ErrRegistrationIdentityExists):
-		return "phone_or_username_exists"
+		return "email_phone_or_username_exists"
 	case errors.Is(err, ErrAlreadyExists), errors.Is(err, ErrConflict), errors.Is(err, ErrDuplicatedKey):
 		return "conflict"
 	case errors.Is(err, ErrLimitExceeded):
 		return "rate_limit_exceeded"
 	case errors.Is(err, ErrInvalidOTP):
 		return "invalid_or_expired_otp"
-	case errors.Is(err, ErrBotNotStarted):
-		return "bot_not_started"
+	case errors.Is(err, ErrEmailUnavailable):
+		return "email_delivery_unavailable"
 	case errors.Is(err, ErrInvalidData), errors.Is(err, ErrRequiredField), errors.Is(err, ErrInvalidFormat):
 		return "invalid_data"
+	case errors.Is(err, ErrInvalidID):
+		return "invalid_id"
+	case errors.Is(err, ErrForeignKeyViolated):
+		return "foreign_key_violation"
+	case errors.Is(err, ErrCheckConstraintViolated):
+		return "check_constraint_violation"
+	case errors.Is(err, ErrTimeout):
+		return "timeout"
 	default:
-		return "internal_error"
+		switch StatusCode(err) {
+		case 400:
+			return "invalid_data"
+		case 409:
+			return "conflict"
+		case 422:
+			return "unprocessable_entity"
+		case 500:
+			return "internal_error"
+		default:
+			return strings.ReplaceAll(strings.ToLower(http.StatusText(StatusCode(err))), " ", "_")
+		}
 	}
 }
 
@@ -198,6 +284,7 @@ func Message(err error) string {
 // MessageForLanguage returns a user-facing error message in Uzbek, Russian, or
 // English. It accepts both a plain language code and an Accept-Language value.
 func MessageForLanguage(err error, language string) string {
+	err = Normalize(err)
 	language = supportedLanguage(language)
 
 	switch {
@@ -214,18 +301,29 @@ func MessageForLanguage(err error, language string) string {
 	case errors.Is(err, ErrRecordNotFound):
 		return localized(language, "Resurs topilmadi", "Ресурс не найден", "Resource not found")
 	case errors.Is(err, ErrRegistrationIdentityExists):
-		return localized(language, "Telefon raqami yoki foydalanuvchi nomi allaqachon mavjud", "Номер телефона или имя пользователя уже существует", "Phone or username already exists")
+		return localized(language, "Email, telefon raqami yoki foydalanuvchi nomi allaqachon mavjud", "Email, номер телефона или имя пользователя уже существуют", "Email, phone, or username already exists")
 	case errors.Is(err, ErrAlreadyExists), errors.Is(err, ErrConflict), errors.Is(err, ErrDuplicatedKey):
 		return localized(language, "Ma'lumotlar ziddiyati", "Конфликт данных", "Data conflict")
 	case errors.Is(err, ErrLimitExceeded):
 		return localized(language, "Juda ko'p so'rov yuborildi", "Слишком много запросов", "Too many requests")
 	case errors.Is(err, ErrInvalidOTP):
 		return localized(language, "Tasdiqlash kodi noto'g'ri yoki muddati o'tgan", "Неверный или просроченный код", "Invalid or expired verification code")
-	case errors.Is(err, ErrBotNotStarted):
-		return localized(language, "Avval havola orqali Telegram botni oching", "Сначала откройте Telegram-бота по ссылке", "Open the Telegram bot using the link first")
+	case errors.Is(err, ErrEmailUnavailable):
+		return localized(language, "Email yuborish vaqtincha ishlamayapti", "Отправка email временно недоступна", "Email delivery is temporarily unavailable")
+	case errors.Is(err, ErrInvalidID):
+		return localized(language, "ID noto'g'ri", "Некорректный ID", "Invalid ID")
+	case errors.Is(err, ErrForeignKeyViolated):
+		return localized(language, "Bog'langan ma'lumot mavjud emas yoki ishlatilmoqda", "Связанные данные отсутствуют или используются", "Related data is missing or still in use")
+	case errors.Is(err, ErrCheckConstraintViolated):
+		return localized(language, "Ma'lumotlar belgilangan shartga mos emas", "Данные не соответствуют ограничению", "Data violates a required constraint")
+	case errors.Is(err, ErrTimeout):
+		return localized(language, "So'rovni bajarish vaqti tugadi", "Время выполнения запроса истекло", "Request timed out")
 	case errors.Is(err, ErrInvalidData), errors.Is(err, ErrRequiredField), errors.Is(err, ErrInvalidFormat):
 		return localized(language, "Ma'lumotlar noto'g'ri", "Некорректные данные", "Invalid data")
 	default:
+		if StatusCode(err) < 500 {
+			return localized(language, "So'rovni bajarib bo'lmadi", "Не удалось выполнить запрос", "Request could not be processed")
+		}
 		return localized(language, "Serverda ichki xatolik yuz berdi", "Внутренняя ошибка сервера", "Internal server error")
 	}
 }

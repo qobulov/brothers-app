@@ -21,3 +21,12 @@ func TestLoadConfigPrefersDeploymentEnvironment(t *testing.T) {
 		t.Fatalf("CORS config = %q, %t", cfg.CORSAllowOrigins, cfg.CORSAllowCredentials)
 	}
 }
+
+func TestLoadConfigUsesFormulaSMTPFromVariable(t *testing.T) {
+	t.Setenv("SMTP_FROM", "noreply@example.com")
+
+	cfg := LoadConfig("file-that-does-not-exist")
+	if cfg.SMTPFrom != "noreply@example.com" {
+		t.Fatalf("SMTPFrom = %q, want Formula SMTP_FROM value", cfg.SMTPFrom)
+	}
+}

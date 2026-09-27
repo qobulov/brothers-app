@@ -51,6 +51,8 @@ definitions:
         example: 1400
         type: integer
       data:
+        allOf:
+        - $ref: '#/definitions/responses.ErrorDetails'
         x-nullable: true
       message:
         example: Некорректные данные
@@ -75,26 +77,11 @@ definitions:
     type: object
   authdto.OTPVerifyRequest:
     properties:
-      otp:
-        example: "111111"
-        type: string
-      phone:
-        example: "+998901234567"
-        type: string
-    type: object
-  authdto.PhoneChangeConfirmRequest:
-    properties:
-      new_phone:
-        example: "+998901234568"
+      email:
+        example: ali@example.com
         type: string
       otp:
-        example: "111111"
-        type: string
-    type: object
-  authdto.PhoneChangeRequest:
-    properties:
-      new_phone:
-        example: "+998901234568"
+        example: "482910"
         type: string
     type: object
   authdto.RefreshRequest:
@@ -115,6 +102,9 @@ definitions:
       avatar_url:
         example: https://example.com/avatar.jpg
         type: string
+      email:
+        example: ali@example.com
+        type: string
       first_name:
         example: Qobul
         type: string
@@ -125,7 +115,7 @@ definitions:
         example: Qobulov
         type: string
       otp_code:
-        example: "111111"
+        example: "482910"
         type: string
       password:
         example: strong-password
@@ -158,6 +148,8 @@ definitions:
     type: object
   authdto.RegisterUserData:
     properties:
+      email:
+        type: string
       full_name:
         type: string
       id:
@@ -222,8 +214,8 @@ definitions:
     type: object
   authdto.SendOTPRequest:
     properties:
-      phone:
-        example: "+998901234567"
+      email:
+        example: ali@example.com
         type: string
       purpose:
         enum:
@@ -238,8 +230,6 @@ definitions:
         type: string
       resend_in:
         type: integer
-      telegram_deep_link:
-        type: string
       ttl:
         type: integer
     type: object
@@ -296,7 +286,7 @@ definitions:
     properties:
       avatar_url:
         type: string
-      created_at:
+      email:
         type: string
       first_name:
         type: string
@@ -311,8 +301,6 @@ definitions:
       last_name:
         type: string
       phone:
-        type: string
-      updated_at:
         type: string
       username:
         type: string
@@ -336,6 +324,233 @@ definitions:
         example: true
         type: boolean
     type: object
+  group.CreateRequest:
+    properties:
+      name:
+        type: string
+    type: object
+  group.ErrorResponse:
+    properties:
+      code:
+        example: 1400
+        type: integer
+      data:
+        $ref: '#/definitions/responses.ErrorDetails'
+      message:
+        example: Invalid request
+        type: string
+      meta:
+        $ref: '#/definitions/responses.Meta'
+      slug:
+        example: invalid_data
+        type: string
+      success:
+        example: false
+        type: boolean
+    type: object
+  group.Group:
+    properties:
+      id:
+        type: string
+      is_owner:
+        type: boolean
+      name:
+        type: string
+      role:
+        type: string
+    type: object
+  group.GroupResponse:
+    properties:
+      code:
+        example: 0
+        type: integer
+      data:
+        $ref: '#/definitions/group.Group'
+      message:
+        example: group returned
+        type: string
+      meta:
+        $ref: '#/definitions/responses.Meta'
+      slug:
+        example: ok
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  group.GroupsResponse:
+    properties:
+      code:
+        example: 0
+        type: integer
+      data:
+        items:
+          $ref: '#/definitions/group.Group'
+        type: array
+      message:
+        example: groups returned
+        type: string
+      meta:
+        $ref: '#/definitions/responses.Meta'
+      slug:
+        example: ok
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  group.Invitation:
+    properties:
+      email:
+        type: string
+      expires_at:
+        type: string
+      group_id:
+        type: string
+      group_name:
+        type: string
+      id:
+        type: string
+      invited_by:
+        type: string
+      location_name:
+        type: string
+      recipient_id:
+        type: string
+      responded_at:
+        type: string
+      role:
+        type: string
+      status:
+        type: string
+    type: object
+  group.InvitationActionRequest:
+    properties:
+      action:
+        enum:
+        - accept
+        - reject
+        example: accept
+        type: string
+    type: object
+  group.InvitationResponse:
+    properties:
+      code:
+        example: 0
+        type: integer
+      data:
+        $ref: '#/definitions/group.Invitation'
+      message:
+        example: invitation created
+        type: string
+      meta:
+        $ref: '#/definitions/responses.Meta'
+      slug:
+        example: ok
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  group.InviteRequest:
+    properties:
+      email:
+        type: string
+      location_name:
+        example: Kokand
+        type: string
+      role:
+        type: string
+      user_id:
+        type: string
+    type: object
+  group.Member:
+    properties:
+      avatar_url:
+        type: string
+      email:
+        type: string
+      invitation_id:
+        type: string
+      is_owner:
+        type: boolean
+      role:
+        type: string
+      status:
+        type: string
+      user_id:
+        type: string
+      username:
+        type: string
+    type: object
+  group.MembersResponse:
+    properties:
+      code:
+        example: 0
+        type: integer
+      data:
+        items:
+          $ref: '#/definitions/group.Member'
+        type: array
+      message:
+        example: members returned
+        type: string
+      meta:
+        $ref: '#/definitions/responses.Meta'
+      slug:
+        example: ok
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  notification.Notification:
+    properties:
+      content:
+        type: string
+      event_type:
+        enum:
+        - GROUP_INVITATION
+        - ORDER_CREATED
+        - ORDER_CONFIRMED
+        - MEMBER_JOINED
+        - ORDER_CANCELLED
+        type: string
+      expires_at:
+        type: string
+      id:
+        type: integer
+      is_read:
+        type: boolean
+      payload:
+        type: object
+      read_at:
+        type: string
+      title:
+        type: string
+      type:
+        enum:
+        - GLOBAL
+        - TARGETED
+        type: string
+    type: object
+  notification.NotificationsResponse:
+    properties:
+      code:
+        type: integer
+      data:
+        items:
+          $ref: '#/definitions/notification.Notification'
+        type: array
+      message:
+        type: string
+      meta:
+        $ref: '#/definitions/responses.Meta'
+      slug:
+        type: string
+      success:
+        type: boolean
+    type: object
   orderdto.CreateOrderRequest:
     properties:
       total:
@@ -350,24 +565,47 @@ definitions:
       total:
         type: number
     type: object
+  responses.ErrorDetails:
+    properties:
+      reason:
+        example: 'checking registration email: ERROR: column email does not exist
+          (SQLSTATE 42703)'
+        type: string
+    type: object
+  responses.ErrorResponse:
+    properties:
+      error:
+        example: example error
+        type: string
+    type: object
   responses.MessageResponse:
     properties:
       message:
         example: example message
         type: string
     type: object
-  userdto.PatchUserRequest:
+  responses.Meta:
     properties:
-      name:
+      api_version:
         type: string
-    required:
-    - name
+      duration:
+        type: string
+      request_id:
+        type: string
+      service:
+        type: string
+      timestamp:
+        type: string
     type: object
   userdto.UserResponse:
     properties:
+      avatar_url:
+        type: string
+      email:
+        type: string
       id:
         type: string
-      name:
+      username:
         type: string
     type: object
 info:
@@ -380,8 +618,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Authenticates an active user using a username or phone number and
-        password.
+      description: Authenticates an active user using a username or email address
+        and password.
       parameters:
       - description: Login credentials
         in: body
@@ -408,7 +646,7 @@ paths:
           description: Too Many Requests
           schema:
             $ref: '#/definitions/authdto.ErrorResponse'
-      summary: Sign in with username or phone
+      summary: Sign in with username or email
       tags:
       - auth
   /auth/logout:
@@ -434,11 +672,10 @@ paths:
     post:
       consumes:
       - application/json
-      description: Starts Telegram OTP delivery for registration or password reset.
-        Use purpose registration or password_reset, then open the returned deep link
-        and press Start.
+      description: Sends an OTP to the provided email for registration or password
+        reset.
       parameters:
-      - description: Phone and OTP purpose
+      - description: Email and OTP purpose
         in: body
         name: request
         required: true
@@ -501,10 +738,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Exchanges a Telegram-delivered reset OTP for a single-use reset
-        token.
+      description: Exchanges an email-delivered reset OTP for a single-use reset token.
       parameters:
-      - description: Phone and OTP
+      - description: Email and OTP
         in: body
         name: verification
         required: true
@@ -593,6 +829,190 @@ paths:
       summary: Register user
       tags:
       - auth
+  /groups:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/group.GroupsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List my groups
+      tags:
+      - groups
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Group payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/group.CreateRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/group.GroupResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a group
+      tags:
+      - groups
+  /groups/{groupID}:
+    get:
+      parameters:
+      - description: Group UUID
+        in: path
+        name: groupID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/group.GroupResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get group details
+      tags:
+      - groups
+  /groups/{groupID}/invitations:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Group UUID
+        in: path
+        name: groupID
+        required: true
+        type: string
+      - description: Invitation payload; provide user_id or email
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/group.InviteRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/group.InvitationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a group invitation
+      tags:
+      - group invitations
+  /groups/{groupID}/members:
+    get:
+      parameters:
+      - description: Group UUID
+        in: path
+        name: groupID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/group.MembersResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List active and pending group members
+      tags:
+      - groups
+  /invitations/{invitationID}/action:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Invitation UUID
+        in: path
+        name: invitationID
+        required: true
+        type: string
+      - description: Action payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/group.InvitationActionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/group.InvitationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Respond to a group invitation
+      tags:
+      - group invitations
   /me:
     get:
       description: Returns safe profile fields for the authenticated user.
@@ -643,78 +1063,24 @@ paths:
       summary: Update current profile
       tags:
       - profile
-  /me/phone-change/confirm:
-    post:
-      consumes:
-      - application/json
-      description: Verifies the Telegram OTP and applies the new phone number.
-      parameters:
-      - description: New phone and OTP
-        in: body
-        name: confirmation
-        required: true
-        schema:
-          $ref: '#/definitions/authdto.PhoneChangeConfirmRequest'
+  /notifications:
+    get:
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/authdto.EmptyResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/authdto.ErrorResponse'
+            $ref: '#/definitions/notification.NotificationsResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/authdto.ErrorResponse'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/authdto.ErrorResponse'
+            $ref: '#/definitions/group.ErrorResponse'
       security:
       - BearerAuth: []
-      summary: Confirm phone change
+      summary: List my notifications
       tags:
-      - profile
-  /me/phone-change/request:
-    post:
-      consumes:
-      - application/json
-      description: Starts the Telegram OTP flow for a new unique phone number.
-      parameters:
-      - description: New phone
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/authdto.PhoneChangeRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/authdto.StartResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/authdto.ErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/authdto.ErrorResponse'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/authdto.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Start phone change
-      tags:
-      - profile
+      - notifications
   /orders:
     get:
       produces:
@@ -811,6 +1177,16 @@ paths:
       - orders
   /users:
     get:
+      description: Searches active users by username or email and returns only invitation-safe
+        fields.
+      parameters:
+      - description: Username or email fragment
+        in: query
+        maxLength: 100
+        minLength: 2
+        name: query
+        required: true
+        type: string
       produces:
       - application/json
       responses:
@@ -820,79 +1196,17 @@ paths:
             items:
               $ref: '#/definitions/userdto.UserResponse'
             type: array
-      summary: Get all users
-      tags:
-      - users
-  /users/{id}:
-    delete:
-      parameters:
-      - description: User ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
+        "400":
+          description: Bad Request
           schema:
-            $ref: '#/definitions/responses.MessageResponse'
-      summary: Delete an user by ID
-      tags:
-      - users
-    get:
-      parameters:
-      - description: User ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
+            $ref: '#/definitions/responses.ErrorResponse'
+        "401":
+          description: Unauthorized
           schema:
-            $ref: '#/definitions/userdto.UserResponse'
-      summary: Get user by ID
-      tags:
-      - users
-    patch:
-      consumes:
-      - application/json
-      parameters:
-      - description: User ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: User update payload
-        in: body
-        name: user
-        required: true
-        schema:
-          $ref: '#/definitions/userdto.PatchUserRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/userdto.UserResponse'
-      summary: Update an user partially
-      tags:
-      - users
-  /users/me:
-    get:
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/userdto.UserResponse'
-      summary: Get currently authenticated user
+            $ref: '#/definitions/responses.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Find registered users for an invitation
       tags:
       - users
 securityDefinitions:

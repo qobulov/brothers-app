@@ -1,0 +1,428 @@
+Enum user_role {
+  employee
+  manager
+  investor
+}
+
+Enum order_status {
+  pending
+  completed
+  cancelled
+}
+
+Enum debt_currency {
+  USD
+  UZS
+}
+
+Enum debt_direction {
+  I_OWE
+  THEY_OWE_ME
+}
+
+Enum debt_status {
+  active
+  paid
+  cancelled
+}
+
+Enum balance_transaction_type {
+  order_completed
+  order_reversal
+  manager_adjustment
+}
+
+Enum profit_transaction_type {
+  order_profit
+  order_reversal
+}
+
+Enum notification_platform {
+  ios
+  android
+}
+
+Table users {
+  id uuid [pk]
+  phone varchar(20) [not null, unique]
+  username varchar(50) [unique]
+  password_hash text
+  first_name varchar(100)
+  last_name varchar(100)
+  avatar_url text
+  language varchar(10) [not null]
+  is_active boolean [not null, default: true]
+  last_login_at timestamptz
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  deleted_at timestamptz
+}
+
+Table user_sessions {
+  id uuid [pk]
+  user_id uuid [not null]
+  refresh_token_hash text [not null]
+  device_id varchar(255)
+  device_name varchar(255)
+  expires_at timestamptz [not null]
+  created_at timestamptz [not null]
+  revoked_at timestamptz
+}
+
+Table groups {
+  id uuid [pk]
+  name varchar(255) [not null]
+  created_by uuid [not null]
+  is_active boolean [not null, default: true]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  deleted_at timestamptz
+}
+
+Table group_members {
+
+  id uuid [pk]
+
+  group_id uuid [not null]
+
+  user_id uuid [not null]
+  username varchar [not null]
+
+  role user_role [not null]
+
+  is_owner boolean [not null, default: false]
+
+  joined_at timestamptz [not null]
+
+  created_at timestamptz [not null]
+
+  updated_at timestamptz [not null]
+  
+  deleted_at timestamptz [not null]
+
+  Indexes {
+    (group_id, user_id) [unique]
+  }
+}
+
+Table group_invitations {
+  id uuid [pk]
+  group_id uuid [not null]
+  invited_by uuid [not null]
+  phone varchar(20) [not null]
+  role user_role [not null]
+  token_hash text [not null]
+  expires_at timestamptz [not null]
+  accepted_at timestamptz
+  rejected_at timestamptz
+  created_at timestamptz [not null]
+}
+
+Table locations {
+  id uuid [pk]
+  group_id uuid [not null]
+  name varchar(255) [not null]
+  employee_id uuid
+  created_by uuid [not null]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  deleted_at timestamptz
+}
+
+Table customers {
+  id uuid [pk]
+  group_id uuid [not null]
+  phone varchar(20) [not null]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  deleted_at timestamptz [not null]
+  Indexes {
+    (group_id, phone) [unique]
+  }
+}
+
+Table orders {
+  id uuid [pk]
+  group_id uuid [not null]
+  created_by uuid [not null]
+
+  from_employee_id uuid [not null]
+  to_employee_id uuid [not null]
+
+  customer_id uuid
+  customer_phone varchar(20)
+
+  amount_usd bigint [not null]
+  profit_uzs bigint [not null, default: 0]
+
+  status order_status [not null]
+
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  completed_at timestamptz
+  cancelled_at timestamptz
+  deleted_at timestamptz
+}
+
+Table order_confirmations {
+  id uuid [pk]
+  order_id uuid [not null]
+  employee_id uuid [not null]
+  confirmed_amount_usd bigint [not null]
+  confirmed_at timestamptz [not null]
+  created_at timestamptz [not null]
+
+  Indexes {
+    (order_id, employee_id) [unique]
+  }
+}
+
+Table order_events {
+  id uuid [pk]
+  order_id uuid [not null]
+  actor_user_id uuid [not null]
+  event_type varchar(50) [not null]
+  payload jsonb
+  created_at timestamptz [not null]
+}
+
+Table order_attachments {
+  id uuid [pk]
+  order_id uuid [not null]
+  uploaded_by uuid [not null]
+  storage_key text [not null]
+  original_name text [not null]
+  mime_type varchar(100)
+  size_bytes bigint
+  created_at timestamptz [not null]
+  deleted_at timestamptz
+}
+
+Table order_comments {
+  id uuid [pk]
+  order_id uuid [not null]
+  author_id uuid [not null]
+  body text [not null]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  deleted_at timestamptz
+}
+
+Table employee_balances {
+  id uuid [pk]
+  group_id uuid [not null]
+  employee_id uuid [not null]
+  balance_usd bigint [not null, default: 0]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+
+  Indexes {
+    (group_id, employee_id) [unique]
+  }
+}
+
+Table balance_adjustments {
+  id uuid [pk]
+  group_id uuid [not null]
+  employee_id uuid [not null]
+  old_balance_usd bigint [not null]
+  new_balance_usd bigint [not null]
+  amount_usd bigint [not null]
+  reason text
+  created_by uuid [not null]
+  created_at timestamptz [not null]
+}
+
+Table balance_transactions {
+  id uuid [pk]
+  group_id uuid [not null]
+  employee_id uuid [not null]
+  order_id uuid
+  adjustment_id uuid
+  type balance_transaction_type [not null]
+  amount_usd bigint [not null]
+  balance_before_usd bigint [not null]
+  balance_after_usd bigint [not null]
+  reason text
+  created_by uuid [not null]
+  created_at timestamptz [not null]
+}
+
+Table group_profit_periods {
+  id uuid [pk]
+  group_id uuid [not null]
+  year smallint [not null]
+  month smallint [not null]
+  profit_uzs bigint [not null, default: 0]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+
+  Indexes {
+    (group_id, year, month) [unique]
+  }
+}
+
+Table profit_transactions {
+  id uuid [pk]
+  group_id uuid [not null]
+  order_id uuid [not null]
+  type profit_transaction_type [not null]
+  amount_uzs bigint [not null]
+  year smallint [not null]
+  month smallint [not null]
+  created_at timestamptz [not null]
+}
+
+Table debts {
+  id uuid [pk]
+  group_id uuid [not null]
+  created_by uuid [not null]
+
+  person_phone varchar(20) [not null]
+
+  currency debt_currency [not null]
+  direction debt_direction [not null]
+
+  original_amount bigint [not null]
+  remaining_amount bigint [not null]
+
+  source_order_id uuid
+  status debt_status [not null]
+
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  deleted_at timestamptz
+}
+
+Table user_devices {
+  id uuid [pk]
+  user_id uuid [not null]
+  device_id varchar(255) [not null]
+  fcm_token text [not null]
+  platform notification_platform [not null]
+  is_active boolean [not null, default: true]
+  last_seen_at timestamptz
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table notification_settings {
+  id uuid [pk]
+  user_id uuid [not null]
+  member_events boolean [not null, default: true]
+  order_events boolean [not null, default: true]
+  confirmation_events boolean [not null, default: true]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+
+  Indexes {
+    user_id [unique]
+  }
+}
+
+Table exchange_rates {
+  id uuid [pk]
+  base_currency varchar(3) [not null]
+  quote_currency varchar(3) [not null]
+  rate numeric(18,6) [not null]
+  source varchar(100)
+  fetched_at timestamptz [not null]
+  created_at timestamptz [not null]
+}
+
+Table audit_logs {
+  id uuid [pk]
+  group_id uuid
+  actor_user_id uuid [not null]
+  action varchar(100) [not null]
+  entity_type varchar(50) [not null]
+  entity_id uuid [not null]
+  old_data jsonb
+  new_data jsonb
+  created_at timestamptz [not null]
+}
+
+Table trial_claims {
+
+  id uuid [pk]
+
+  phone varchar(20) [not null, unique]
+
+  group_id uuid [not null]
+  user_id uuid [not null]
+
+  started_at timestamptz [not null]
+  expires_at timestamptz [not null]
+
+  created_at timestamptz [not null]
+}
+
+
+// =========================
+// Relationships
+// =========================
+
+
+Ref: trial_claims.group_id > groups.id
+Ref: trial_claims.user_id > users.id 
+
+Ref: user_sessions.user_id > users.id
+
+Ref: groups.created_by > users.id
+
+Ref: group_members.group_id > groups.id
+Ref: group_members.user_id > users.id
+
+Ref: group_invitations.group_id > groups.id
+Ref: group_invitations.invited_by > users.id
+
+Ref: locations.group_id > groups.id
+Ref: locations.employee_id > users.id
+Ref: locations.created_by > users.id
+
+Ref: customers.group_id > groups.id
+
+Ref: orders.group_id > groups.id
+Ref: orders.created_by > users.id
+Ref: orders.from_employee_id > users.id
+Ref: orders.to_employee_id > users.id
+Ref: orders.customer_id > customers.id
+
+Ref: order_confirmations.order_id > orders.id
+Ref: order_confirmations.employee_id > users.id
+
+Ref: order_events.order_id > orders.id
+Ref: order_events.actor_user_id > users.id
+
+Ref: order_attachments.order_id > orders.id
+Ref: order_attachments.uploaded_by > users.id
+
+Ref: order_comments.order_id > orders.id
+Ref: order_comments.author_id > users.id
+
+Ref: employee_balances.group_id > groups.id
+Ref: employee_balances.employee_id > users.id
+
+Ref: balance_adjustments.group_id > groups.id
+Ref: balance_adjustments.employee_id > users.id
+Ref: balance_adjustments.created_by > users.id
+
+Ref: balance_transactions.group_id > groups.id
+Ref: balance_transactions.employee_id > users.id
+Ref: balance_transactions.order_id > orders.id
+Ref: balance_transactions.created_by > users.id
+
+Ref: group_profit_periods.group_id > groups.id
+
+Ref: profit_transactions.group_id > groups.id
+Ref: profit_transactions.order_id > orders.id
+
+Ref: debts.group_id > groups.id
+Ref: debts.created_by > users.id
+Ref: debts.source_order_id > orders.id
+
+Ref: user_devices.user_id > users.id
+Ref: notification_settings.user_id > users.id
+
+Ref: audit_logs.group_id > groups.id
+Ref: audit_logs.actor_user_id > users.id

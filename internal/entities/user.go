@@ -11,6 +11,7 @@ type User struct {
 	Password     string     `json:"-"`
 	PasswordHash string     `json:"-"`
 	Name         string     `json:"name,omitempty"`
+	Email        string     `json:"email,omitempty"`
 	Phone        string     `json:"phone,omitempty"`
 	Username     string     `json:"username,omitempty"`
 	FirstName    string     `json:"first_name,omitempty"`
@@ -19,7 +20,7 @@ type User struct {
 	Language     string     `json:"language,omitempty"`
 	IsActive     bool       `json:"is_active"`
 	LastLoginAt  *time.Time `json:"last_login_at,omitempty"`
-	CreatedAt    time.Time  `json:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at"`
+	CreatedAt    time.Time  `json:"-"`
+	UpdatedAt    time.Time  `json:"-"`
 	DeletedAt    *time.Time `json:"-"`
 }

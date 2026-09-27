@@ -5,8 +5,10 @@ import "github.com/qobulov/brothers-app/internal/entities"
 // From entity.User to UserResponse
 func ToUserResponse(user *entities.User) *UserResponse {
 	return &UserResponse{
-		ID:   user.ID,
-		Name: user.Name,
+		ID:        user.ID,
+		Username:  user.Username,
+		Email:     user.Email,
+		AvatarURL: user.AvatarURL,
 	}
 }
 

@@ -2,10 +2,16 @@ package routes
 
 import (
 	authHandler "github.com/qobulov/brothers-app/internal/auth"
+	"github.com/qobulov/brothers-app/internal/auth/email"
 	"github.com/qobulov/brothers-app/internal/auth/otp"
 	authService "github.com/qobulov/brothers-app/internal/auth/service"
-	"github.com/qobulov/brothers-app/internal/auth/telegram"
+	"github.com/qobulov/brothers-app/internal/auth/session"
 	db "github.com/qobulov/brothers-app/internal/db"
+	group "github.com/qobulov/brothers-app/internal/group"
+	notification "github.com/qobulov/brothers-app/internal/notification"
+	userHandler "github.com/qobulov/brothers-app/internal/user/handler/rest"
+	userRepository "github.com/qobulov/brothers-app/internal/user/repository"
+	userUseCase "github.com/qobulov/brothers-app/internal/user/usecase"
 	"github.com/qobulov/brothers-app/pkg/config"
 	middleware "github.com/qobulov/brothers-app/pkg/middleware"
 
@@ -13,18 +19,30 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func RegisterPrivateRoutes(app fiber.Router, pool *pgxpool.Pool, otpCache *otp.Cache, cfg *config.Config) {
+func RegisterPrivateRoutes(app fiber.Router, pool *pgxpool.Pool, otpCache *otp.Cache, sessions session.Store, cfg *config.Config) {
 
 	queries := db.New(pool)
-	secureRoute := app.Group("/api/v1", middleware.SessionJWTMiddleware(queries, cfg))
+	secureRoute := app.Group("/api/v1", middleware.SessionJWTMiddleware(sessions, cfg))
+	groupService := group.NewService(pool)
+	groupHandler := group.NewHandler(groupService)
+	notificationHandler := notification.NewHandler(pool)
+	userLookupHandler := userHandler.NewHttpUserHandler(userUseCase.NewUserService(userRepository.NewSQLCUserRepository(queries)))
 
-	telegramClient := telegram.NewClient(cfg.TelegramBotToken, cfg.TelegramBotAPIURL, cfg.TelegramHTTPTimeout, cfg.TelegramPollTimeout)
-	service := authService.New(pool, otpCache, cfg, telegramClient)
+	emailClient := email.New(cfg)
+	service := authService.New(pool, otpCache, sessions, cfg, emailClient)
 	handler := authHandler.NewHandler(service)
 	secureRoute.Get("/me", handler.CurrentUser)
 	secureRoute.Patch("/me", handler.UpdateCurrentUser)
 	secureRoute.Post("/auth/logout", handler.Logout)
-	secureRoute.Post("/me/phone-change/request", handler.PhoneChangeRequest)
-	secureRoute.Post("/me/phone-change/confirm", handler.PhoneChangeConfirm)
+	secureRoute.Get("/users", userLookupHandler.Lookup)
 
+	secureRoute.Get("/notifications", notificationHandler.List)
+	secureRoute.Post("/invitations/:invitationID/action", groupHandler.Action)
+
+	groups := secureRoute.Group("/groups")
+	groups.Post("/", groupHandler.Create)
+	groups.Get("/", groupHandler.List)
+	groups.Get("/:groupID", groupHandler.Get)
+	groups.Post("/:groupID/invitations", groupHandler.Invite)
+	groups.Get("/:groupID/members", groupHandler.ListMembers)
 }

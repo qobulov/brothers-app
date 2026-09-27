@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"net/mail"
 	"strings"
 
 	"github.com/qobulov/brothers-app/pkg/apperror"
@@ -29,6 +30,21 @@ func NormalizePhone(value string) (string, error) {
 		return "", apperror.ErrInvalidFormat
 	}
 	return "+" + normalized, nil
+}
+
+// NormalizeEmail validates an address and produces the canonical identity used
+// by authentication and OTP storage.
+func NormalizeEmail(value string) (string, error) {
+	email := strings.ToLower(strings.TrimSpace(value))
+	address, err := mail.ParseAddress(email)
+	if err != nil || address.Address != email || len(email) > 254 {
+		return "", apperror.ErrInvalidFormat
+	}
+	local, domain, ok := strings.Cut(email, "@")
+	if !ok || local == "" || domain == "" || !strings.Contains(domain, ".") {
+		return "", apperror.ErrInvalidFormat
+	}
+	return email, nil
 }
 
 // HashSecret is used for opaque tokens that must never be stored in plaintext.

@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"crypto/subtle"
 	"errors"
 	"fmt"
 	"net/url"
@@ -18,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	dto "github.com/qobulov/brothers-app/internal/auth/dto"
 	"github.com/qobulov/brothers-app/internal/auth/otp"
+	sessionpkg "github.com/qobulov/brothers-app/internal/auth/session"
 	db "github.com/qobulov/brothers-app/internal/db"
 	"github.com/qobulov/brothers-app/internal/entities"
 	"github.com/qobulov/brothers-app/pkg/apperror"
@@ -29,28 +29,28 @@ import (
 const (
 	registrationPurpose  = "registration"
 	passwordResetPurpose = "password_reset"
-	phoneChangePurpose   = "phone_change"
 )
 
-type OTPSender interface {
-	SendMessage(ctx context.Context, chatID int64, text string) error
+type EmailSender interface {
+	SendOTP(ctx context.Context, recipient, code string) error
 }
 
 type Service struct {
-	pool      *pgxpool.Pool
-	queries   *db.Queries
-	otp       *otp.Cache
-	cfg       *config.Config
-	otpSender OTPSender
-	now       func() time.Time
+	pool        *pgxpool.Pool
+	queries     *db.Queries
+	otp         *otp.Cache
+	cfg         *config.Config
+	emailSender EmailSender
+	sessions    sessionpkg.Store
+	now         func() time.Time
 }
 
-func New(pool *pgxpool.Pool, otpCache *otp.Cache, cfg *config.Config, sender OTPSender) *Service {
-	return &Service{pool: pool, queries: db.New(pool), otp: otpCache, cfg: cfg, otpSender: sender, now: time.Now}
+func New(pool *pgxpool.Pool, otpCache *otp.Cache, sessions sessionpkg.Store, cfg *config.Config, sender EmailSender) *Service {
+	return &Service{pool: pool, queries: db.New(pool), otp: otpCache, sessions: sessions, cfg: cfg, emailSender: sender, now: time.Now}
 }
 
 func (s *Service) SendOTP(ctx context.Context, req dto.SendOTPRequest) (dto.StartData, error) {
-	phone, err := helpers.NormalizePhone(req.Phone)
+	email, err := helpers.NormalizeEmail(req.Email)
 	if err != nil {
 		return dto.StartData{}, apperror.ErrInvalidData
 	}
@@ -62,51 +62,44 @@ func (s *Service) SendOTP(ctx context.Context, req dto.SendOTPRequest) (dto.Star
 	var userID uuid.UUID
 	switch purpose {
 	case registrationPurpose:
-		_, err = s.queries.GetUserByPhone(ctx, db.GetUserByPhoneParams{Phone: text(phone)})
+		_, err = s.queries.GetUserByEmail(ctx, db.GetUserByEmailParams{Email: text(email)})
 		if err == nil {
 			return dto.StartData{}, apperror.ErrRegistrationIdentityExists
 		}
 		if !errors.Is(err, pgx.ErrNoRows) {
-			return dto.StartData{}, fmt.Errorf("checking registration phone: %w", err)
+			return dto.StartData{}, fmt.Errorf("checking registration email: %w", err)
 		}
 	case passwordResetPurpose:
-		user, findErr := s.queries.GetUserByPhone(ctx, db.GetUserByPhoneParams{Phone: text(phone)})
+		user, findErr := s.queries.GetUserByEmail(ctx, db.GetUserByEmailParams{Email: text(email)})
 		if findErr == nil {
 			userID = uuidFromPG(user.ID)
+		} else if errors.Is(findErr, pgx.ErrNoRows) {
+			expires := s.now().UTC().Add(time.Duration(s.cfg.OTPExpiration) * time.Second)
+			return s.startData(expires), nil
 		} else if !errors.Is(findErr, pgx.ErrNoRows) {
-			return dto.StartData{}, fmt.Errorf("finding password reset user: %w", findErr)
+			return dto.StartData{}, fmt.Errorf("finding password reset user by email: %w", findErr)
 		}
 	}
-
-	// A configured fixed OTP is stored directly instead of reusing a Telegram
-	// chat binding that may belong to another bot.
-	if s.configuredOTP() != "" {
-		return s.createOTPFlow(ctx, purpose, phone, userID)
-	}
-
-	if _, err := s.otp.Get(ctx, s.chatKey(purpose, phone)); err == nil {
-		var resendUserID *uuid.UUID
-		if userID != uuid.Nil {
-			resendUserID = &userID
-		}
-		if err := s.Resend(ctx, purpose, phone, resendUserID); err != nil {
-			return dto.StartData{}, err
-		}
-		expires := s.now().UTC().Add(time.Duration(s.cfg.OTPExpiration) * time.Second)
-		return s.startData("", expires), nil
-	} else if !errors.Is(err, otp.ErrNotFound) {
-		return dto.StartData{}, err
-	}
-
-	return s.createOTPFlow(ctx, purpose, phone, userID)
+	return s.createOTPFlow(ctx, purpose, email, userID)
 }
 
 func (s *Service) Register(ctx context.Context, req dto.RegisterRequest) (dto.RegisterData, error) {
-	phone, err := helpers.NormalizePhone(req.Phone)
+	email, err := helpers.NormalizeEmail(req.Email)
+	if err != nil {
+		return dto.RegisterData{}, apperror.ErrInvalidData
+	}
+	phone := pgtype.Text{}
+	if strings.TrimSpace(req.Phone) != "" {
+		normalizedPhone, normalizeErr := helpers.NormalizePhone(req.Phone)
+		if normalizeErr != nil {
+			return dto.RegisterData{}, apperror.ErrInvalidData
+		}
+		phone = text(normalizedPhone)
+	}
 	username := strings.TrimSpace(req.Username)
 	firstName := strings.TrimSpace(req.FirstName)
 	lastName := strings.TrimSpace(req.LastName)
-	if err != nil || req.Password == "" || username == "" || firstName == "" || len(req.Password) < 8 || len(username) > 50 {
+	if req.Password == "" || username == "" || firstName == "" || len(req.Password) < 8 || len(username) > 50 {
 		return dto.RegisterData{}, apperror.ErrInvalidData
 	}
 	if !helpers.ValidOTP(req.OTPCode) {
@@ -131,52 +124,60 @@ func (s *Service) Register(ctx context.Context, req dto.RegisterRequest) (dto.Re
 
 	var result dto.RegisterData
 	err = s.withTx(ctx, func(q *db.Queries) error {
-		_, findErr := q.GetUserByPhoneOrUsername(ctx, db.GetUserByPhoneOrUsernameParams{Phone: text(phone), Username: text(username)})
+		_, findErr := q.GetUserByEmailOrUsername(ctx, db.GetUserByEmailOrUsernameParams{Email: text(email), Username: text(username)})
 		if findErr == nil {
 			return apperror.ErrRegistrationIdentityExists
 		}
 		if findErr != nil && !errors.Is(findErr, pgx.ErrNoRows) {
 			return fmt.Errorf("checking registration identity: %w", findErr)
 		}
-		if err := s.consumeOTP(ctx, registrationPurpose, phone, req.OTPCode); err != nil {
+		if err := s.consumeOTP(ctx, registrationPurpose, email, req.OTPCode); err != nil {
 			return err
 		}
 
 		now := timestamp(s.now().UTC())
 		user, findErr := q.CreateAuthUser(ctx, db.CreateAuthUserParams{
-			ID: pgUUID(uuid.New()), PasswordHash: text(string(passwordHash)),
-			Name: text(strings.TrimSpace(firstName + " " + lastName)), Phone: text(phone), Username: text(username),
-			FirstName: text(firstName), LastName: text(lastName), AvatarUrl: text(req.AvatarURL), Language: req.Language, CreatedAt: now,
+			ID:           pgUUID(uuid.New()),
+			PasswordHash: text(string(passwordHash)),
+			Name:         text(strings.TrimSpace(firstName + " " + lastName)),
+			Email:        text(email),
+			Phone:        phone,
+			Username:     text(username),
+			FirstName:    text(firstName),
+			LastName:     text(lastName),
+			AvatarUrl:    text(req.AvatarURL),
+			Language:     req.Language,
+			CreatedAt:    now,
 		})
 		if findErr != nil {
 			return fmt.Errorf("saving registration user: %w", findErr)
 		}
-		pair, issueErr := s.issueSession(ctx, q, user)
+		pair, issueErr := s.issueSession(ctx, user)
 		if issueErr != nil {
 			return issueErr
 		}
 		result = dto.RegisterData{
 			Tokens: tokenData(pair),
 			User: dto.RegisterUserData{
-				ID: uuidFromPG(user.ID), FullName: user.Name.String, Phone: user.Phone.String, Role: "user",
+				ID: uuidFromPG(user.ID), FullName: user.Name.String, Email: user.Email.String, Phone: user.Phone.String, Role: "user",
 			},
 		}
 		return nil
 	})
 	if isUniqueViolation(err) {
-		return dto.RegisterData{}, apperror.ErrRegistrationIdentityExists
+		return dto.RegisterData{}, fmt.Errorf("%w: %w", apperror.ErrRegistrationIdentityExists, err)
 	}
 	return result, err
 }
 
 func (s *Service) Login(ctx context.Context, login, password string) (dto.AuthData, error) {
-	login, phone := loginIdentifiers(login)
+	login, email := loginIdentifiers(login)
 	if login == "" || password == "" {
 		return dto.AuthData{}, apperror.ErrInvalidCredentials
 	}
 	var result dto.AuthData
 	err := s.withTx(ctx, func(q *db.Queries) error {
-		user, queryErr := q.GetUserByLogin(ctx, db.GetUserByLoginParams{Username: text(login), Phone: text(phone)})
+		user, queryErr := q.GetUserByLogin(ctx, db.GetUserByLoginParams{Username: text(login), Email: text(email)})
 		if queryErr != nil {
 			if errors.Is(queryErr, pgx.ErrNoRows) {
 				return apperror.ErrInvalidCredentials
@@ -194,7 +195,7 @@ func (s *Service) Login(ctx context.Context, login, password string) (dto.AuthDa
 		if queryErr != nil {
 			return fmt.Errorf("updating login time: %w", queryErr)
 		}
-		pair, issueErr := s.issueSession(ctx, q, user)
+		pair, issueErr := s.issueSession(ctx, user)
 		if issueErr != nil {
 			return issueErr
 		}
@@ -207,12 +208,12 @@ func (s *Service) Login(ctx context.Context, login, password string) (dto.AuthDa
 	return result, err
 }
 
-func loginIdentifiers(value string) (username, phone string) {
+func loginIdentifiers(value string) (username, email string) {
 	username = strings.TrimSpace(value)
-	if normalized, err := helpers.NormalizePhone(username); err == nil {
-		phone = normalized
+	if normalized, err := helpers.NormalizeEmail(username); err == nil {
+		email = normalized
 	}
-	return username, phone
+	return username, email
 }
 
 func (s *Service) Refresh(ctx context.Context, refreshToken string) (dto.AuthData, error) {
@@ -222,27 +223,29 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (dto.AuthDat
 	var result dto.AuthData
 	err := s.withTx(ctx, func(q *db.Queries) error {
 		now := s.now().UTC()
-		session, queryErr := q.GetSessionByRefreshHash(ctx, db.GetSessionByRefreshHashParams{RefreshTokenHash: helpers.HashSecret(refreshToken), ExpiresAt: timestamp(now)})
-		if queryErr != nil {
-			return apperror.ErrUnauthorized
-		}
-		user, queryErr := q.GetActiveUser(ctx, db.GetActiveUserParams{ID: session.UserID})
-		if queryErr != nil {
-			return apperror.ErrUnauthorized
-		}
 		newRefresh, tokenErr := helpers.RandomToken(32)
 		if tokenErr != nil {
 			return fmt.Errorf("creating refresh token: %w", tokenErr)
 		}
 		refreshExpiresAt := now.Add(30 * 24 * time.Hour)
-		_, queryErr = q.RotateSessionRefresh(ctx, db.RotateSessionRefreshParams{
-			ID: session.ID, RefreshTokenHash: helpers.HashSecret(newRefresh), ExpiresAt: timestamp(refreshExpiresAt),
-			RefreshTokenHash_2: helpers.HashSecret(refreshToken), ExpiresAt_2: timestamp(now),
-		})
-		if queryErr != nil {
+		if s.sessions == nil {
+			return fmt.Errorf("session store is not configured")
+		}
+		session, queryErr := s.sessions.Rotate(ctx, helpers.HashSecret(refreshToken), helpers.HashSecret(newRefresh), refreshExpiresAt.Sub(now))
+		if errors.Is(queryErr, sessionpkg.ErrNotFound) {
 			return apperror.ErrUnauthorized
 		}
-		access, tokenErr := s.signAccessToken(toEntity(user), uuidFromPG(session.ID), now)
+		if queryErr != nil {
+			return fmt.Errorf("rotating refresh session: %w", queryErr)
+		}
+		user, queryErr := q.GetActiveUser(ctx, db.GetActiveUserParams{ID: pgUUID(session.UserID)})
+		if errors.Is(queryErr, pgx.ErrNoRows) {
+			return apperror.ErrUnauthorized
+		}
+		if queryErr != nil {
+			return fmt.Errorf("loading refresh user: %w", queryErr)
+		}
+		access, tokenErr := s.signAccessToken(toEntity(user), session.SessionID, now)
 		if tokenErr != nil {
 			return tokenErr
 		}
@@ -262,8 +265,11 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (dto.AuthDat
 
 func (s *Service) CurrentUser(ctx context.Context, userID uuid.UUID) (dto.UserData, error) {
 	user, err := s.queries.GetActiveUser(ctx, db.GetActiveUserParams{ID: pgUUID(userID)})
-	if err != nil {
+	if errors.Is(err, pgx.ErrNoRows) {
 		return dto.UserData{}, apperror.ErrUnauthorized
+	}
+	if err != nil {
+		return dto.UserData{}, fmt.Errorf("loading current user: %w", err)
 	}
 	return SafeUser(toEntity(user)), nil
 }
@@ -307,13 +313,22 @@ func (s *Service) UpdateCurrentUser(ctx context.Context, userID uuid.UUID, req d
 	return SafeUser(toEntity(user)), nil
 }
 
-func (s *Service) VerifyPasswordOTP(ctx context.Context, phone, code string) (dto.ResetVerifyData, error) {
-	phone, err := helpers.NormalizePhone(phone)
-	if err != nil || !helpers.ValidOTP(code) || s.consumeOTP(ctx, passwordResetPurpose, phone, code) != nil {
+func (s *Service) VerifyPasswordOTP(ctx context.Context, email, code string) (dto.ResetVerifyData, error) {
+	email, err := helpers.NormalizeEmail(email)
+	if err != nil || !helpers.ValidOTP(code) {
 		return dto.ResetVerifyData{}, apperror.ErrInvalidOTP
 	}
-	userID, err := s.flowUserID(ctx, passwordResetPurpose, phone)
-	if err != nil || userID == uuid.Nil {
+	if err := s.consumeOTP(ctx, passwordResetPurpose, email, code); err != nil {
+		return dto.ResetVerifyData{}, err
+	}
+	userID, err := s.flowUserID(ctx, passwordResetPurpose, email)
+	if errors.Is(err, otp.ErrNotFound) {
+		return dto.ResetVerifyData{}, apperror.ErrInvalidOTP
+	}
+	if err != nil {
+		return dto.ResetVerifyData{}, fmt.Errorf("loading password reset subject: %w", err)
+	}
+	if userID == uuid.Nil {
 		return dto.ResetVerifyData{}, apperror.ErrInvalidOTP
 	}
 	token, err := helpers.RandomToken(32)
@@ -332,8 +347,11 @@ func (s *Service) ResetPassword(ctx context.Context, req dto.ResetPasswordReques
 		return apperror.ErrInvalidData
 	}
 	value, err := s.otp.Take(ctx, "reset:"+helpers.HashSecret(req.ResetToken))
-	if err != nil {
+	if errors.Is(err, otp.ErrNotFound) {
 		return apperror.ErrInvalidResetToken
+	}
+	if err != nil {
+		return fmt.Errorf("loading password reset token: %w", err)
 	}
 	userID, err := uuid.Parse(value)
 	if err != nil {
@@ -343,133 +361,39 @@ func (s *Service) ResetPassword(ctx context.Context, req dto.ResetPasswordReques
 	if err != nil {
 		return fmt.Errorf("hashing reset password: %w", err)
 	}
-	return s.withTx(ctx, func(q *db.Queries) error {
+	err = s.withTx(ctx, func(q *db.Queries) error {
 		now := timestamp(s.now().UTC())
 		rows, updateErr := q.UpdateUserPassword(ctx, db.UpdateUserPasswordParams{ID: pgUUID(userID), PasswordHash: text(string(hash)), UpdatedAt: now})
-		if updateErr != nil || rows != 1 {
+		if updateErr != nil {
+			return fmt.Errorf("updating password: %w", updateErr)
+		}
+		if rows != 1 {
 			return apperror.ErrInvalidResetToken
 		}
-		return q.RevokeActiveSession(ctx, db.RevokeActiveSessionParams{UserID: pgUUID(userID), RevokedAt: now})
+		return nil
 	})
+	if err != nil {
+		return err
+	}
+	if s.sessions == nil {
+		return fmt.Errorf("session store is not configured")
+	}
+	if err := s.sessions.RevokeUser(ctx, userID); err != nil {
+		return fmt.Errorf("revoking redis sessions after password reset: %w", err)
+	}
+	return nil
 }
 
 func (s *Service) Logout(ctx context.Context, userID, sessionID uuid.UUID) error {
-	rows, err := s.queries.RevokeSession(ctx, db.RevokeSessionParams{ID: pgUUID(sessionID), UserID: pgUUID(userID), RevokedAt: timestamp(s.now().UTC())})
-	if err != nil {
-		return fmt.Errorf("revoking session: %w", err)
+	if s.sessions == nil {
+		return fmt.Errorf("session store is not configured")
 	}
-	if rows != 1 {
+	revoked, err := s.sessions.Revoke(ctx, userID, sessionID)
+	if err != nil {
+		return fmt.Errorf("revoking redis session: %w", err)
+	}
+	if !revoked {
 		return apperror.ErrSessionRevoked
-	}
-	return nil
-}
-
-func (s *Service) PhoneChangeRequest(ctx context.Context, userID uuid.UUID, newPhone string) (dto.StartData, error) {
-	phone, err := helpers.NormalizePhone(newPhone)
-	if err != nil {
-		return dto.StartData{}, apperror.ErrInvalidData
-	}
-	exists, err := s.queries.UserPhoneExistsOther(ctx, db.UserPhoneExistsOtherParams{Phone: text(phone), ID: pgUUID(userID)})
-	if err != nil {
-		return dto.StartData{}, fmt.Errorf("checking phone availability: %w", err)
-	}
-	if exists {
-		return dto.StartData{}, apperror.ErrAlreadyExists
-	}
-	return s.createOTPFlow(ctx, phoneChangePurpose, phone, userID)
-}
-
-func (s *Service) PhoneChangeConfirm(ctx context.Context, userID uuid.UUID, newPhone, code string) error {
-	phone, err := helpers.NormalizePhone(newPhone)
-	if err != nil || !helpers.ValidOTP(code) || s.consumeOTP(ctx, phoneChangePurpose, phone, code) != nil {
-		return apperror.ErrInvalidOTP
-	}
-	storedID, err := s.flowUserID(ctx, phoneChangePurpose, phone)
-	if err != nil || storedID != userID {
-		return apperror.ErrInvalidOTP
-	}
-	rows, err := s.queries.UpdateUserPhone(ctx, db.UpdateUserPhoneParams{ID: pgUUID(userID), Phone: text(phone), UpdatedAt: timestamp(s.now().UTC())})
-	if err != nil {
-		return fmt.Errorf("updating phone: %w", err)
-	}
-	if rows != 1 {
-		return apperror.ErrUnauthorized
-	}
-	return nil
-}
-
-func (s *Service) HandleBotStart(ctx context.Context, startToken string, chatID int64) error {
-	value, err := s.otp.Take(ctx, "start:"+helpers.HashSecret(startToken))
-	if err != nil {
-		return apperror.ErrInvalidOTP
-	}
-	parts := strings.Split(value, "\n")
-	if len(parts) != 2 {
-		return apperror.ErrInvalidOTP
-	}
-	purpose, phone := parts[0], parts[1]
-	code, err := s.generateOTP()
-	if err != nil {
-		return fmt.Errorf("generating otp: %w", err)
-	}
-	ttl := time.Duration(s.cfg.OTPExpiration) * time.Second
-	if err := s.otp.Set(ctx, s.codeKey(purpose, phone), s.hashOTP(code), ttl); err != nil {
-		return err
-	}
-	if err := s.otp.Set(ctx, s.chatKey(purpose, phone), strconv.FormatInt(chatID, 10), ttl); err != nil {
-		return err
-	}
-	if s.otpSender == nil {
-		return apperror.ErrTelegramUnavailable
-	}
-	if err := s.otpSender.SendMessage(ctx, chatID, "Ваш код подтверждения: "+code); err != nil {
-		return fmt.Errorf("sending telegram otp: %w", err)
-	}
-	if _, err := s.otp.Reserve(ctx, s.cooldownKey(purpose, phone), time.Duration(s.cfg.OTPResendCooldown)*time.Second); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (s *Service) Resend(ctx context.Context, purpose, phone string, userID *uuid.UUID) error {
-	phone, err := helpers.NormalizePhone(phone)
-	if err != nil {
-		return apperror.ErrInvalidData
-	}
-	if userID != nil {
-		storedID, loadErr := s.flowUserID(ctx, purpose, phone)
-		if loadErr != nil || storedID != *userID {
-			return apperror.ErrBotNotStarted
-		}
-	}
-	chatValue, err := s.otp.Get(ctx, s.chatKey(purpose, phone))
-	if err != nil {
-		return apperror.ErrBotNotStarted
-	}
-	chatID, err := strconv.ParseInt(chatValue, 10, 64)
-	if err != nil {
-		return apperror.ErrBotNotStarted
-	}
-	reserved, err := s.otp.Reserve(ctx, s.cooldownKey(purpose, phone), time.Duration(s.cfg.OTPResendCooldown)*time.Second)
-	if err != nil {
-		return err
-	}
-	if !reserved {
-		return apperror.ErrLimitExceeded
-	}
-	code, err := s.generateOTP()
-	if err != nil {
-		return fmt.Errorf("generating otp: %w", err)
-	}
-	ttl := time.Duration(s.cfg.OTPExpiration) * time.Second
-	if err := s.otp.Set(ctx, s.codeKey(purpose, phone), s.hashOTP(code), ttl); err != nil {
-		return err
-	}
-	if s.otpSender == nil {
-		return apperror.ErrTelegramUnavailable
-	}
-	if err := s.otpSender.SendMessage(ctx, chatID, "Ваш новый код подтверждения: "+code); err != nil {
-		return fmt.Errorf("sending telegram otp: %w", err)
 	}
 	return nil
 }
@@ -490,7 +414,7 @@ func tokenData(pair tokenPair) dto.TokenData {
 	}
 }
 
-func (s *Service) issueSession(ctx context.Context, q *db.Queries, user db.User) (tokenPair, error) {
+func (s *Service) issueSession(ctx context.Context, user db.User) (tokenPair, error) {
 	now := s.now().UTC()
 	accessExpiresAt := now.Add(time.Duration(s.cfg.JWTExpiration) * time.Second)
 	refreshExpiresAt := now.Add(30 * 24 * time.Hour)
@@ -498,12 +422,12 @@ func (s *Service) issueSession(ctx context.Context, q *db.Queries, user db.User)
 	if err != nil {
 		return tokenPair{}, fmt.Errorf("creating refresh token: %w", err)
 	}
-	if err := q.RevokeActiveSession(ctx, db.RevokeActiveSessionParams{UserID: user.ID, RevokedAt: timestamp(now)}); err != nil {
-		return tokenPair{}, fmt.Errorf("revoking previous session: %w", err)
-	}
 	sessionID := uuid.New()
-	if _, err := q.CreateSession(ctx, db.CreateSessionParams{ID: pgUUID(sessionID), UserID: user.ID, RefreshTokenHash: helpers.HashSecret(refresh), ExpiresAt: timestamp(refreshExpiresAt), CreatedAt: timestamp(now)}); err != nil {
-		return tokenPair{}, fmt.Errorf("creating session: %w", err)
+	if s.sessions == nil {
+		return tokenPair{}, fmt.Errorf("session store is not configured")
+	}
+	if err := s.sessions.Create(ctx, sessionpkg.Data{UserID: uuidFromPG(user.ID), SessionID: sessionID, RefreshTokenHash: helpers.HashSecret(refresh)}, refreshExpiresAt.Sub(now)); err != nil {
+		return tokenPair{}, fmt.Errorf("creating redis session: %w", err)
 	}
 	access, err := s.signAccessToken(toEntity(user), sessionID, now)
 	if err != nil {
@@ -524,77 +448,89 @@ func (s *Service) signAccessToken(user entities.User, sessionID uuid.UUID, now t
 	return token, nil
 }
 
-func (s *Service) createOTPFlow(ctx context.Context, purpose, phone string, userID uuid.UUID) (dto.StartData, error) {
-	token, err := helpers.RandomToken(32)
+func (s *Service) createOTPFlow(ctx context.Context, purpose, email string, userID uuid.UUID) (dto.StartData, error) {
+	if s.emailSender == nil {
+		return dto.StartData{}, apperror.ErrEmailUnavailable
+	}
+	reserved, err := s.otp.Reserve(ctx, s.cooldownKey(purpose, email), time.Duration(s.cfg.OTPResendCooldown)*time.Second)
 	if err != nil {
-		return dto.StartData{}, fmt.Errorf("creating telegram start token: %w", err)
+		return dto.StartData{}, err
+	}
+	if !reserved {
+		return dto.StartData{}, apperror.ErrLimitExceeded
+	}
+	code, err := s.generateOTP()
+	if err != nil {
+		return dto.StartData{}, fmt.Errorf("generating otp: %w", err)
 	}
 	expires := s.now().UTC().Add(time.Duration(s.cfg.OTPExpiration) * time.Second)
 	ttl := time.Until(expires)
-	if err := s.otp.Set(ctx, "start:"+helpers.HashSecret(token), purpose+"\n"+phone, ttl); err != nil {
+	if err := s.otp.Set(ctx, s.codeKey(purpose, email), s.hashOTP(code), ttl); err != nil {
+		if cleanupErr := s.otp.Delete(ctx, s.cooldownKey(purpose, email)); cleanupErr != nil {
+			return dto.StartData{}, errors.Join(err, cleanupErr)
+		}
 		return dto.StartData{}, err
 	}
 	if userID != uuid.Nil {
-		if err := s.otp.Set(ctx, s.subjectKey(purpose, phone), userID.String(), ttl); err != nil {
+		if err := s.otp.Set(ctx, s.subjectKey(purpose, email), userID.String(), ttl); err != nil {
+			cleanupErr := errors.Join(
+				s.otp.Delete(ctx, s.codeKey(purpose, email)),
+				s.otp.Delete(ctx, s.cooldownKey(purpose, email)),
+			)
+			if cleanupErr != nil {
+				return dto.StartData{}, errors.Join(err, cleanupErr)
+			}
 			return dto.StartData{}, err
 		}
 	}
-	if code := s.configuredOTP(); code != "" {
-		if err := s.otp.Set(ctx, s.codeKey(purpose, phone), s.hashOTP(code), ttl); err != nil {
-			return dto.StartData{}, err
+	if err := s.emailSender.SendOTP(ctx, email, code); err != nil {
+		cleanupErr := errors.Join(
+			s.otp.Delete(ctx, s.codeKey(purpose, email)),
+			s.otp.Delete(ctx, s.subjectKey(purpose, email)),
+			s.otp.Delete(ctx, s.cooldownKey(purpose, email)),
+		)
+		if cleanupErr != nil {
+			return dto.StartData{}, fmt.Errorf("sending email otp and cleaning up flow: %w", errors.Join(apperror.ErrEmailUnavailable, err, cleanupErr))
 		}
+		return dto.StartData{}, fmt.Errorf("%w: %w", apperror.ErrEmailUnavailable, err)
 	}
-	return s.startData(token, expires), nil
+	return s.startData(expires), nil
 }
 
-func (s *Service) consumeOTP(ctx context.Context, purpose, phone, code string) error {
-	if configured := s.configuredOTP(); configured != "" && subtle.ConstantTimeCompare([]byte(code), []byte(configured)) == 1 {
-		return nil
+func (s *Service) consumeOTP(ctx context.Context, purpose, email, code string) error {
+	valid, err := s.otp.Verify(ctx, s.codeKey(purpose, email), s.hashOTP(code), s.cfg.OTPMaxAttempts)
+	if err != nil {
+		return fmt.Errorf("checking otp: %w", err)
 	}
-	valid, err := s.otp.Verify(ctx, s.codeKey(purpose, phone), s.hashOTP(code), s.cfg.OTPMaxAttempts)
-	if err != nil || !valid {
+	if !valid {
 		return apperror.ErrInvalidOTP
 	}
 	return nil
 }
 
-func (s *Service) flowUserID(ctx context.Context, purpose, phone string) (uuid.UUID, error) {
-	value, err := s.otp.Get(ctx, s.subjectKey(purpose, phone))
+func (s *Service) flowUserID(ctx context.Context, purpose, email string) (uuid.UUID, error) {
+	value, err := s.otp.Get(ctx, s.subjectKey(purpose, email))
 	if err != nil {
 		return uuid.Nil, err
 	}
 	return uuid.Parse(value)
 }
 
-func (s *Service) subjectKey(purpose, phone string) string { return "subject:" + purpose + ":" + phone }
-func (s *Service) codeKey(purpose, phone string) string    { return "code:" + purpose + ":" + phone }
-func (s *Service) chatKey(purpose, phone string) string    { return "chat:" + purpose + ":" + phone }
-func (s *Service) cooldownKey(purpose, phone string) string {
-	return "cooldown:" + purpose + ":" + phone
+func (s *Service) subjectKey(purpose, email string) string { return "subject:" + purpose + ":" + email }
+func (s *Service) codeKey(purpose, email string) string    { return "code:" + purpose + ":" + email }
+func (s *Service) cooldownKey(purpose, email string) string {
+	return "cooldown:" + purpose + ":" + email
 }
 
-func (s *Service) startData(token string, expires time.Time) dto.StartData {
-	link := ""
-	if s.cfg.TelegramBotUsername != "" {
-		link = "https://t.me/" + strings.TrimPrefix(s.cfg.TelegramBotUsername, "@") + "?start=" + token
-	}
+func (s *Service) startData(expires time.Time) dto.StartData {
 	return dto.StartData{
-		TelegramDeepLink: link,
-		ExpiresAt:        expires.Format(time.RFC3339),
-		TTL:              s.cfg.OTPExpiration,
-		ResendIn:         s.cfg.OTPResendCooldown,
+		ExpiresAt: expires.Format(time.RFC3339),
+		TTL:       s.cfg.OTPExpiration,
+		ResendIn:  s.cfg.OTPResendCooldown,
 	}
 }
 
 func (s *Service) hashOTP(code string) string { return helpers.HashHMAC(code, s.cfg.OTPPepper) }
-
-func (s *Service) configuredOTP() string {
-	code := strings.TrimSpace(s.cfg.OTPDefaultCode)
-	if helpers.ValidOTP(code) {
-		return code
-	}
-	return ""
-}
 
 func normalizeOTPPurpose(value string) (string, error) {
 	purpose := strings.ToLower(strings.TrimSpace(value))
@@ -608,9 +544,6 @@ func normalizeOTPPurpose(value string) (string, error) {
 }
 
 func (s *Service) generateOTP() (string, error) {
-	if code := s.configuredOTP(); code != "" {
-		return code, nil
-	}
 	return helpers.GenerateOTP()
 }
 
@@ -644,7 +577,7 @@ func uuidFromPG(value pgtype.UUID) uuid.UUID { return uuid.UUID(value.Bytes) }
 func toEntity(user db.User) entities.User {
 	result := entities.User{
 		ID: uuidFromPG(user.ID), Password: user.Password.String, PasswordHash: user.PasswordHash.String,
-		Name: user.Name.String, Phone: user.Phone.String, Username: user.Username.String, FirstName: user.FirstName.String,
+		Name: user.Name.String, Email: user.Email.String, Phone: user.Phone.String, Username: user.Username.String, FirstName: user.FirstName.String,
 		LastName: user.LastName.String, AvatarURL: user.AvatarUrl.String, Language: user.Language, IsActive: user.IsActive,
 		CreatedAt: user.CreatedAt.Time, UpdatedAt: user.UpdatedAt.Time,
 	}
@@ -656,10 +589,9 @@ func toEntity(user db.User) entities.User {
 
 func SafeUser(user entities.User) dto.UserData {
 	return dto.UserData{
-		ID: user.ID, Phone: user.Phone, Username: user.Username, FirstName: user.FirstName,
+		ID: user.ID, Email: user.Email, Phone: user.Phone, Username: user.Username, FirstName: user.FirstName,
 		LastName: user.LastName, AvatarURL: user.AvatarURL, Language: user.Language,
-		IsActive: user.IsActive, LastLoginAt: user.LastLoginAt, CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
+		IsActive: user.IsActive, LastLoginAt: user.LastLoginAt,
 	}
 }
 

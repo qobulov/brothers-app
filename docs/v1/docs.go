@@ -17,7 +17,7 @@ const docTemplate = `{
     "paths": {
         "/auth/login": {
             "post": {
-                "description": "Authenticates an active user using a username or phone number and password.",
+                "description": "Authenticates an active user using a username or email address and password.",
                 "consumes": [
                     "application/json"
                 ],
@@ -27,7 +27,7 @@ const docTemplate = `{
                 "tags": [
                     "auth"
                 ],
-                "summary": "Sign in with username or phone",
+                "summary": "Sign in with username or email",
                 "parameters": [
                     {
                         "description": "Login credentials",
@@ -100,7 +100,7 @@ const docTemplate = `{
         },
         "/auth/otp/send": {
             "post": {
-                "description": "Starts Telegram OTP delivery for registration or password reset. Use purpose registration or password_reset, then open the returned deep link and press Start.",
+                "description": "Sends an OTP to the provided email for registration or password reset.",
                 "consumes": [
                     "application/json"
                 ],
@@ -113,7 +113,7 @@ const docTemplate = `{
                 "summary": "Send OTP",
                 "parameters": [
                     {
-                        "description": "Phone and OTP purpose",
+                        "description": "Email and OTP purpose",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -198,7 +198,7 @@ const docTemplate = `{
         },
         "/auth/password/verify": {
             "post": {
-                "description": "Exchanges a Telegram-delivered reset OTP for a single-use reset token.",
+                "description": "Exchanges an email-delivered reset OTP for a single-use reset token.",
                 "consumes": [
                     "application/json"
                 ],
@@ -211,7 +211,7 @@ const docTemplate = `{
                 "summary": "Verify password-reset OTP",
                 "parameters": [
                     {
-                        "description": "Phone and OTP",
+                        "description": "Email and OTP",
                         "name": "verification",
                         "in": "body",
                         "required": true,
@@ -340,6 +340,300 @@ const docTemplate = `{
                 }
             }
         },
+        "/groups": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "groups"
+                ],
+                "summary": "List my groups",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/group.GroupsResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "groups"
+                ],
+                "summary": "Create a group",
+                "parameters": [
+                    {
+                        "description": "Group payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/group.CreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/group.GroupResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/groups/{groupID}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "groups"
+                ],
+                "summary": "Get group details",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group UUID",
+                        "name": "groupID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/group.GroupResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/groups/{groupID}/invitations": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "group invitations"
+                ],
+                "summary": "Create a group invitation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group UUID",
+                        "name": "groupID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Invitation payload; provide user_id or email",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/group.InviteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/group.InvitationResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/groups/{groupID}/members": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "groups"
+                ],
+                "summary": "List active and pending group members",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group UUID",
+                        "name": "groupID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/group.MembersResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/invitations/{invitationID}/action": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "group invitations"
+                ],
+                "summary": "Respond to a group invitation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Invitation UUID",
+                        "name": "invitationID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Action payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/group.InvitationActionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/group.InvitationResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/me": {
             "get": {
                 "security": [
@@ -420,115 +714,31 @@ const docTemplate = `{
                 }
             }
         },
-        "/me/phone-change/confirm": {
-            "post": {
+        "/notifications": {
+            "get": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Verifies the Telegram OTP and applies the new phone number.",
-                "consumes": [
-                    "application/json"
-                ],
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "profile"
+                    "notifications"
                 ],
-                "summary": "Confirm phone change",
-                "parameters": [
-                    {
-                        "description": "New phone and OTP",
-                        "name": "confirmation",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/authdto.PhoneChangeConfirmRequest"
-                        }
-                    }
-                ],
+                "summary": "List my notifications",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/authdto.EmptyResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/authdto.ErrorResponse"
+                            "$ref": "#/definitions/notification.NotificationsResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/authdto.ErrorResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/authdto.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/me/phone-change/request": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Starts the Telegram OTP flow for a new unique phone number.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "profile"
-                ],
-                "summary": "Start phone change",
-                "parameters": [
-                    {
-                        "description": "New phone",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/authdto.PhoneChangeRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/authdto.StartResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/authdto.ErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/authdto.ErrorResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/authdto.ErrorResponse"
+                            "$ref": "#/definitions/group.ErrorResponse"
                         }
                     }
                 }
@@ -681,13 +891,30 @@ const docTemplate = `{
         },
         "/users": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Searches active users by username or email and returns only invitation-safe fields.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "users"
                 ],
-                "summary": "Get all users",
+                "summary": "Find registered users for an invitation",
+                "parameters": [
+                    {
+                        "maxLength": 100,
+                        "minLength": 2,
+                        "type": "string",
+                        "description": "Username or email fragment",
+                        "name": "query",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -697,116 +924,17 @@ const docTemplate = `{
                                 "$ref": "#/definitions/userdto.UserResponse"
                             }
                         }
-                    }
-                }
-            }
-        },
-        "/users/me": {
-            "get": {
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "users"
-                ],
-                "summary": "Get currently authenticated user",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/userdto.UserResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/users/{id}": {
-            "get": {
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "users"
-                ],
-                "summary": "Get user by ID",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "User ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/userdto.UserResponse"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "users"
-                ],
-                "summary": "Delete an user by ID",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "User ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/responses.MessageResponse"
-                        }
-                    }
-                }
-            },
-            "patch": {
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "users"
-                ],
-                "summary": "Update an user partially",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "User ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
                     },
-                    {
-                        "description": "User update payload",
-                        "name": "user",
-                        "in": "body",
-                        "required": true,
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/userdto.PatchUserRequest"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/userdto.UserResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     }
                 }
@@ -887,6 +1015,11 @@ const docTemplate = `{
                     "example": 1400
                 },
                 "data": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/responses.ErrorDetails"
+                        }
+                    ],
                     "x-nullable": true
                 },
                 "message": {
@@ -922,35 +1055,13 @@ const docTemplate = `{
         "authdto.OTPVerifyRequest": {
             "type": "object",
             "properties": {
-                "otp": {
+                "email": {
                     "type": "string",
-                    "example": "111111"
-                },
-                "phone": {
-                    "type": "string",
-                    "example": "+998901234567"
-                }
-            }
-        },
-        "authdto.PhoneChangeConfirmRequest": {
-            "type": "object",
-            "properties": {
-                "new_phone": {
-                    "type": "string",
-                    "example": "+998901234568"
+                    "example": "ali@example.com"
                 },
                 "otp": {
                     "type": "string",
-                    "example": "111111"
-                }
-            }
-        },
-        "authdto.PhoneChangeRequest": {
-            "type": "object",
-            "properties": {
-                "new_phone": {
-                    "type": "string",
-                    "example": "+998901234568"
+                    "example": "482910"
                 }
             }
         },
@@ -981,6 +1092,10 @@ const docTemplate = `{
                     "type": "string",
                     "example": "https://example.com/avatar.jpg"
                 },
+                "email": {
+                    "type": "string",
+                    "example": "ali@example.com"
+                },
                 "first_name": {
                     "type": "string",
                     "example": "Qobul"
@@ -995,7 +1110,7 @@ const docTemplate = `{
                 },
                 "otp_code": {
                     "type": "string",
-                    "example": "111111"
+                    "example": "482910"
                 },
                 "password": {
                     "type": "string",
@@ -1041,6 +1156,9 @@ const docTemplate = `{
         "authdto.RegisterUserData": {
             "type": "object",
             "properties": {
+                "email": {
+                    "type": "string"
+                },
                 "full_name": {
                     "type": "string"
                 },
@@ -1134,9 +1252,9 @@ const docTemplate = `{
         "authdto.SendOTPRequest": {
             "type": "object",
             "properties": {
-                "phone": {
+                "email": {
                     "type": "string",
-                    "example": "+998901234567"
+                    "example": "ali@example.com"
                 },
                 "purpose": {
                     "type": "string",
@@ -1156,9 +1274,6 @@ const docTemplate = `{
                 },
                 "resend_in": {
                     "type": "integer"
-                },
-                "telegram_deep_link": {
-                    "type": "string"
                 },
                 "ttl": {
                     "type": "integer"
@@ -1241,7 +1356,7 @@ const docTemplate = `{
                 "avatar_url": {
                     "type": "string"
                 },
-                "created_at": {
+                "email": {
                     "type": "string"
                 },
                 "first_name": {
@@ -1263,9 +1378,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "phone": {
-                    "type": "string"
-                },
-                "updated_at": {
                     "type": "string"
                 },
                 "username": {
@@ -1300,6 +1412,339 @@ const docTemplate = `{
                 }
             }
         },
+        "group.CreateRequest": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "group.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "example": 1400
+                },
+                "data": {
+                    "$ref": "#/definitions/responses.ErrorDetails"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Invalid request"
+                },
+                "meta": {
+                    "$ref": "#/definitions/responses.Meta"
+                },
+                "slug": {
+                    "type": "string",
+                    "example": "invalid_data"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": false
+                }
+            }
+        },
+        "group.Group": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "is_owner": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                }
+            }
+        },
+        "group.GroupResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "data": {
+                    "$ref": "#/definitions/group.Group"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "group returned"
+                },
+                "meta": {
+                    "$ref": "#/definitions/responses.Meta"
+                },
+                "slug": {
+                    "type": "string",
+                    "example": "ok"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "group.GroupsResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/group.Group"
+                    }
+                },
+                "message": {
+                    "type": "string",
+                    "example": "groups returned"
+                },
+                "meta": {
+                    "$ref": "#/definitions/responses.Meta"
+                },
+                "slug": {
+                    "type": "string",
+                    "example": "ok"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "group.Invitation": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "group_id": {
+                    "type": "string"
+                },
+                "group_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "invited_by": {
+                    "type": "string"
+                },
+                "location_name": {
+                    "type": "string"
+                },
+                "recipient_id": {
+                    "type": "string"
+                },
+                "responded_at": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "group.InvitationActionRequest": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": [
+                        "accept",
+                        "reject"
+                    ],
+                    "example": "accept"
+                }
+            }
+        },
+        "group.InvitationResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "data": {
+                    "$ref": "#/definitions/group.Invitation"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "invitation created"
+                },
+                "meta": {
+                    "$ref": "#/definitions/responses.Meta"
+                },
+                "slug": {
+                    "type": "string",
+                    "example": "ok"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "group.InviteRequest": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "location_name": {
+                    "type": "string",
+                    "example": "Kokand"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "group.Member": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "invitation_id": {
+                    "type": "string"
+                },
+                "is_owner": {
+                    "type": "boolean"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "group.MembersResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/group.Member"
+                    }
+                },
+                "message": {
+                    "type": "string",
+                    "example": "members returned"
+                },
+                "meta": {
+                    "$ref": "#/definitions/responses.Meta"
+                },
+                "slug": {
+                    "type": "string",
+                    "example": "ok"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "notification.Notification": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string"
+                },
+                "event_type": {
+                    "type": "string",
+                    "enum": [
+                        "GROUP_INVITATION",
+                        "ORDER_CREATED",
+                        "ORDER_CONFIRMED",
+                        "MEMBER_JOINED",
+                        "ORDER_CANCELLED"
+                    ]
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "is_read": {
+                    "type": "boolean"
+                },
+                "payload": {
+                    "type": "object"
+                },
+                "read_at": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "GLOBAL",
+                        "TARGETED"
+                    ]
+                }
+            }
+        },
+        "notification.NotificationsResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer"
+                },
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/notification.Notification"
+                    }
+                },
+                "message": {
+                    "type": "string"
+                },
+                "meta": {
+                    "$ref": "#/definitions/responses.Meta"
+                },
+                "slug": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
         "orderdto.CreateOrderRequest": {
             "type": "object",
             "required": [
@@ -1322,6 +1767,24 @@ const docTemplate = `{
                 }
             }
         },
+        "responses.ErrorDetails": {
+            "type": "object",
+            "properties": {
+                "reason": {
+                    "type": "string",
+                    "example": "checking registration email: ERROR: column email does not exist (SQLSTATE 42703)"
+                }
+            }
+        },
+        "responses.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "example error"
+                }
+            }
+        },
         "responses.MessageResponse": {
             "type": "object",
             "properties": {
@@ -1331,13 +1794,22 @@ const docTemplate = `{
                 }
             }
         },
-        "userdto.PatchUserRequest": {
+        "responses.Meta": {
             "type": "object",
-            "required": [
-                "name"
-            ],
             "properties": {
-                "name": {
+                "api_version": {
+                    "type": "string"
+                },
+                "duration": {
+                    "type": "string"
+                },
+                "request_id": {
+                    "type": "string"
+                },
+                "service": {
+                    "type": "string"
+                },
+                "timestamp": {
                     "type": "string"
                 }
             }
@@ -1345,10 +1817,16 @@ const docTemplate = `{
         "userdto.UserResponse": {
             "type": "object",
             "properties": {
+                "avatar_url": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
                 "id": {
                     "type": "string"
                 },
-                "name": {
+                "username": {
                     "type": "string"
                 }
             }

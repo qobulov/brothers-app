@@ -1,5 +1,7 @@
 package authdto
 
+import "github.com/qobulov/brothers-app/pkg/responses"
+
 // ResponseMeta documents metadata shared by every JSON API response.
 type ResponseMeta struct {
 	Timestamp  string `json:"timestamp" example:"2026-09-22T12:55:03Z"`
@@ -64,10 +66,10 @@ type EmptyResponse struct {
 }
 
 type ErrorResponse struct {
-	Success bool         `json:"success" example:"false"`
-	Code    int          `json:"code" example:"1400"`
-	Slug    string       `json:"slug" example:"invalid_data"`
-	Message string       `json:"message" example:"Некорректные данные"`
-	Data    any          `json:"data" extensions:"x-nullable"`
-	Meta    ResponseMeta `json:"meta"`
+	Success bool                    `json:"success" example:"false"`
+	Code    int                     `json:"code" example:"1400"`
+	Slug    string                  `json:"slug" example:"invalid_data"`
+	Message string                  `json:"message" example:"Некорректные данные"`
+	Data    *responses.ErrorDetails `json:"data" extensions:"x-nullable"`
+	Meta    ResponseMeta            `json:"meta"`
 }

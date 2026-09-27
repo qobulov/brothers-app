@@ -19,16 +19,21 @@ type Group struct {
 }
 
 type GroupInvitation struct {
-	ID         pgtype.UUID        `json:"id"`
-	GroupID    pgtype.UUID        `json:"group_id"`
-	InvitedBy  pgtype.UUID        `json:"invited_by"`
-	Phone      string             `json:"phone"`
-	Role       interface{}        `json:"role"`
-	TokenHash  string             `json:"token_hash"`
-	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
-	AcceptedAt pgtype.Timestamptz `json:"accepted_at"`
-	RejectedAt pgtype.Timestamptz `json:"rejected_at"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	ID            pgtype.UUID        `json:"id"`
+	GroupID       pgtype.UUID        `json:"group_id"`
+	InvitedBy     pgtype.UUID        `json:"invited_by"`
+	Phone         pgtype.Text        `json:"phone"`
+	Role          interface{}        `json:"role"`
+	TokenHash     pgtype.Text        `json:"token_hash"`
+	ExpiresAt     pgtype.Timestamptz `json:"expires_at"`
+	AcceptedAt    pgtype.Timestamptz `json:"accepted_at"`
+	RejectedAt    pgtype.Timestamptz `json:"rejected_at"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	InvitedUserID pgtype.UUID        `json:"invited_user_id"`
+	Email         pgtype.Text        `json:"email"`
+	Status        string             `json:"status"`
+	RespondedAt   pgtype.Timestamptz `json:"responded_at"`
+	RevokedAt     pgtype.Timestamptz `json:"revoked_at"`
 }
 
 type GroupMember struct {
@@ -44,6 +49,25 @@ type GroupMember struct {
 	DeletedAt pgtype.Timestamptz `json:"deleted_at"`
 }
 
+type Notification struct {
+	ID        int64              `json:"id"`
+	Title     string             `json:"title"`
+	Content   string             `json:"content"`
+	Type      interface{}        `json:"type"`
+	ActionUrl pgtype.Text        `json:"action_url"`
+	Payload   []byte             `json:"payload"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+}
+
+type NotificationRecipient struct {
+	ID             int64              `json:"id"`
+	NotificationID int64              `json:"notification_id"`
+	UserID         pgtype.UUID        `json:"user_id"`
+	IsRead         bool               `json:"is_read"`
+	ReadAt         pgtype.Timestamptz `json:"read_at"`
+}
+
 type Order struct {
 	ID    int64          `json:"id"`
 	Total pgtype.Numeric `json:"total"`
@@ -51,6 +75,7 @@ type Order struct {
 
 type User struct {
 	ID           pgtype.UUID        `json:"id"`
+	Email        pgtype.Text        `json:"email"`
 	Password     pgtype.Text        `json:"password"`
 	PasswordHash pgtype.Text        `json:"password_hash"`
 	Name         pgtype.Text        `json:"name"`
@@ -65,16 +90,4 @@ type User struct {
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt    pgtype.Timestamptz `json:"deleted_at"`
-}
-
-type UserSession struct {
-	ID               pgtype.UUID        `json:"id"`
-	UserID           pgtype.UUID        `json:"user_id"`
-	RefreshTokenHash string             `json:"refresh_token_hash"`
-	DeviceID         pgtype.Text        `json:"device_id"`
-	DeviceName       pgtype.Text        `json:"device_name"`
-	Platform         pgtype.Text        `json:"platform"`
-	ExpiresAt        pgtype.Timestamptz `json:"expires_at"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	RevokedAt        pgtype.Timestamptz `json:"revoked_at"`
 }

@@ -5,26 +5,57 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/qobulov/brothers-app/internal/auth/dto"
+	"github.com/qobulov/brothers-app/internal/auth/otp"
 	"github.com/qobulov/brothers-app/pkg/apperror"
 	"github.com/qobulov/brothers-app/pkg/config"
 	"github.com/qobulov/brothers-app/pkg/helpers"
+	"github.com/redis/go-redis/v9"
 )
 
-func TestNormalizePhone(t *testing.T) {
+// Only the commands used by these error paths are implemented; no Redis server is needed.
+type failingOTPCache struct {
+	redis.Cmdable
+	err error
+}
+
+func (c failingOTPCache) Eval(context.Context, string, []string, ...interface{}) *redis.Cmd {
+	return redis.NewCmdResult(nil, c.err)
+}
+
+func (c failingOTPCache) GetDel(context.Context, string) *redis.StringCmd {
+	return redis.NewStringResult("", c.err)
+}
+
+func TestPasswordFlowsPreserveCacheErrors(t *testing.T) {
+	t.Parallel()
+	cause := errors.New("redis connection refused")
+	s := &Service{otp: otp.NewCache(failingOTPCache{err: cause}), cfg: &config.Config{OTPMaxAttempts: 5}}
+	_, err := s.VerifyPasswordOTP(context.Background(), "ali@example.com", "123456")
+	if !errors.Is(err, cause) || errors.Is(err, apperror.ErrInvalidOTP) {
+		t.Fatalf("VerifyPasswordOTP() = %v, want original Redis error", err)
+	}
+	err = s.ResetPassword(context.Background(), authdto.ResetPasswordRequest{Password: "test-password", ResetToken: "test-token"})
+	if !errors.Is(err, cause) || errors.Is(err, apperror.ErrInvalidResetToken) {
+		t.Fatalf("ResetPassword() = %v, want original Redis error", err)
+	}
+}
+
+func TestNormalizeEmail(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
 		expected string
 		wantErr  bool
 	}{
-		{name: "uzbek phone", input: "+998 90 123 45 67", expected: "+998901234567"},
-		{name: "local digits", input: "998901234567", expected: "+998901234567"},
-		{name: "invalid characters", input: "+99890abc", wantErr: true},
-		{name: "too short", input: "123", wantErr: true},
+		{name: "lowercases and trims", input: " Ali@Example.COM ", expected: "ali@example.com"},
+		{name: "missing domain", input: "ali@localhost", wantErr: true},
+		{name: "display name", input: "Ali <ali@example.com>", wantErr: true},
+		{name: "invalid characters", input: "ali@@example.com", wantErr: true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := helpers.NormalizePhone(test.input)
+			got, err := helpers.NormalizeEmail(test.input)
 			if test.wantErr {
 				if err == nil {
 					t.Fatalf("expected error, got %q", got)
@@ -42,46 +73,20 @@ func TestNormalizePhone(t *testing.T) {
 }
 
 func TestGenerateOTP(t *testing.T) {
+	service := &Service{}
+	generated := make(map[string]struct{}, 100)
 	for i := 0; i < 100; i++ {
-		value, err := helpers.GenerateOTP()
+		value, err := service.generateOTP()
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if !helpers.ValidOTP(value) {
 			t.Fatalf("generated invalid otp %q", value)
 		}
+		generated[value] = struct{}{}
 	}
-}
-
-func TestConfiguredOTP(t *testing.T) {
-	tests := []struct {
-		name     string
-		env      string
-		code     string
-		expected string
-	}{
-		{name: "development fixed code", env: "development", code: "111111", expected: "111111"},
-		{name: "trim fixed code", env: "test", code: " 111111 ", expected: "111111"},
-		{name: "production fixed code", env: "production", code: "111111", expected: "111111"},
-		{name: "empty production code ignored", env: "production"},
-		{name: "invalid code ignored", env: "development", code: "12345"},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			service := &Service{cfg: &config.Config{AppEnv: test.env, OTPDefaultCode: test.code}}
-			if got := service.configuredOTP(); got != test.expected {
-				t.Fatalf("configuredOTP() = %q, want %q", got, test.expected)
-			}
-		})
-	}
-}
-
-func TestConsumeOTPAcceptsConfiguredCodeWithoutCachedFlow(t *testing.T) {
-	service := &Service{cfg: &config.Config{OTPDefaultCode: "111111"}}
-
-	if err := service.consumeOTP(context.Background(), registrationPurpose, "+998930693005", "111111"); err != nil {
-		t.Fatalf("consumeOTP() error = %v, want nil", err)
+	if len(generated) == 1 {
+		t.Fatal("generateOTP() returned the same fixed code 100 times")
 	}
 }
 
@@ -122,20 +127,20 @@ func TestLoginIdentifiers(t *testing.T) {
 		name         string
 		input        string
 		wantUsername string
-		wantPhone    string
+		wantEmail    string
 	}{
 		{name: "username", input: "  qobulov  ", wantUsername: "qobulov"},
-		{name: "phone", input: "+998 90 123 45 67", wantUsername: "+998 90 123 45 67", wantPhone: "+998901234567"},
+		{name: "email", input: " Ali@Example.COM ", wantUsername: "Ali@Example.COM", wantEmail: "ali@example.com"},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			username, phone := loginIdentifiers(test.input)
+			username, email := loginIdentifiers(test.input)
 			if username != test.wantUsername {
 				t.Errorf("username = %q, want %q", username, test.wantUsername)
 			}
-			if phone != test.wantPhone {
-				t.Errorf("phone = %q, want %q", phone, test.wantPhone)
+			if email != test.wantEmail {
+				t.Errorf("email = %q, want %q", email, test.wantEmail)
 			}
 		})
 	}

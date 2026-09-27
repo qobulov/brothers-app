@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/qobulov/brothers-app/pkg/apperror"
@@ -31,7 +32,7 @@ func NewHttpOrderHandler(useCase usecase.OrderUseCase) *HttpOrderHandler {
 func (h *HttpOrderHandler) CreateOrder(c *fiber.Ctx) error {
 	var req orderdto.CreateOrderRequest
 	if err := c.BodyParser(&req); err != nil {
-		return responses.ErrorWithMessage(c, err, "invalid request")
+		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), "invalid request")
 	}
 
 	order := &entities.Order{Total: req.Total}
@@ -68,7 +69,7 @@ func (h *HttpOrderHandler) FindOrderByID(c *fiber.Ctx) error {
 	id := c.Params("id")
 	orderID, err := strconv.Atoi(id)
 	if err != nil {
-		return responses.ErrorWithMessage(c, err, "invalid id")
+		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidID, err), "invalid id")
 	}
 
 	order, err := h.orderUseCase.FindOrderByID(orderID)
@@ -92,12 +93,12 @@ func (h *HttpOrderHandler) PatchOrder(c *fiber.Ctx) error {
 	id := c.Params("id")
 	orderID, err := strconv.Atoi(id)
 	if err != nil {
-		return responses.ErrorWithMessage(c, err, "invalid id")
+		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidID, err), "invalid id")
 	}
 
 	var req orderdto.CreateOrderRequest
 	if err := c.BodyParser(&req); err != nil {
-		return responses.ErrorWithMessage(c, err, "invalid request")
+		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), "invalid request")
 	}
 
 	order := &entities.Order{Total: req.Total}
@@ -126,7 +127,7 @@ func (h *HttpOrderHandler) DeleteOrder(c *fiber.Ctx) error {
 	id := c.Params("id")
 	orderID, err := strconv.Atoi(id)
 	if err != nil {
-		return responses.ErrorWithMessage(c, err, "invalid id")
+		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidID, err), "invalid id")
 	}
 
 	if err := h.orderUseCase.DeleteOrder(orderID); err != nil {

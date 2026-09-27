@@ -7,7 +7,7 @@ ENV_FILE ?= .env.dev
 
 .DEFAULT_GOAL := help
 
-.PHONY: help env-check services-up docker-up docker-down docker-logs migrate swag swag-install run run-no-bot local test vet
+.PHONY: help env-check services-up docker-up docker-down docker-logs migrate swag swag-install sqlc run local test vet
 
 help: ## Show available commands
 	@awk 'BEGIN {FS = ":.*## "; printf "Usage: make <target>\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-14s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -58,13 +58,13 @@ swag: ## Generate Swagger files under docs/v1
 swag-install: ## Install the Swagger generator
 	$(GO) install github.com/swaggo/swag/cmd/swag@latest
 
+sqlc: ## Regenerate type-safe database code
+	sqlc generate
+
 run: services-up swag ## Refresh Swagger and run API with local services
 	$(GO) run ./cmd/api
 
-run-no-bot: services-up swag ## Run locally without Telegram polling
-	TELEGRAM_BOT_TOKEN= $(GO) run ./cmd/api
-
-local: migrate run ## Start dependencies, migrate, generate Swagger, and run API
+local: migrate sqlc run ## Start dependencies, migrate, generate Swagger, and run API
 
 test: ## Run all Go tests
 	$(GO) test ./...

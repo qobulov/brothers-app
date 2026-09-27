@@ -13,6 +13,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/qobulov/brothers-app/internal/app"
+	"github.com/qobulov/brothers-app/internal/auth/session"
 	"github.com/qobulov/brothers-app/pkg/config"
 	"github.com/qobulov/brothers-app/pkg/database"
 )
@@ -34,7 +35,7 @@ func (s *PublicRoutesTestSuite) SetupTest() {
 
 	// Setup REST server with test database (For registering routes and middleware)
 	var err error
-	s.app, err = app.SetupRestServer(s.db, nil, s.cfg)
+	s.app, err = app.SetupRestServer(s.db, nil, session.NewMemoryStore(), s.cfg)
 	s.NoError(err, "Failed to setup REST server")
 }
 
@@ -49,34 +50,18 @@ func TestPublicRoutesTestSuite(t *testing.T) {
 	suite.Run(t, new(PublicRoutesTestSuite))
 }
 
-// === USER ROUTES ===
-
-func (s *PublicRoutesTestSuite) TestGetUsers() {
-	req := httptest.NewRequest("GET", "/api/v1/users", nil)
-	resp, err := s.app.Test(req, -1)
-	s.NoError(err)
-	s.Equal(fiber.StatusOK, resp.StatusCode)
-}
-
-func (s *PublicRoutesTestSuite) TestGetUserByID_NotFound() {
-	req := httptest.NewRequest("GET", "/api/v1/users/9a176ca5-f3e0-4994-869c-fac0e8c9d5dc", nil)
-	resp, err := s.app.Test(req, -1)
-	s.NoError(err)
-	s.NotEqual(fiber.StatusInternalServerError, resp.StatusCode)
-}
-
 // === AUTH ROUTES ===
 
 func (s *PublicRoutesTestSuite) TestLogin() {
 	const password = "securepassword123"
-	s.createLoginUser("loginuser", "+998901234567", password)
+	s.createLoginUser("loginuser", "+998901234567", "loginuser@example.com", password)
 
 	tests := []struct {
 		name  string
 		login string
 	}{
 		{name: "username", login: "loginuser"},
-		{name: "phone", login: "+998 90 123 45 67"},
+		{name: "email", login: "loginuser@example.com"},
 	}
 	for _, test := range tests {
 		s.Run(test.name, func() {
@@ -109,15 +94,105 @@ func (s *PublicRoutesTestSuite) TestLogin_InvalidCredentials() {
 	s.Equal(fiber.StatusUnauthorized, resp.StatusCode)
 }
 
+func (s *PublicRoutesTestSuite) TestLoginWithoutDeviceHeaders() {
+	const password = "securepassword123"
+	s.createLoginUser("device-user", "+998901234581", "device@example.com", password)
+
+	body, err := json.Marshal(map[string]string{"login": "device-user", "password": password})
+	s.Require().NoError(err)
+	req := httptest.NewRequest("POST", "/api/v1/auth/login", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := s.app.Test(req, -1)
+	s.Require().NoError(err)
+	defer resp.Body.Close()
+	s.Require().Equal(fiber.StatusOK, resp.StatusCode)
+
+}
+
+func (s *PublicRoutesTestSuite) TestUserLookup() {
+	const password = "securepassword123"
+	s.createLoginUser("lookup-owner", "+998901234579", "lookup-owner@example.com", password)
+	s.createLoginUser("lookup-target", "+998901234580", "lookup-target@example.com", password)
+
+	loginBody, err := json.Marshal(map[string]string{"login": "lookup-owner", "password": password})
+	s.Require().NoError(err)
+	loginRequest := httptest.NewRequest("POST", "/api/v1/auth/login", bytes.NewBuffer(loginBody))
+	loginRequest.Header.Set("Content-Type", "application/json")
+	loginResponse, err := s.app.Test(loginRequest, -1)
+	s.Require().NoError(err)
+	defer loginResponse.Body.Close()
+	s.Require().Equal(fiber.StatusOK, loginResponse.StatusCode)
+
+	var loginEnvelope struct {
+		Data struct {
+			Tokens struct {
+				AccessToken string `json:"access_token"`
+			} `json:"tokens"`
+		} `json:"data"`
+	}
+	s.Require().NoError(json.NewDecoder(loginResponse.Body).Decode(&loginEnvelope))
+
+	lookupRequest := httptest.NewRequest("GET", "/api/v1/users?query=lookup-target", nil)
+	lookupRequest.Header.Set("Authorization", loginEnvelope.Data.Tokens.AccessToken)
+	lookupResponse, err := s.app.Test(lookupRequest, -1)
+	s.Require().NoError(err)
+	defer lookupResponse.Body.Close()
+	s.Require().Equal(fiber.StatusOK, lookupResponse.StatusCode)
+
+	var lookupEnvelope struct {
+		Data []struct {
+			ID        string `json:"id"`
+			Username  string `json:"username"`
+			Email     string `json:"email"`
+			AvatarURL string `json:"avatar_url"`
+		} `json:"data"`
+	}
+	s.Require().NoError(json.NewDecoder(lookupResponse.Body).Decode(&lookupEnvelope))
+	s.Require().Len(lookupEnvelope.Data, 1)
+	s.Equal("lookup-target", lookupEnvelope.Data[0].Username)
+	s.Equal("lookup-target@example.com", lookupEnvelope.Data[0].Email)
+}
+
+func (s *PublicRoutesTestSuite) TestUserLookup_RequiresAuthentication() {
+	req := httptest.NewRequest("GET", "/api/v1/users", nil)
+	resp, err := s.app.Test(req, -1)
+	s.Require().NoError(err)
+	defer resp.Body.Close()
+	s.Equal(fiber.StatusUnauthorized, resp.StatusCode)
+}
+
+func (s *PublicRoutesTestSuite) TestLegacyUserCRUDRoutesNotRegistered() {
+	legacyRoutes := map[string]bool{
+		"GET /api/v1/users/:id":    false,
+		"PATCH /api/v1/users/:id":  false,
+		"DELETE /api/v1/users/:id": false,
+		"GET /api/v1/users/me":     false,
+	}
+	for _, route := range s.app.GetRoutes() {
+		key := route.Method + " " + route.Path
+		if _, ok := legacyRoutes[key]; ok {
+			legacyRoutes[key] = true
+		}
+	}
+	for route, registered := range legacyRoutes {
+		if registered {
+			s.T().Errorf("legacy user route %s is still registered", route)
+		}
+	}
+}
+
 func (s *PublicRoutesTestSuite) TestLegacyAuthRoutesNotRegistered() {
 	legacyPaths := map[string]bool{
-		"/api/v1/auth/signin":            false,
-		"/api/v1/auth/signup":            false,
-		"/api/v1/auth/otp/verify":        false,
-		"/api/v1/auth/register/resend":   false,
-		"/api/v1/auth/password/forgot":   false,
-		"/api/v1/auth/password/resend":   false,
-		"/api/v1/me/phone-change/resend": false,
+		"/api/v1/auth/signin":             false,
+		"/api/v1/auth/signup":             false,
+		"/api/v1/auth/otp/verify":         false,
+		"/api/v1/auth/register/resend":    false,
+		"/api/v1/auth/password/forgot":    false,
+		"/api/v1/auth/password/resend":    false,
+		"/api/v1/me/phone-change/resend":  false,
+		"/api/v1/telegram/webhook":        false,
+		"/api/v1/me/phone-change/request": false,
+		"/api/v1/me/phone-change/confirm": false,
 	}
 	for _, route := range s.app.GetRoutes() {
 		if route.Method == fiber.MethodPost {
@@ -153,21 +228,22 @@ func (s *PublicRoutesTestSuite) TestRegistrationRoutesRegistered() {
 }
 
 func (s *PublicRoutesTestSuite) TestRegisterConflictLocalized() {
-	s.createLoginUser("existing-user", "+998901234577", "securepassword123")
+	s.createLoginUser("existing-user", "+998901234577", "existing@example.com", "securepassword123")
 
 	tests := []struct {
 		name     string
 		language string
 		want     string
 	}{
-		{name: "uzbek", language: "uz", want: "Telefon raqami yoki foydalanuvchi nomi allaqachon mavjud"},
-		{name: "russian", language: "ru", want: "Номер телефона или имя пользователя уже существует"},
-		{name: "english", language: "en", want: "Phone or username already exists"},
+		{name: "uzbek", language: "uz", want: "Email, telefon raqami yoki foydalanuvchi nomi allaqachon mavjud"},
+		{name: "russian", language: "ru", want: "Email, номер телефона или имя пользователя уже существуют"},
+		{name: "english", language: "en", want: "Email, phone, or username already exists"},
 	}
 
 	for _, test := range tests {
 		s.Run(test.name, func() {
 			body, err := json.Marshal(map[string]string{
+				"email":      "existing@example.com",
 				"phone":      "+998901234577",
 				"username":   "new-" + test.language,
 				"first_name": "Qobul",
@@ -180,6 +256,7 @@ func (s *PublicRoutesTestSuite) TestRegisterConflictLocalized() {
 
 			req := httptest.NewRequest("POST", "/api/v1/auth/register", bytes.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set(fiber.HeaderAcceptLanguage, test.language)
 			resp, err := s.app.Test(req, -1)
 			s.Require().NoError(err)
 			defer resp.Body.Close()
@@ -192,7 +269,7 @@ func (s *PublicRoutesTestSuite) TestRegisterConflictLocalized() {
 			}
 			s.Require().NoError(json.NewDecoder(resp.Body).Decode(&envelope))
 			s.Equal(1409, envelope.Code)
-			s.Equal("phone_or_username_exists", envelope.Slug)
+			s.Equal("email_phone_or_username_exists", envelope.Slug)
 			s.Equal(test.want, envelope.Message)
 		})
 	}
@@ -200,7 +277,7 @@ func (s *PublicRoutesTestSuite) TestRegisterConflictLocalized() {
 
 func (s *PublicRoutesTestSuite) TestCurrentProfilePatch() {
 	const password = "securepassword123"
-	s.createLoginUser("profileuser", "+998901234568", password)
+	s.createLoginUser("profileuser", "+998901234568", "profileuser@example.com", password)
 
 	loginBody, err := json.Marshal(map[string]string{"login": "profileuser", "password": password})
 	s.Require().NoError(err)
@@ -261,16 +338,16 @@ func (s *PublicRoutesTestSuite) TestCurrentProfilePatch() {
 	s.True(patchEnvelope.Data.IsActive, "database-managed is_active must be ignored")
 }
 
-func (s *PublicRoutesTestSuite) createLoginUser(username, phone, password string) {
+func (s *PublicRoutesTestSuite) createLoginUser(username, phone, email, password string) {
 	s.T().Helper()
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.MinCost)
 	s.Require().NoError(err)
 
 	_, err = s.db.Exec(s.T().Context(), `
 		INSERT INTO users (
-			id, password_hash, name, phone, username, is_active, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, true, now(), now())
-	`, uuid.New(), string(passwordHash), username, phone, username)
+			id, password_hash, name, email, phone, username, is_active, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, true, now(), now())
+	`, uuid.New(), string(passwordHash), username, email, phone, username)
 	s.Require().NoError(err)
 }
 

@@ -1,6 +1,19 @@
 package apperror
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
+
+func TestAppErrorPreservesCause(t *testing.T) {
+	err := NewAppError(1400, "invalid identifier", ErrInvalidID)
+	if !errors.Is(err, ErrInvalidID) || StatusCode(err) != 400 || Code(err) != 1400 {
+		t.Fatalf("wrapped error lost classification: %v", err)
+	}
+	if err.Error() != "invalid identifier: invalid id" {
+		t.Fatalf("wrapped error lost cause: %v", err)
+	}
+}
 
 func TestRegistrationIdentityExistsMessage(t *testing.T) {
 	tests := []struct {
@@ -8,11 +21,11 @@ func TestRegistrationIdentityExistsMessage(t *testing.T) {
 		language string
 		want     string
 	}{
-		{name: "uzbek", language: "uz", want: "Telefon raqami yoki foydalanuvchi nomi allaqachon mavjud"},
-		{name: "russian", language: "ru", want: "Номер телефона или имя пользователя уже существует"},
-		{name: "english", language: "en", want: "Phone or username already exists"},
-		{name: "accept language", language: "de-DE,de;q=0.9,uz-UZ;q=0.8,en;q=0.7", want: "Telefon raqami yoki foydalanuvchi nomi allaqachon mavjud"},
-		{name: "unsupported defaults to english", language: "de", want: "Phone or username already exists"},
+		{name: "uzbek", language: "uz", want: "Email, telefon raqami yoki foydalanuvchi nomi allaqachon mavjud"},
+		{name: "russian", language: "ru", want: "Email, номер телефона или имя пользователя уже существуют"},
+		{name: "english", language: "en", want: "Email, phone, or username already exists"},
+		{name: "accept language", language: "de-DE,de;q=0.9,uz-UZ;q=0.8,en;q=0.7", want: "Email, telefon raqami yoki foydalanuvchi nomi allaqachon mavjud"},
+		{name: "unsupported defaults to english", language: "de", want: "Email, phone, or username already exists"},
 	}
 
 	for _, test := range tests {
@@ -29,7 +42,7 @@ func TestRegistrationIdentityExistsMessage(t *testing.T) {
 	if got := Code(ErrRegistrationIdentityExists); got != 1409 {
 		t.Fatalf("Code() = %d, want 1409", got)
 	}
-	if got := Slug(ErrRegistrationIdentityExists); got != "phone_or_username_exists" {
-		t.Fatalf("Slug() = %q, want %q", got, "phone_or_username_exists")
+	if got := Slug(ErrRegistrationIdentityExists); got != "email_phone_or_username_exists" {
+		t.Fatalf("Slug() = %q, want %q", got, "email_phone_or_username_exists")
 	}
 }

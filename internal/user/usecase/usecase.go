@@ -1,6 +1,9 @@
 package usecase
 
 import (
+	"context"
+	"strings"
+
 	"github.com/qobulov/brothers-app/internal/entities"
 	"github.com/qobulov/brothers-app/internal/user/repository"
 )
@@ -27,6 +30,11 @@ func (s *UserService) FindAllUsers() ([]*entities.User, error) {
 		return nil, err
 	}
 	return users, nil
+}
+
+// SearchUsers returns only active users matching username or email.
+func (s *UserService) SearchUsers(ctx context.Context, query string) ([]*entities.User, error) {
+	return s.repo.Search(ctx, strings.TrimSpace(query))
 }
 
 // PatchUser updates editable profile fields.

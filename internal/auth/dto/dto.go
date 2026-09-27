@@ -7,22 +7,23 @@ import (
 )
 
 type RegisterRequest struct {
-	Phone     string `json:"phone" example:"+998901234567"`
+	Email     string `json:"email" example:"ali@example.com"`
+	Phone     string `json:"phone,omitempty" example:"+998901234567"`
 	Username  string `json:"username" example:"qobulov"`
 	FirstName string `json:"first_name" example:"Qobul"`
 	LastName  string `json:"last_name" example:"Qobulov"`
 	Password  string `json:"password" example:"strong-password"`
 	Language  string `json:"language" example:"uz"`
 	AvatarURL string `json:"avatar_url" example:"https://example.com/avatar.jpg"`
-	OTPCode   string `json:"otp_code" example:"111111"`
+	OTPCode   string `json:"otp_code" example:"482910"`
 }
 
 type SendOTPRequest struct {
-	Phone   string `json:"phone" example:"+998901234567"`
+	Email   string `json:"email" example:"ali@example.com"`
 	Purpose string `json:"purpose" enums:"registration,password_reset" example:"registration"`
 }
 
-// LoginRequest contains username-or-phone credentials.
+// LoginRequest contains username-or-email credentials.
 type LoginRequest struct {
 	Login    string `json:"login" example:"qobulov"`
 	Password string `json:"password" example:"strong-password"`
@@ -33,22 +34,13 @@ type RefreshRequest struct {
 }
 
 type OTPVerifyRequest struct {
-	Phone string `json:"phone" example:"+998901234567"`
-	OTP   string `json:"otp" example:"111111"`
+	Email string `json:"email" example:"ali@example.com"`
+	OTP   string `json:"otp" example:"482910"`
 }
 
 type ResetPasswordRequest struct {
 	ResetToken string `json:"reset_token" example:"opaque-reset-token"`
 	Password   string `json:"password" example:"new-strong-password"`
-}
-
-type PhoneChangeRequest struct {
-	NewPhone string `json:"new_phone" example:"+998901234568"`
-}
-
-type PhoneChangeConfirmRequest struct {
-	NewPhone string `json:"new_phone" example:"+998901234568"`
-	OTP      string `json:"otp" example:"111111"`
 }
 
 // UpdateProfileRequest contains only user-editable profile fields. Pointer
@@ -61,10 +53,9 @@ type UpdateProfileRequest struct {
 }
 
 type StartData struct {
-	TelegramDeepLink string `json:"telegram_deep_link,omitempty"`
-	ExpiresAt        string `json:"expires_at"`
-	TTL              int    `json:"ttl"`
-	ResendIn         int    `json:"resend_in"`
+	ExpiresAt string `json:"expires_at"`
+	TTL       int    `json:"ttl"`
+	ResendIn  int    `json:"resend_in"`
 }
 
 type TokenData struct {
@@ -77,6 +68,7 @@ type TokenData struct {
 type RegisterUserData struct {
 	ID       uuid.UUID `json:"id"`
 	FullName string    `json:"full_name"`
+	Email    string    `json:"email"`
 	Phone    string    `json:"phone"`
 	Role     string    `json:"role"`
 }
@@ -100,6 +92,7 @@ type ResetVerifyData struct {
 // UserData is the safe profile representation returned by auth endpoints.
 type UserData struct {
 	ID          uuid.UUID  `json:"id"`
+	Email       string     `json:"email"`
 	Phone       string     `json:"phone"`
 	Username    string     `json:"username"`
 	FirstName   string     `json:"first_name"`
@@ -108,6 +101,4 @@ type UserData struct {
 	Language    string     `json:"language"`
 	IsActive    bool       `json:"is_active"`
 	LastLoginAt *time.Time `json:"last_login_at,omitempty"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
 }

@@ -20,17 +20,6 @@ CREATE TABLE orders (
     total numeric NOT NULL
 );
 
-CREATE TABLE user_sessions (
-    id uuid PRIMARY KEY,
-    user_id uuid NOT NULL,
-    refresh_token_hash text NOT NULL,
-    device_id varchar(255),
-    device_name varchar(255),
-    expires_at timestamptz NOT NULL,
-    created_at timestamptz NOT NULL,
-    revoked_at timestamptz
-);
-
 CREATE TYPE user_role AS ENUM ('owner', 'admin', 'member');
 
 CREATE TABLE groups (

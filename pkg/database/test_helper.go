@@ -33,7 +33,15 @@ func SetupTestDB(t *testing.T) (*pgxpool.Pool, func()) {
 		getEnv("DB_HOST", "localhost"), getEnv("DB_TEST_PORT", "5432"), getEnv("DB_TEST_USER", "postgres"),
 		getEnv("DB_TEST_PASSWORD", ""), getEnv("DB_TEST_NAME", "test"),
 	)
-	pool, err := pgxpool.New(ctx, dsn)
+	poolConfig, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		t.Fatalf("parse test database config: %v", err)
+	}
+	if poolConfig.ConnConfig.RuntimeParams == nil {
+		poolConfig.ConnConfig.RuntimeParams = make(map[string]string)
+	}
+	poolConfig.ConnConfig.RuntimeParams["TimeZone"] = "UTC"
+	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {
 		t.Fatalf("connect test database: %v", err)
 	}
@@ -117,7 +125,7 @@ func applyTestSchema(t *testing.T, pool *pgxpool.Pool) {
 func cleanupTables(pool *pgxpool.Pool) error {
 	ctx, cancel := context.WithTimeout(context.Background(), testDatabaseTimeout)
 	defer cancel()
-	_, err := pool.Exec(ctx, "TRUNCATE TABLE user_sessions, users, orders RESTART IDENTITY CASCADE")
+	_, err := pool.Exec(ctx, "TRUNCATE TABLE users, orders RESTART IDENTITY CASCADE")
 	return err
 }
 

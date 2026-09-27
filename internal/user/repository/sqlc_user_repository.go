@@ -42,6 +42,23 @@ func (r *SQLCUserRepository) FindAll() ([]*entities.User, error) {
 	return users, nil
 }
 
+func (r *SQLCUserRepository) Search(ctx context.Context, query string) ([]*entities.User, error) {
+	rows, err := r.queries.SearchUsers(ctx, db.SearchUsersParams{Query: query})
+	if err != nil {
+		return nil, err
+	}
+	users := make([]*entities.User, 0, len(rows))
+	for _, row := range rows {
+		users = append(users, &entities.User{
+			ID:        uuid.UUID(row.ID.Bytes),
+			Username:  row.Username.String,
+			Email:     row.Email.String,
+			AvatarURL: row.AvatarUrl.String,
+		})
+	}
+	return users, nil
+}
+
 func (r *SQLCUserRepository) Patch(id string, user *entities.User) error {
 	parsed, err := uuid.Parse(id)
 	if err != nil {
@@ -66,6 +83,7 @@ func userFromModel(user db.User) *entities.User {
 		Password:     user.Password.String,
 		PasswordHash: user.PasswordHash.String,
 		Name:         user.Name.String,
+		Email:        user.Email.String,
 		Phone:        user.Phone.String,
 		Username:     user.Username.String,
 		FirstName:    user.FirstName.String,

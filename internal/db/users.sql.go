@@ -12,7 +12,7 @@ import (
 )
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at
+SELECT id, email, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at
 FROM users
 WHERE id = $1 AND deleted_at IS NULL
 `
@@ -26,6 +26,7 @@ func (q *Queries) GetUserByID(ctx context.Context, arg GetUserByIDParams) (User,
 	var i User
 	err := row.Scan(
 		&i.ID,
+		&i.Email,
 		&i.Password,
 		&i.PasswordHash,
 		&i.Name,
@@ -45,7 +46,7 @@ func (q *Queries) GetUserByID(ctx context.Context, arg GetUserByIDParams) (User,
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at
+SELECT id, email, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at
 FROM users
 WHERE deleted_at IS NULL
 ORDER BY created_at
@@ -62,6 +63,7 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 		var i User
 		if err := rows.Scan(
 			&i.ID,
+			&i.Email,
 			&i.Password,
 			&i.PasswordHash,
 			&i.Name,
@@ -76,6 +78,55 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const searchUsers = `-- name: SearchUsers :many
+SELECT id, username, email, avatar_url
+FROM users
+WHERE deleted_at IS NULL
+  AND is_active
+  AND (
+    lower(COALESCE(username, '')) LIKE '%' || lower($1) || '%'
+    OR lower(COALESCE(email, '')) LIKE '%' || lower($1) || '%'
+  )
+ORDER BY username NULLS LAST, email NULLS LAST
+LIMIT 20
+`
+
+type SearchUsersParams struct {
+	Query string `json:"query"`
+}
+
+type SearchUsersRow struct {
+	ID        pgtype.UUID `json:"id"`
+	Username  pgtype.Text `json:"username"`
+	Email     pgtype.Text `json:"email"`
+	AvatarUrl pgtype.Text `json:"avatar_url"`
+}
+
+func (q *Queries) SearchUsers(ctx context.Context, arg SearchUsersParams) ([]SearchUsersRow, error) {
+	rows, err := q.db.Query(ctx, searchUsers, arg.Query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SearchUsersRow{}
+	for rows.Next() {
+		var i SearchUsersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Username,
+			&i.Email,
+			&i.AvatarUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -109,7 +160,7 @@ const updateUserName = `-- name: UpdateUserName :one
 UPDATE users
 SET name = $2, updated_at = now()
 WHERE id = $1 AND deleted_at IS NULL
-RETURNING id, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at
+RETURNING id, email, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at
 `
 
 type UpdateUserNameParams struct {
@@ -122,6 +173,7 @@ func (q *Queries) UpdateUserName(ctx context.Context, arg UpdateUserNameParams) 
 	var i User
 	err := row.Scan(
 		&i.ID,
+		&i.Email,
 		&i.Password,
 		&i.PasswordHash,
 		&i.Name,

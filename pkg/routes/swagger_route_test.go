@@ -63,6 +63,7 @@ func TestSwaggerLoginUsesLoginRequestSchema(t *testing.T) {
 		Paths map[string]struct {
 			Post struct {
 				Parameters []struct {
+					In     string `json:"in"`
 					Schema struct {
 						Ref string `json:"$ref"`
 					} `json:"schema"`
@@ -78,10 +79,20 @@ func TestSwaggerLoginUsesLoginRequestSchema(t *testing.T) {
 	}
 
 	operation, ok := spec.Paths["/auth/login"]
-	if !ok || len(operation.Post.Parameters) != 1 {
+	if !ok {
 		t.Fatalf("login request body schema is missing")
 	}
-	definitionName := strings.TrimPrefix(operation.Post.Parameters[0].Schema.Ref, "#/definitions/")
+	var bodyRef string
+	for _, parameter := range operation.Post.Parameters {
+		if parameter.In == "body" {
+			bodyRef = parameter.Schema.Ref
+			break
+		}
+	}
+	if bodyRef == "" {
+		t.Fatal("login request body schema is missing")
+	}
+	definitionName := strings.TrimPrefix(bodyRef, "#/definitions/")
 	definition, ok := spec.Definitions[definitionName]
 	if !ok {
 		t.Fatalf("login definition %q is missing", definitionName)
@@ -91,14 +102,12 @@ func TestSwaggerLoginUsesLoginRequestSchema(t *testing.T) {
 			t.Errorf("login request property %q is missing", field)
 		}
 	}
-	if _, ok := definition.Properties["email"]; ok {
-		t.Error("login request must not expose email")
-	}
 }
 
 func TestSwaggerWriteRequestsExcludeDatabaseManagedFields(t *testing.T) {
 	type operation struct {
 		Parameters []struct {
+			In     string `json:"in"`
 			Schema struct {
 				Ref string `json:"$ref"`
 			} `json:"schema"`
@@ -134,6 +143,9 @@ func TestSwaggerWriteRequestsExcludeDatabaseManagedFields(t *testing.T) {
 		"/auth/register/resend",
 		"/auth/password/resend",
 		"/me/phone-change/resend",
+		"/me/phone-change/request",
+		"/me/phone-change/confirm",
+		"/telegram/webhook",
 	} {
 		if _, ok := spec.Paths[legacyPath]; ok {
 			t.Errorf("legacy Swagger path %q must not be documented", legacyPath)
@@ -143,14 +155,13 @@ func TestSwaggerWriteRequestsExcludeDatabaseManagedFields(t *testing.T) {
 	tests := []struct {
 		name            string
 		operation       operation
-		bodyIndex       int
 		wantFields      []string
 		forbiddenFields []string
 	}{
-		{name: "auth register", operation: spec.Paths["/auth/register"].Post, wantFields: []string{"phone", "username", "password", "otp_code"}},
-		{name: "auth otp send", operation: spec.Paths["/auth/otp/send"].Post, wantFields: []string{"phone", "purpose"}},
+		{name: "auth register", operation: spec.Paths["/auth/register"].Post, wantFields: []string{"email", "phone", "username", "password", "otp_code"}},
+		{name: "auth otp send", operation: spec.Paths["/auth/otp/send"].Post, wantFields: []string{"email", "purpose"}},
+		{name: "password verify", operation: spec.Paths["/auth/password/verify"].Post, wantFields: []string{"email", "otp"}},
 		{name: "password reset", operation: spec.Paths["/auth/password/reset"].Post, wantFields: []string{"reset_token", "password"}, forbiddenFields: []string{"confirm_password"}},
-		{name: "user patch", operation: spec.Paths["/users/{id}"].Patch, bodyIndex: 1, wantFields: []string{"name"}},
 		{name: "current profile patch", operation: spec.Paths["/me"].Patch, wantFields: []string{"first_name", "last_name", "avatar_url", "language"}},
 		{name: "order create", operation: spec.Paths["/orders"].Post, wantFields: []string{"total"}},
 	}
@@ -158,11 +169,17 @@ func TestSwaggerWriteRequestsExcludeDatabaseManagedFields(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if len(test.operation.Parameters) <= test.bodyIndex {
+			var bodyRef string
+			for _, parameter := range test.operation.Parameters {
+				if parameter.In == "body" {
+					bodyRef = parameter.Schema.Ref
+					break
+				}
+			}
+			if bodyRef == "" {
 				t.Fatalf("request body parameter is missing")
 			}
-			ref := test.operation.Parameters[test.bodyIndex].Schema.Ref
-			definitionName := strings.TrimPrefix(ref, "#/definitions/")
+			definitionName := strings.TrimPrefix(bodyRef, "#/definitions/")
 			definition, ok := spec.Definitions[definitionName]
 			if !ok {
 				t.Fatalf("request definition %q is missing", definitionName)
@@ -226,8 +243,6 @@ func TestSwaggerDocumentsAuthContract(t *testing.T) {
 		{method: http.MethodPost, path: "/auth/password/reset"},
 		{method: http.MethodGet, path: "/me", protected: true},
 		{method: http.MethodPatch, path: "/me", protected: true},
-		{method: http.MethodPost, path: "/me/phone-change/request", protected: true},
-		{method: http.MethodPost, path: "/me/phone-change/confirm", protected: true},
 	}
 	if _, exists := spec.Paths["/auth/password/forgot"]; exists {
 		t.Error("removed password forgot endpoint is still documented")

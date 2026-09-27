@@ -5,9 +5,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	authHandler "github.com/qobulov/brothers-app/internal/auth"
+	"github.com/qobulov/brothers-app/internal/auth/email"
 	"github.com/qobulov/brothers-app/internal/auth/otp"
 	authService "github.com/qobulov/brothers-app/internal/auth/service"
-	"github.com/qobulov/brothers-app/internal/auth/telegram"
+	"github.com/qobulov/brothers-app/internal/auth/session"
 	db "github.com/qobulov/brothers-app/internal/db"
 	"github.com/qobulov/brothers-app/pkg/config"
 
@@ -15,14 +16,9 @@ import (
 	orderHandler "github.com/qobulov/brothers-app/internal/order/handler/rest"
 	orderRepository "github.com/qobulov/brothers-app/internal/order/repository"
 	orderUseCase "github.com/qobulov/brothers-app/internal/order/usecase"
-
-	// User
-	userHandler "github.com/qobulov/brothers-app/internal/user/handler/rest"
-	userRepository "github.com/qobulov/brothers-app/internal/user/repository"
-	userUseCase "github.com/qobulov/brothers-app/internal/user/usecase"
 )
 
-func RegisterPublicRoutes(app fiber.Router, pool *pgxpool.Pool, otpCache *otp.Cache, cfg *config.Config) {
+func RegisterPublicRoutes(app fiber.Router, pool *pgxpool.Pool, otpCache *otp.Cache, sessions session.Store, cfg *config.Config) {
 
 	api := app.Group("/api/v1")
 
@@ -34,12 +30,8 @@ func RegisterPublicRoutes(app fiber.Router, pool *pgxpool.Pool, otpCache *otp.Ca
 	orderService := orderUseCase.NewOrderService(orderRepo)
 	orderHandler := orderHandler.NewHttpOrderHandler(orderService)
 
-	// User
-	userRepo := userRepository.NewSQLCUserRepository(queries)
-	userService := userUseCase.NewUserService(userRepo)
-	userHandler := userHandler.NewHttpUserHandler(userService)
-	telegramClient := telegram.NewClient(cfg.TelegramBotToken, cfg.TelegramBotAPIURL, cfg.TelegramHTTPTimeout, cfg.TelegramPollTimeout)
-	authService := authService.New(pool, otpCache, cfg, telegramClient)
+	emailClient := email.New(cfg)
+	authService := authService.New(pool, otpCache, sessions, cfg, emailClient)
 	authHandler := authHandler.NewHandler(authService)
 
 	// === Public Routes ===
@@ -52,14 +44,6 @@ func RegisterPublicRoutes(app fiber.Router, pool *pgxpool.Pool, otpCache *otp.Ca
 	authGroup.Post("/refresh", authHandler.Refresh)
 	authGroup.Post("/password/verify", authHandler.VerifyPassword)
 	authGroup.Post("/password/reset", authHandler.ResetPassword)
-	api.Post("/telegram/webhook", telegramWebhookHandler(cfg.TelegramWebhookSecret, authService))
-
-	// User routes
-	userGroup := api.Group("/users")
-	userGroup.Get("/", userHandler.FindAllUsers)
-	userGroup.Get("/:id", userHandler.FindUserByID)
-	userGroup.Patch("/:id", userHandler.PatchUser)
-	userGroup.Delete("/:id", userHandler.DeleteUser)
 
 	// Order routes
 	orderGroup := api.Group("/orders")

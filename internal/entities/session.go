@@ -14,6 +14,6 @@ type UserSession struct {
 	DeviceID         string     `json:"device_id,omitempty"`
 	DeviceName       string     `json:"device_name,omitempty"`
 	ExpiresAt        time.Time  `json:"expires_at"`
-	CreatedAt        time.Time  `json:"created_at"`
+	CreatedAt        time.Time  `json:"-"`
 	RevokedAt        *time.Time `json:"-"`
 }

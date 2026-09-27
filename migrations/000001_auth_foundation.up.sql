@@ -21,27 +21,14 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE UNIQUE INDEX IF NOT EXISTS users_phone_unique_idx ON users (phone) WHERE phone IS NOT NULL AND deleted_at IS NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS users_username_unique_idx ON users (username) WHERE username IS NOT NULL AND deleted_at IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique_idx
+    ON users (email)
+    WHERE email IS NOT NULL AND deleted_at IS NULL;
 
 CREATE TABLE IF NOT EXISTS orders (
     id bigserial PRIMARY KEY,
     total numeric NOT NULL
 );
-
-CREATE TABLE IF NOT EXISTS user_sessions (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id uuid NOT NULL REFERENCES users(id),
-    refresh_token_hash text NOT NULL,
-    device_id varchar(255),
-    device_name varchar(255),
-    platform varchar(50),
-    expires_at timestamptz NOT NULL,
-    created_at timestamptz NOT NULL DEFAULT now(),
-    revoked_at timestamptz
-);
-CREATE UNIQUE INDEX IF NOT EXISTS user_sessions_refresh_token_hash_idx ON user_sessions (refresh_token_hash);
-CREATE UNIQUE INDEX IF NOT EXISTS user_sessions_one_active_idx ON user_sessions (user_id) WHERE revoked_at IS NULL;
-CREATE INDEX IF NOT EXISTS user_sessions_expiry_idx ON user_sessions (expires_at);
-CREATE INDEX IF NOT EXISTS user_sessions_platform_idx ON user_sessions (platform);
 
 DO $$
 BEGIN
@@ -79,6 +66,7 @@ CREATE TABLE IF NOT EXISTS group_invitations (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     group_id uuid NOT NULL REFERENCES groups(id),
     invited_by uuid NOT NULL REFERENCES users(id),
+    location_name varchar(255);
     phone varchar(20) NOT NULL,
     role user_role NOT NULL,
     token_hash text NOT NULL UNIQUE,
