@@ -8,6 +8,7 @@ func TestLoadConfigPrefersDeploymentEnvironment(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgresql://user:password@database.example.com:5432/brothers")
 	t.Setenv("CORS_ALLOW_ORIGINS", "https://app.example.com")
 	t.Setenv("CORS_ALLOW_CREDENTIALS", "true")
+	t.Setenv("TELEGRAM_BACKEND_ERROR_THREAD_ID", "123")
 
 	cfg := LoadConfig("file-that-does-not-exist")
 
@@ -19,6 +20,9 @@ func TestLoadConfigPrefersDeploymentEnvironment(t *testing.T) {
 	}
 	if cfg.CORSAllowOrigins != "https://app.example.com" || !cfg.CORSAllowCredentials {
 		t.Fatalf("CORS config = %q, %t", cfg.CORSAllowOrigins, cfg.CORSAllowCredentials)
+	}
+	if cfg.TelegramBackendErrorThreadID != 123 {
+		t.Fatalf("TelegramBackendErrorThreadID = %d, want 123", cfg.TelegramBackendErrorThreadID)
 	}
 }
 

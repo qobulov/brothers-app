@@ -10,19 +10,20 @@ import (
 )
 
 type Config struct {
-	AppPort              string
-	AppEnv               string
-	DBHost               string
-	DBPort               string
-	DBUser               string
-	DBPassword           string
-	DBName               string
-	DatabaseDSN          string
-	RedisURL             string
-	CORSAllowOrigins     string
-	CORSAllowCredentials bool
-	TelegramBotToken     string
-	TelegramChatID       string
+	AppPort                      string
+	AppEnv                       string
+	DBHost                       string
+	DBPort                       string
+	DBUser                       string
+	DBPassword                   string
+	DBName                       string
+	DatabaseDSN                  string
+	RedisURL                     string
+	CORSAllowOrigins             string
+	CORSAllowCredentials         bool
+	TelegramBotToken             string
+	TelegramChatID               string
+	TelegramBackendErrorThreadID int
 
 	JWTSecret     string
 	JWTExpiration int // in seconds
@@ -53,31 +54,32 @@ func LoadConfig(env string) *Config {
 	jwtExp := getEnvAsInt("JWT_EXPIRATION", 3600)
 
 	cfg := &Config{
-		AppPort:              getEnv("PORT", getEnv("APP_PORT", "8000")),
-		AppEnv:               getEnv("APP_ENV", "development"),
-		DBHost:               getEnv("DB_HOST", "localhost"),
-		DBPort:               getEnv("DB_PORT", "5432"),
-		DBUser:               getEnv("DB_USER", "postgres"),
-		DBPassword:           getEnv("DB_PASSWORD", "brothers"),
-		DBName:               getEnv("DB_NAME", "test"),
-		RedisURL:             getEnv("REDIS_URL", "redis://localhost:6379/0"),
-		CORSAllowOrigins:     getEnv("CORS_ALLOW_ORIGINS", "*"),
-		CORSAllowCredentials: getEnvAsBool("CORS_ALLOW_CREDENTIALS", false),
-		TelegramBotToken:     getEnv("TELEGRAM_BOT_TOKEN", ""),
-		TelegramChatID:       getEnv("TELEGRAM_CHAT_ID", "-1003866068293"),
-		JWTSecret:            getEnv("JWT_SECRET", "changeme"),
-		JWTExpiration:        jwtExp,
-		JWTIssuer:            getEnv("JWT_ISSUER", "brothers-app"),
-		JWTAudience:          getEnv("JWT_AUDIENCE", "brothers-api"),
-		SMTPHost:             getEnv("SMTP_HOST", "smtp.gmail.com"),
-		SMTPPort:             getEnvAsInt("SMTP_PORT", 587),
-		SMTPUsername:         getEnv("SMTP_USERNAME", ""),
-		SMTPPassword:         getEnv("SMTP_PASSWORD", ""),
-		SMTPFrom:             getEnv("SMTP_FROM", ""),
-		OTPPepper:            getEnv("OTP_PEPPER", "development-only-change-me"),
-		OTPExpiration:        getEnvAsInt("OTP_EXPIRATION", 120),
-		OTPResendCooldown:    getEnvAsInt("OTP_RESEND_COOLDOWN", 60),
-		OTPMaxAttempts:       getEnvAsInt("OTP_MAX_ATTEMPTS", 5),
+		AppPort:                      getEnv("PORT", getEnv("APP_PORT", "8000")),
+		AppEnv:                       getEnv("APP_ENV", "development"),
+		DBHost:                       getEnv("DB_HOST", "localhost"),
+		DBPort:                       getEnv("DB_PORT", "5432"),
+		DBUser:                       getEnv("DB_USER", "postgres"),
+		DBPassword:                   getEnv("DB_PASSWORD", "brothers"),
+		DBName:                       getEnv("DB_NAME", "test"),
+		RedisURL:                     getEnv("REDIS_URL", "redis://localhost:6379/0"),
+		CORSAllowOrigins:             getEnv("CORS_ALLOW_ORIGINS", "*"),
+		CORSAllowCredentials:         getEnvAsBool("CORS_ALLOW_CREDENTIALS", false),
+		TelegramBotToken:             getEnv("TELEGRAM_BOT_TOKEN", ""),
+		TelegramChatID:               getEnv("TELEGRAM_CHAT_ID", "-1003866068293"),
+		TelegramBackendErrorThreadID: getEnvAsInt("TELEGRAM_BACKEND_ERROR_THREAD_ID", 0),
+		JWTSecret:                    getEnv("JWT_SECRET", "changeme"),
+		JWTExpiration:                jwtExp,
+		JWTIssuer:                    getEnv("JWT_ISSUER", "brothers-app"),
+		JWTAudience:                  getEnv("JWT_AUDIENCE", "brothers-api"),
+		SMTPHost:                     getEnv("SMTP_HOST", "smtp.gmail.com"),
+		SMTPPort:                     getEnvAsInt("SMTP_PORT", 587),
+		SMTPUsername:                 getEnv("SMTP_USERNAME", ""),
+		SMTPPassword:                 getEnv("SMTP_PASSWORD", ""),
+		SMTPFrom:                     getEnv("SMTP_FROM", ""),
+		OTPPepper:                    getEnv("OTP_PEPPER", "development-only-change-me"),
+		OTPExpiration:                getEnvAsInt("OTP_EXPIRATION", 120),
+		OTPResendCooldown:            getEnvAsInt("OTP_RESEND_COOLDOWN", 60),
+		OTPMaxAttempts:               getEnvAsInt("OTP_MAX_ATTEMPTS", 5),
 	}
 
 	databaseDSNFallback := fmt.Sprintf(

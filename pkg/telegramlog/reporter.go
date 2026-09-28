@@ -26,6 +26,7 @@ const defaultChatID = "-1003866068293"
 type Reporter struct {
 	client           *http.Client
 	endpoint, chatID string
+	threadID         int
 	secrets          []string
 	queue            chan string
 	done             chan struct{}
@@ -44,14 +45,14 @@ func New(cfg *config.Config) *Reporter {
 		chatID = defaultChatID
 	}
 	token := strings.TrimSpace(cfg.TelegramBotToken)
-	return newReporter("https://api.telegram.org/bot"+token+"/sendMessage", chatID,
+	return newReporter("https://api.telegram.org/bot"+token+"/sendMessage", chatID, cfg.TelegramBackendErrorThreadID,
 		&http.Client{Timeout: 5 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }},
 		3*time.Second, []string{token, cfg.DBPassword, cfg.SMTPPassword, cfg.JWTSecret, cfg.OTPPepper, cfg.DatabaseDSN, cfg.RedisURL})
 }
 
-func newReporter(endpoint, chatID string, client *http.Client, interval time.Duration, secrets []string) *Reporter {
+func newReporter(endpoint, chatID string, threadID int, client *http.Client, interval time.Duration, secrets []string) *Reporter {
 	ctx, cancel := context.WithCancel(context.Background())
-	r := &Reporter{client: client, endpoint: endpoint, chatID: chatID, secrets: secrets,
+	r := &Reporter{client: client, endpoint: endpoint, chatID: chatID, threadID: threadID, secrets: secrets,
 		queue: make(chan string, 64), done: make(chan struct{}), cancel: cancel, interval: interval}
 	go r.run(ctx)
 	return r
@@ -138,11 +139,24 @@ func wait(ctx context.Context, duration time.Duration) bool {
 }
 
 func (r *Reporter) send(ctx context.Context, message string) (time.Duration, error) {
-	payload, err := json.Marshal(map[string]any{"chat_id": r.chatID, "text": message, "parse_mode": "HTML", "disable_web_page_preview": true})
+	payload := struct {
+		ChatID                string `json:"chat_id"`
+		MessageThreadID       int    `json:"message_thread_id,omitempty"`
+		Text                  string `json:"text"`
+		ParseMode             string `json:"parse_mode"`
+		DisableWebPagePreview bool   `json:"disable_web_page_preview"`
+	}{
+		ChatID:                r.chatID,
+		MessageThreadID:       r.threadID,
+		Text:                  message,
+		ParseMode:             "HTML",
+		DisableWebPagePreview: true,
+	}
+	body, err := json.Marshal(payload)
 	if err != nil {
 		return 0, fmt.Errorf("encoding telegram report: %w", err)
 	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, r.endpoint, bytes.NewReader(payload))
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, r.endpoint, bytes.NewReader(body))
 	if err != nil {
 		return 0, errors.New("invalid telegram endpoint")
 	}

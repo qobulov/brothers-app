@@ -29,7 +29,7 @@ func TestReporterDeliversEscapedAndRedactedError(t *testing.T) {
 		_, _ = io.WriteString(w, `{"ok":true}`)
 	}))
 	defer server.Close()
-	r := newReporter(server.URL, defaultChatID, server.Client(), 0, []string{"smtp-secret"})
+	r := newReporter(server.URL, defaultChatID, 0, server.Client(), 0, []string{"smtp-secret"})
 	r.Report(responses.FailureReport{Method: "POST", Path: "/api/v1/auth/otp/send", Environment: "test", Status: 500, Code: 1500,
 		Slug: "internal_error", Reason: `ERROR: column <email> missing; password="smtp-secret" otp=123456 Authorization: Bearer abc.def.xyz postgres://user:dbsecret@db/app`,
 		Meta: responses.Meta{RequestID: "test-request-123", Timestamp: "2026-09-27T12:00:00Z"}})
@@ -42,6 +42,9 @@ func TestReporterDeliversEscapedAndRedactedError(t *testing.T) {
 	message := payload["text"].(string)
 	if payload["chat_id"] != defaultChatID || payload["parse_mode"] != "HTML" {
 		t.Fatalf("invalid destination/format: %v", payload)
+	}
+	if _, ok := payload["message_thread_id"]; ok {
+		t.Fatalf("unexpected General topic thread ID: %v", payload)
 	}
 	for _, expected := range []string{"test-request-123", "&lt;email&gt;", "POST /api/v1/auth/otp/send", "[REDACTED]"} {
 		if !strings.Contains(message, expected) {
@@ -67,7 +70,7 @@ func TestReportDoesNotBlockAndShutdownCancelsDelivery(t *testing.T) {
 		<-req.Context().Done()
 		return nil, req.Context().Err()
 	})}
-	r := newReporter("https://example.invalid/bot-test/sendMessage", defaultChatID, client, 0, nil)
+	r := newReporter("https://example.invalid/bot-test/sendMessage", defaultChatID, 0, client, 0, nil)
 	r.Report(responses.FailureReport{Reason: "test failure"})
 	select {
 	case <-started:
@@ -88,6 +91,31 @@ func TestReportDoesNotBlockAndShutdownCancelsDelivery(t *testing.T) {
 	r.Report(responses.FailureReport{Reason: "ignored after close"})
 	if err := r.Close(context.Background()); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestReporterDeliversToConfiguredForumTopic(t *testing.T) {
+	t.Parallel()
+	requests := make(chan map[string]any, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		var payload map[string]any
+		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+			t.Error(err)
+		}
+		requests <- payload
+		_, _ = io.WriteString(w, `{"ok":true}`)
+	}))
+	defer server.Close()
+
+	r := newReporter(server.URL, defaultChatID, 123, server.Client(), 0, nil)
+	r.Report(responses.FailureReport{Reason: "test failure"})
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := r.Close(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if got := (<-requests)["message_thread_id"]; got != float64(123) {
+		t.Fatalf("message_thread_id = %v, want 123", got)
 	}
 }
 
