@@ -20,10 +20,11 @@ import (
 
 type PublicRoutesTestSuite struct {
 	suite.Suite
-	db      *pgxpool.Pool
-	app     *fiber.App
-	cfg     *config.Config
-	cleanup func()
+	db          *pgxpool.Pool
+	app         *fiber.App
+	cfg         *config.Config
+	accessToken string
+	cleanup     func()
 }
 
 func (s *PublicRoutesTestSuite) SetupTest() {
@@ -37,6 +38,8 @@ func (s *PublicRoutesTestSuite) SetupTest() {
 	var err error
 	s.app, err = app.SetupRestServer(s.db, nil, session.NewMemoryStore(), s.cfg)
 	s.NoError(err, "Failed to setup REST server")
+	s.createLoginUser("suite-owner", "+998901239999", "suite-owner@example.com", "securepassword123")
+	s.accessToken = s.loginAccessToken("suite-owner", "securepassword123")
 }
 
 func (s *PublicRoutesTestSuite) TearDownTest() {
@@ -445,10 +448,33 @@ func (s *PublicRoutesTestSuite) createLoginUser(username, phone, email, password
 	s.Require().NoError(err)
 }
 
+func (s *PublicRoutesTestSuite) loginAccessToken(login, password string) string {
+	s.T().Helper()
+	body, err := json.Marshal(map[string]string{"login": login, "password": password})
+	s.Require().NoError(err)
+	request := httptest.NewRequest("POST", "/api/v1/auth/login", bytes.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	response, err := s.app.Test(request, -1)
+	s.Require().NoError(err)
+	defer response.Body.Close()
+	s.Require().Equal(fiber.StatusOK, response.StatusCode)
+	var envelope struct {
+		Data struct {
+			Tokens struct {
+				AccessToken string `json:"access_token"`
+			} `json:"tokens"`
+		} `json:"data"`
+	}
+	s.Require().NoError(json.NewDecoder(response.Body).Decode(&envelope))
+	s.Require().NotEmpty(envelope.Data.Tokens.AccessToken)
+	return envelope.Data.Tokens.AccessToken
+}
+
 // === ORDER ROUTES ===
 
 func (s *PublicRoutesTestSuite) TestGetOrders() {
 	req := httptest.NewRequest("GET", "/api/v1/orders", nil)
+	req.Header.Set("Authorization", s.accessToken)
 	resp, err := s.app.Test(req, -1)
 	s.NoError(err)
 	s.Equal(fiber.StatusOK, resp.StatusCode)
@@ -456,6 +482,7 @@ func (s *PublicRoutesTestSuite) TestGetOrders() {
 
 func (s *PublicRoutesTestSuite) TestGetOrderByID_NotFound() {
 	req := httptest.NewRequest("GET", "/api/v1/orders/"+uuid.NewString(), nil)
+	req.Header.Set("Authorization", s.accessToken)
 	resp, err := s.app.Test(req, -1)
 	s.NoError(err)
 	s.NotEqual(fiber.StatusInternalServerError, resp.StatusCode)
@@ -469,6 +496,7 @@ func (s *PublicRoutesTestSuite) TestCreateOrder() {
 
 	req := httptest.NewRequest("POST", "/api/v1/orders", bytes.NewBuffer(jsonBody))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", s.accessToken)
 
 	resp, err := s.app.Test(req, -1)
 	s.NoError(err)
@@ -483,6 +511,7 @@ func (s *PublicRoutesTestSuite) TestPatchOrder() {
 	createJsonBody, _ := json.Marshal(createBody)
 	createReq := httptest.NewRequest("POST", "/api/v1/orders", bytes.NewBuffer(createJsonBody))
 	createReq.Header.Set("Content-Type", "application/json")
+	createReq.Header.Set("Authorization", s.accessToken)
 	createResp, err := s.app.Test(createReq, -1)
 	s.Require().NoError(err)
 	defer createResp.Body.Close()
@@ -503,6 +532,7 @@ func (s *PublicRoutesTestSuite) TestPatchOrder() {
 
 	req := httptest.NewRequest("PATCH", "/api/v1/orders/"+createEnvelope.Data.ID.String(), bytes.NewBuffer(jsonBody))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", s.accessToken)
 
 	resp, err := s.app.Test(req, -1)
 	s.NoError(err)
@@ -517,6 +547,7 @@ func (s *PublicRoutesTestSuite) TestDeleteOrder() {
 	createJsonBody, _ := json.Marshal(createBody)
 	createReq := httptest.NewRequest("POST", "/api/v1/orders", bytes.NewBuffer(createJsonBody))
 	createReq.Header.Set("Content-Type", "application/json")
+	createReq.Header.Set("Authorization", s.accessToken)
 	createResp, err := s.app.Test(createReq, -1)
 	s.Require().NoError(err)
 	defer createResp.Body.Close()
@@ -531,7 +562,16 @@ func (s *PublicRoutesTestSuite) TestDeleteOrder() {
 
 	// Then try to delete it
 	req := httptest.NewRequest("DELETE", "/api/v1/orders/"+createEnvelope.Data.ID.String(), nil)
+	req.Header.Set("Authorization", s.accessToken)
 	resp, err := s.app.Test(req, -1)
 	s.NoError(err)
 	s.True(resp.StatusCode >= 200 && resp.StatusCode < 500)
+}
+
+func (s *PublicRoutesTestSuite) TestOrdersRequireAuthentication() {
+	request := httptest.NewRequest("GET", "/api/v1/orders", nil)
+	response, err := s.app.Test(request, -1)
+	s.Require().NoError(err)
+	defer response.Body.Close()
+	s.Equal(fiber.StatusUnauthorized, response.StatusCode)
 }

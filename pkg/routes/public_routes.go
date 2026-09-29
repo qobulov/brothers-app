@@ -8,26 +8,12 @@ import (
 	"github.com/qobulov/brothers-app/internal/auth/otp"
 	authService "github.com/qobulov/brothers-app/internal/auth/service"
 	"github.com/qobulov/brothers-app/internal/auth/session"
-	db "github.com/qobulov/brothers-app/internal/db"
 	"github.com/qobulov/brothers-app/pkg/config"
-
-	// Order
-	orderHandler "github.com/qobulov/brothers-app/internal/order/handler/rest"
-	orderRepository "github.com/qobulov/brothers-app/internal/order/repository"
-	orderUseCase "github.com/qobulov/brothers-app/internal/order/usecase"
 )
 
 func RegisterPublicRoutes(app fiber.Router, pool *pgxpool.Pool, otpCache *otp.Cache, sessions session.Store, cfg *config.Config, emailSender authService.EmailSender) {
 
 	api := app.Group("/api/v1")
-
-	// === Dependency Wiring ===
-
-	// Order
-	queries := db.New(pool)
-	orderRepo := orderRepository.NewSQLCOrderRepository(queries)
-	orderService := orderUseCase.NewOrderService(orderRepo)
-	orderHandler := orderHandler.NewHttpOrderHandler(orderService)
 
 	authService := authService.New(pool, otpCache, sessions, cfg, emailSender)
 	authHandler := authHandler.NewHandler(authService)
@@ -42,12 +28,4 @@ func RegisterPublicRoutes(app fiber.Router, pool *pgxpool.Pool, otpCache *otp.Ca
 	authGroup.Post("/refresh", authHandler.Refresh)
 	authGroup.Post("/password/verify", authHandler.VerifyPassword)
 	authGroup.Post("/password/reset", authHandler.ResetPassword)
-
-	// Order routes
-	orderGroup := api.Group("/orders")
-	orderGroup.Get("/", orderHandler.FindAllOrders)
-	orderGroup.Get("/:id", orderHandler.FindOrderByID)
-	orderGroup.Post("/", orderHandler.CreateOrder)
-	orderGroup.Patch("/:id", orderHandler.PatchOrder)
-	orderGroup.Delete("/:id", orderHandler.DeleteOrder)
 }
