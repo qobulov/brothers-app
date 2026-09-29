@@ -1154,6 +1154,171 @@ const docTemplate = `{
                 }
             }
         },
+        "/groups/{groupID}/orders/{orderID}/cancellation": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Only the giver or receiver, for a pending or completed order. The requester counts as approved; the other party must approve.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Request order cancellation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group UUID",
+                        "name": "groupID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Order UUID",
+                        "name": "orderID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Optional reason",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/order.CancellationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/order.OrderResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/groups/{groupID}/orders/{orderID}/cancellation/action": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "approve: only the other party; cancels the order and reverses a completed order's balances and profits. reject: either party (\"Keep Order\", or the requester withdrawing).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Approve or reject a cancellation request",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group UUID",
+                        "name": "groupID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Order UUID",
+                        "name": "orderID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Action",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/order.CancellationActionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/order.OrderResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/groups/{groupID}/orders/{orderID}/confirmations": {
             "post": {
                 "security": [
@@ -2511,7 +2676,10 @@ const docTemplate = `{
                         "ORDER_CREATED",
                         "ORDER_UPDATED",
                         "ORDER_AMOUNT_MISMATCH",
-                        "ORDER_COMPLETED"
+                        "ORDER_COMPLETED",
+                        "ORDER_CANCELLATION_REQUESTED",
+                        "ORDER_CANCELLATION_REJECTED",
+                        "ORDER_CANCELLED"
                     ]
                 },
                 "expires_at": {
@@ -2575,6 +2743,83 @@ const docTemplate = `{
                 },
                 "user_id": {
                     "type": "string"
+                }
+            }
+        },
+        "order.Approval": {
+            "type": "object",
+            "properties": {
+                "role": {
+                    "type": "string",
+                    "enum": [
+                        "giver",
+                        "receiver"
+                    ]
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "approved",
+                        "waiting"
+                    ]
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "order.Cancellation": {
+            "type": "object",
+            "properties": {
+                "approvals": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/order.Approval"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "requested_at": {
+                    "type": "string"
+                },
+                "requested_by": {
+                    "$ref": "#/definitions/order.Actor"
+                },
+                "responded_at": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "pending",
+                        "approved"
+                    ]
+                }
+            }
+        },
+        "order.CancellationActionRequest": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": [
+                        "approve",
+                        "reject"
+                    ],
+                    "example": "approve"
+                }
+            }
+        },
+        "order.CancellationRequest": {
+            "type": "object",
+            "properties": {
+                "reason": {
+                    "type": "string",
+                    "example": "Customer changed their mind"
                 }
             }
         },
@@ -2697,7 +2942,10 @@ const docTemplate = `{
                         "confirmed",
                         "confirmation_corrected",
                         "amount_mismatch",
-                        "completed"
+                        "completed",
+                        "cancellation_requested",
+                        "cancellation_rejected",
+                        "cancelled"
                     ]
                 },
                 "id": {
@@ -2732,6 +2980,7 @@ const docTemplate = `{
                         "waiting_for_you",
                         "waiting_for_confirmation",
                         "amount_mismatch",
+                        "cancellation_requested",
                         "completed",
                         "cancelled"
                     ]
@@ -2762,6 +3011,9 @@ const docTemplate = `{
             "properties": {
                 "amount_usd": {
                     "type": "integer"
+                },
+                "cancellation": {
+                    "$ref": "#/definitions/order.Cancellation"
                 },
                 "completed_at": {
                     "type": "string"
@@ -2799,6 +3051,7 @@ const docTemplate = `{
                         "waiting_for_you",
                         "waiting_for_confirmation",
                         "amount_mismatch",
+                        "cancellation_requested",
                         "completed",
                         "cancelled"
                     ]

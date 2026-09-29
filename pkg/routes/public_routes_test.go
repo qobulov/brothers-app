@@ -541,6 +541,10 @@ func (s *PublicRoutesTestSuite) TestGroupOrderFlow() {
 	s.Equal(fiber.StatusOK, status)
 	status, _ = s.sendJSON("POST", orderPath+"/confirmations", map[string]any{"amount_usd": 6800})
 	s.Equal(fiber.StatusForbidden, status, "a manager is not a party and cannot confirm")
+	status, _ = s.sendJSON("POST", orderPath+"/cancellation", nil)
+	s.Equal(fiber.StatusForbidden, status, "a manager is not a party and cannot request cancellation")
+	status, _ = s.sendJSON("POST", orderPath+"/cancellation/action", map[string]any{"action": "approve"})
+	s.Equal(fiber.StatusForbidden, status, "a manager is not a party and cannot approve cancellation")
 }
 
 func (s *PublicRoutesTestSuite) createGroup(name string) string {

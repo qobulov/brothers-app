@@ -16,6 +16,9 @@ const (
 	eventConfirmationCorrected = "confirmation_corrected"
 	eventAmountMismatch        = "amount_mismatch"
 	eventCompleted             = "completed"
+	eventCancellationRequested = "cancellation_requested"
+	eventCancellationRejected  = "cancellation_rejected"
+	eventCancelled             = "cancelled"
 )
 
 // orderEvent payloads must never carry confirmation amounts or fees: both

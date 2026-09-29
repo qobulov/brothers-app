@@ -35,6 +35,9 @@ func (s *Service) Edit(ctx context.Context, actorID, groupID, orderID uuid.UUID,
 	if current.status != StatusPending {
 		return Order{}, fmt.Errorf("%w: order is %s", apperror.ErrConflict, current.status)
 	}
+	if err := requireNoOpenCancellation(ctx, tx, orderID); err != nil {
+		return Order{}, err
+	}
 	next, err := current.apply(input)
 	if err != nil {
 		return Order{}, err

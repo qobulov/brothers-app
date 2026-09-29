@@ -49,6 +49,8 @@ const (
 	MessageOrdersReturned        = "orders_returned"
 	MessageOrderUpdated          = "order_updated"
 	MessageOrderConfirmed        = "order_confirmed"
+	MessageCancellationRequested = "order_cancellation_requested"
+	MessageCancellationProcessed = "order_cancellation_processed"
 	MessageResourceNotFound      = "resource_not_found"
 	MessageInvalidCredentials    = "invalid_credentials"
 	MessageIDRequired            = "id_required"
@@ -74,6 +76,8 @@ var messageTranslations = map[string]translation{
 	MessageOrdersReturned:        {"Buyurtmalar olindi", "Заказы получены", "Orders returned"},
 	MessageOrderUpdated:          {"Buyurtma o'zgartirildi", "Заказ изменён", "Order updated"},
 	MessageOrderConfirmed:        {"Buyurtma tasdiqlandi", "Заказ подтверждён", "Order confirmed"},
+	MessageCancellationRequested: {"Bekor qilish so'raldi", "Запрошена отмена заказа", "Cancellation requested"},
+	MessageCancellationProcessed: {"Bekor qilish so'rovi qayta ishlandi", "Запрос на отмену обработан", "Cancellation request processed"},
 	MessageResourceNotFound:      {"Resurs topilmadi", "Ресурс не найден", "Resource not found"},
 	MessageInvalidCredentials:    {"Hisob ma'lumotlari noto'g'ri", "Неверные учетные данные", "Invalid credentials"},
 	MessageIDRequired:            {"ID kiritilishi shart", "Необходимо указать ID", "ID is required"},

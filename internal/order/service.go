@@ -105,6 +105,12 @@ func (s *Service) Get(ctx context.Context, actorID, groupID, orderID uuid.UUID) 
 		return Order{}, err
 	}
 	result.State, result.Confirmations = present(result.Status, p, rows, v)
+	if result.Cancellation, err = loadCancellation(ctx, s.pool, orderID, p); err != nil {
+		return Order{}, err
+	}
+	if result.Cancellation != nil && result.Cancellation.Status == cancellationPending {
+		result.State = StateCancellationRequested
+	}
 	return result, nil
 }
 

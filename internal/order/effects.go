@@ -89,3 +89,31 @@ func addProfit(ctx context.Context, q querier, change profitChange) error {
 	}
 	return nil
 }
+
+// reverseCompletion undoes completeOrder's money effects with opposite
+// entries. Profit is reversed in the cancellation's month, so that month's
+// profit may go negative; the month it was earned stays untouched.
+func reverseCompletion(ctx context.Context, q querier, st settlement) error {
+	if len(st.confirmations) != 2 {
+		return fmt.Errorf("reversing order: want 2 confirmations, have %d", len(st.confirmations))
+	}
+	amountUSD := st.confirmations[0].amountUSD
+	giver := balanceChange{groupID: st.groupID, memberID: st.parties.giverMemberID, amountUSD: -amountUSD, at: st.at}
+	if err := addBalance(ctx, q, giver); err != nil {
+		return err
+	}
+	receiver := balanceChange{groupID: st.groupID, memberID: st.parties.receiverMemberID, amountUSD: amountUSD, at: st.at}
+	if err := addBalance(ctx, q, receiver); err != nil {
+		return err
+	}
+	for _, row := range st.confirmations {
+		if row.feeUZS == 0 {
+			continue
+		}
+		change := profitChange{groupID: st.groupID, memberID: row.memberID, feeUZS: -row.feeUZS, at: st.at}
+		if err := addProfit(ctx, q, change); err != nil {
+			return err
+		}
+	}
+	return nil
+}

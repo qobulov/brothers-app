@@ -15,6 +15,10 @@ const (
 	notifyOrderUpdated        = "ORDER_UPDATED"
 	notifyOrderAmountMismatch = "ORDER_AMOUNT_MISMATCH"
 	notifyOrderCompleted      = "ORDER_COMPLETED"
+
+	notifyOrderCancellationRequested = "ORDER_CANCELLATION_REQUESTED"
+	notifyOrderCancellationRejected  = "ORDER_CANCELLATION_REJECTED"
+	notifyOrderCancelled             = "ORDER_CANCELLED"
 )
 
 type orderNotification struct {
@@ -49,6 +53,27 @@ func notificationTexts(eventType string, amountUSD int64) (translations, transla
 				"Confirmed amounts for an order do not match.",
 				"Buyurtma bo'yicha tasdiqlangan summalar mos kelmadi.",
 				"Подтверждённые суммы по заказу не совпадают.",
+			}
+	case notifyOrderCancellationRequested:
+		return translations{"Cancellation requested", "Bekor qilish so'raldi", "Запрошена отмена"},
+			translations{
+				fmt.Sprintf("The other employee asked to cancel the $%d order. Your approval is needed.", amountUSD),
+				fmt.Sprintf("Ikkinchi xodim $%d lik buyurtmani bekor qilishni so'radi. Sizning tasdiqingiz kerak.", amountUSD),
+				fmt.Sprintf("Другой сотрудник запросил отмену заказа на $%d. Нужно ваше подтверждение.", amountUSD),
+			}
+	case notifyOrderCancellationRejected:
+		return translations{"Cancellation rejected", "Bekor qilish rad etildi", "Отмена отклонена"},
+			translations{
+				fmt.Sprintf("The $%d order was kept.", amountUSD),
+				fmt.Sprintf("$%d lik buyurtma saqlab qolindi.", amountUSD),
+				fmt.Sprintf("Заказ на $%d сохранён.", amountUSD),
+			}
+	case notifyOrderCancelled:
+		return translations{"Order cancelled", "Buyurtma bekor qilindi", "Заказ отменён"},
+			translations{
+				fmt.Sprintf("The $%d order was cancelled.", amountUSD),
+				fmt.Sprintf("$%d lik buyurtma bekor qilindi.", amountUSD),
+				fmt.Sprintf("Заказ на $%d отменён.", amountUSD),
 			}
 	default:
 		return translations{"Order completed", "Buyurtma yakunlandi", "Заказ выполнен"},

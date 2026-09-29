@@ -56,4 +56,6 @@ func RegisterPrivateRoutes(app fiber.Router, pool *pgxpool.Pool, otpCache *otp.C
 	groups.Patch("/:groupID/orders/:orderID", orderHandler.Edit)
 	groups.Post("/:groupID/orders/:orderID/confirmations", orderHandler.Confirm)
 	groups.Get("/:groupID/orders/:orderID/events", orderHandler.Events)
+	groups.Post("/:groupID/orders/:orderID/cancellation", orderHandler.RequestCancellation)
+	groups.Post("/:groupID/orders/:orderID/cancellation/action", orderHandler.RespondCancellation)
 }

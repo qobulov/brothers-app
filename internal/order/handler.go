@@ -322,3 +322,79 @@ func optionalInt(c *fiber.Ctx, name string) (int, error) {
 	}
 	return value, nil
 }
+
+type CancellationRequest struct {
+	Reason string `json:"reason,omitempty" example:"Customer changed their mind"`
+}
+
+type CancellationActionRequest struct {
+	Action string `json:"action" enums:"approve,reject" example:"approve"`
+}
+
+// RequestCancellation godoc
+// @Summary Request order cancellation
+// @Description Only the giver or receiver, for a pending or completed order. The requester counts as approved; the other party must approve.
+// @Tags orders
+// @Accept json
+// @Produce json
+// @Param groupID path string true "Group UUID"
+// @Param orderID path string true "Order UUID"
+// @Param request body CancellationRequest false "Optional reason"
+// @Success 201 {object} OrderResponse
+// @Failure 400 {object} responses.ErrorResponse
+// @Failure 401 {object} responses.ErrorResponse
+// @Failure 403 {object} responses.ErrorResponse
+// @Failure 404 {object} responses.ErrorResponse
+// @Failure 409 {object} responses.ErrorResponse
+// @Security BearerAuth
+// @Router /groups/{groupID}/orders/{orderID}/cancellation [post]
+func (h *Handler) RequestCancellation(c *fiber.Ctx) error {
+	actorID, groupID, orderID, err := actorGroupAndOrder(c)
+	if err != nil {
+		return responses.Error(c, err)
+	}
+	var request CancellationRequest
+	if len(c.Body()) > 0 {
+		if err := c.BodyParser(&request); err != nil {
+			return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
+		}
+	}
+	requested, err := h.service.RequestCancellation(c.UserContext(), actorID, groupID, orderID, request.Reason)
+	if err != nil {
+		return responses.Error(c, err)
+	}
+	return responses.Success(c, fiber.StatusCreated, requested, responses.MessageCancellationRequested)
+}
+
+// RespondCancellation godoc
+// @Summary Approve or reject a cancellation request
+// @Description approve: only the other party; cancels the order and reverses a completed order's balances and profits. reject: either party ("Keep Order", or the requester withdrawing).
+// @Tags orders
+// @Accept json
+// @Produce json
+// @Param groupID path string true "Group UUID"
+// @Param orderID path string true "Order UUID"
+// @Param request body CancellationActionRequest true "Action"
+// @Success 200 {object} OrderResponse
+// @Failure 400 {object} responses.ErrorResponse
+// @Failure 401 {object} responses.ErrorResponse
+// @Failure 403 {object} responses.ErrorResponse
+// @Failure 404 {object} responses.ErrorResponse
+// @Failure 409 {object} responses.ErrorResponse
+// @Security BearerAuth
+// @Router /groups/{groupID}/orders/{orderID}/cancellation/action [post]
+func (h *Handler) RespondCancellation(c *fiber.Ctx) error {
+	actorID, groupID, orderID, err := actorGroupAndOrder(c)
+	if err != nil {
+		return responses.Error(c, err)
+	}
+	var request CancellationActionRequest
+	if err := c.BodyParser(&request); err != nil {
+		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
+	}
+	responded, err := h.service.RespondCancellation(c.UserContext(), actorID, groupID, orderID, request.Action)
+	if err != nil {
+		return responses.Error(c, err)
+	}
+	return responses.Success(c, fiber.StatusOK, responded, responses.MessageCancellationProcessed)
+}

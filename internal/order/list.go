@@ -64,7 +64,13 @@ var orderListQuery = fmt.Sprintf(`
 	SELECT orders.id, orders.status, orders.amount_usd, orders.created_at,
 	       orders.giver_member_id, giver_member.user_id, %s, COALESCE(giver_location.name, ''),
 	       orders.receiver_member_id, receiver_member.user_id, %s, COALESCE(receiver_location.name, ''),
-	       giver_confirmation.amount_usd, receiver_confirmation.amount_usd
+	       giver_confirmation.amount_usd, receiver_confirmation.amount_usd,
+	       EXISTS (
+	           SELECT 1 FROM order_cancellations cancellations
+	           WHERE cancellations.order_id = orders.id
+	             AND cancellations.status = 'pending'
+	             AND cancellations.deleted_at IS NULL
+	       )
 	FROM orders
 	JOIN group_members giver_member ON giver_member.id = orders.giver_member_id
 	JOIN users giver_user ON giver_user.id = giver_member.user_id
@@ -92,11 +98,12 @@ func scanListItem(row pgx.Row, v viewer) (ListItem, error) {
 	var item ListItem
 	var p parties
 	var giverAmount, receiverAmount *int64
+	var cancellationRequested bool
 	err := row.Scan(
 		&item.ID, &item.Status, &item.AmountUSD, &item.CreatedAt,
 		&p.giverMemberID, &item.Giver.UserID, &item.Giver.Name, &item.Giver.LocationName,
 		&p.receiverMemberID, &item.Receiver.UserID, &item.Receiver.Name, &item.Receiver.LocationName,
-		&giverAmount, &receiverAmount,
+		&giverAmount, &receiverAmount, &cancellationRequested,
 	)
 	if err != nil {
 		return ListItem{}, err
@@ -110,5 +117,8 @@ func scanListItem(row pgx.Row, v viewer) (ListItem, error) {
 		confirmations = append(confirmations, confirmationRow{memberID: p.receiverMemberID, amountUSD: *receiverAmount})
 	}
 	item.State, _ = present(item.Status, p, confirmations, v)
+	if cancellationRequested {
+		item.State = StateCancellationRequested
+	}
 	return item, nil
 }

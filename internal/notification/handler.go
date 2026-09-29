@@ -24,7 +24,7 @@ type Notification struct {
 	Title     string         `json:"title"`
 	Content   string         `json:"content"`
 	Type      string         `json:"type" enums:"GLOBAL,TARGETED"`
-	EventType string         `json:"event_type" enums:"GROUP_INVITATION,ORDER_CREATED,ORDER_UPDATED,ORDER_AMOUNT_MISMATCH,ORDER_COMPLETED"`
+	EventType string         `json:"event_type" enums:"GROUP_INVITATION,ORDER_CREATED,ORDER_UPDATED,ORDER_AMOUNT_MISMATCH,ORDER_COMPLETED,ORDER_CANCELLATION_REQUESTED,ORDER_CANCELLATION_REJECTED,ORDER_CANCELLED"`
 	Payload   map[string]any `json:"payload" swaggertype:"object"`
 	IsRead    bool           `json:"is_read"`
 	ReadAt    *time.Time     `json:"read_at,omitempty"`

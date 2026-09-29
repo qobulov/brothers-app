@@ -34,6 +34,8 @@ Response formati `GROUP_API.md` dagi umumiy envelope bilan bir xil.
 | `PATCH` | `/api/v1/groups/:groupID/orders/:orderID` | Yaratish qoidasi bilan bir xil, faqat `pending` order |
 | `POST` | `/api/v1/groups/:groupID/orders/:orderID/confirmations` | Faqat giver yoki receiver, o‘zi uchun |
 | `GET` | `/api/v1/groups/:groupID/orders/:orderID/events` | Ro‘yxat bilan bir xil |
+| `POST` | `/api/v1/groups/:groupID/orders/:orderID/cancellation` | Faqat giver yoki receiver |
+| `POST` | `/api/v1/groups/:groupID/orders/:orderID/cancellation/action` | Faqat giver yoki receiver |
 
 Employee boshqa employee'larning orderini ochsa, API `404` qaytaradi.
 
@@ -135,6 +137,7 @@ Location order yaratilgan paytdagi holatda saqlanadi: employee keyin boshqa joyg
 | `waiting_for_you` | Siz giver yoki receiver'siz va hali tasdiqlamagansiz |
 | `waiting_for_confirmation` | Boshqa tomon tasdiqlashi kutilmoqda |
 | `amount_mismatch` | Ikkala tomon tasdiqladi, lekin summalar farq qiladi |
+| `cancellation_requested` | Bekor qilish so‘ralgan, ikkinchi tomon javobi kutilmoqda |
 | `completed` | Order yakunlangan |
 | `cancelled` | Order bekor qilingan |
 
@@ -201,9 +204,65 @@ GET /api/v1/groups/:groupID/orders/:orderID/events
 }
 ```
 
-`event_type`: `created`, `updated`, `confirmed`, `confirmation_corrected`, `amount_mismatch`, `completed`. Eng eskisi birinchi.
+`event_type`: `created`, `updated`, `confirmed`, `confirmation_corrected`, `amount_mismatch`, `completed`, `cancellation_requested`, `cancellation_rejected`, `cancelled`. Eng eskisi birinchi.
 
 Tasdiq event'larida summa va fee saqlanmaydi, shuning uchun tarix orqali qarshi tomon raqamlarini bilib bo‘lmaydi.
+
+## 7. Orderni bekor qilish
+
+Bekor qilish uchun ikkala employee roziligi kerak. So‘rovni giver ham, receiver ham yuborishi mumkin; so‘rov yuborgan tomon avtomatik rozi hisoblanadi.
+
+### So‘rov yuborish
+
+```http
+POST /api/v1/groups/:groupID/orders/:orderID/cancellation
+```
+
+```json
+{
+  "reason": "Mijoz fikridan qaytdi"
+}
+```
+
+- Body ixtiyoriy, `reason` — 500 belgigacha.
+- `pending` yoki `completed` orderga yuboriladi. Bekor qilingan orderga — `409`.
+- Bir vaqtda faqat bitta ochiq so‘rov bo‘ladi (`409`).
+- So‘rov ochiq turganda orderni tasdiqlash va tahrirlash mumkin emas (`409`).
+
+Response `201` — order detail, ichida `cancellation`:
+
+```json
+"cancellation": {
+  "id": "uuid",
+  "status": "pending",
+  "requested_by": {"user_id": "uuid", "name": "Javohir"},
+  "reason": "Mijoz fikridan qaytdi",
+  "requested_at": "2026-09-29T12:00:00Z",
+  "approvals": [
+    {"role": "giver", "user_id": "uuid", "status": "approved"},
+    {"role": "receiver", "user_id": "uuid", "status": "waiting"}
+  ]
+}
+```
+
+Ochiq so‘rov bo‘lmasa, `cancellation` = `null`. Order bekor qilingandan keyin tasdiqlangan so‘rov (`status: "approved"`) qaytadi.
+
+### Javob berish
+
+```http
+POST /api/v1/groups/:groupID/orders/:orderID/cancellation/action
+```
+
+```json
+{
+  "action": "approve"
+}
+```
+
+- `approve` — faqat ikkinchi tomon ("Approve Cancellation"). Order `cancelled` bo‘ladi.
+- `reject` — ikkala tomon ham: ikkinchi tomon uchun "Keep Order", so‘rov yuborgan uchun so‘rovni qaytarib olish.
+- Order `completed` bo‘lgan bo‘lsa, bekor qilish USD balans va UZS profit ta'sirini teskari qaytaradi: giver −summa, receiver +summa, har kimning fee'si bekor qilingan oy profitidan ayriladi (profit manfiy bo‘lishi mumkin). Asl oy profiti o‘zgarmaydi.
+- Bekor qilingan order tarixda qoladi.
 
 ## Bildirishnomalar
 
@@ -215,6 +274,9 @@ Bildirishnomalar `/api/v1/notifications` orqali olinadi. `event_type`:
 | `ORDER_UPDATED` | Tahrirlovchidan boshqa tomon(lar) |
 | `ORDER_AMOUNT_MISMATCH` | Ikkala tomon |
 | `ORDER_COMPLETED` | Ikkala tomon |
+| `ORDER_CANCELLATION_REQUESTED` | So‘rov yuborgandan boshqa tomon |
+| `ORDER_CANCELLATION_REJECTED` | Rad etgandan boshqa tomon |
+| `ORDER_CANCELLED` | Ikkala tomon |
 
 Payload'da `order_id` va `group_id` bor.
 
@@ -226,9 +288,8 @@ Payload'da `order_id` va `group_id` bor.
 | `401` | Token yo‘q yoki noto‘g‘ri |
 | `403` | Orderni ko‘rasiz, lekin bu amalga ruxsat yo‘q |
 | `404` | Guruh a'zosi emassiz, order topilmadi yoki employee boshqaning orderini ochdi; party faol employee emas |
-| `409` | `pending` bo‘lmagan orderni tahrirlash yoki tasdiqlash |
+| `409` | `pending` bo‘lmagan orderni tahrirlash yoki tasdiqlash; ochiq bekor qilish so‘rovi bor; bekor qilish so‘rovi yo‘q |
 
 ## Hozircha mavjud emas
 
-- Orderni bekor qilish (ikki tomonlama tasdiq bilan) — 2-bosqich.
 - Attachment'lar — 3-bosqich.

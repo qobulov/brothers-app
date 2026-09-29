@@ -41,6 +41,9 @@ func (s *Service) Confirm(ctx context.Context, actorID, groupID, orderID uuid.UU
 	if locked.status != StatusPending {
 		return Order{}, fmt.Errorf("%w: order is %s", apperror.ErrConflict, locked.status)
 	}
+	if err := requireNoOpenCancellation(ctx, tx, orderID); err != nil {
+		return Order{}, err
+	}
 
 	now := s.now().UTC()
 	eventType, err := saveConfirmation(ctx, tx, confirmationWrite{orderID: orderID, memberID: v.memberID, input: input, at: now})

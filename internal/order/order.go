@@ -17,6 +17,7 @@ const (
 	StateWaitingForYou          = "waiting_for_you"
 	StateWaitingForConfirmation = "waiting_for_confirmation"
 	StateAmountMismatch         = "amount_mismatch"
+	StateCancellationRequested  = "cancellation_requested"
 
 	RoleGiver    = "giver"
 	RoleReceiver = "receiver"
@@ -67,13 +68,14 @@ type Order struct {
 	ID            uuid.UUID      `json:"id"`
 	GroupID       uuid.UUID      `json:"group_id"`
 	Status        string         `json:"status" enums:"pending,completed,cancelled"`
-	State         string         `json:"state" enums:"waiting_for_you,waiting_for_confirmation,amount_mismatch,completed,cancelled"`
+	State         string         `json:"state" enums:"waiting_for_you,waiting_for_confirmation,amount_mismatch,cancellation_requested,completed,cancelled"`
 	AmountUSD     int64          `json:"amount_usd"`
 	FeeUZS        int64          `json:"fee_uzs"`
 	Giver         Party          `json:"giver"`
 	Receiver      Party          `json:"receiver"`
 	CreatedBy     Actor          `json:"created_by"`
 	Confirmations []Confirmation `json:"confirmations"`
+	Cancellation  *Cancellation  `json:"cancellation"`
 	CreatedAt     time.Time      `json:"created_at"`
 	UpdatedAt     time.Time      `json:"updated_at"`
 	CompletedAt   *time.Time     `json:"completed_at"`
@@ -82,16 +84,34 @@ type Order struct {
 type ListItem struct {
 	ID        uuid.UUID    `json:"id"`
 	Status    string       `json:"status" enums:"pending,completed,cancelled"`
-	State     string       `json:"state" enums:"waiting_for_you,waiting_for_confirmation,amount_mismatch,completed,cancelled"`
+	State     string       `json:"state" enums:"waiting_for_you,waiting_for_confirmation,amount_mismatch,cancellation_requested,completed,cancelled"`
 	AmountUSD int64        `json:"amount_usd"`
 	Giver     PartySummary `json:"giver"`
 	Receiver  PartySummary `json:"receiver"`
 	CreatedAt time.Time    `json:"created_at"`
 }
 
+// Cancellation is the order's open request, or the approved one once the
+// order is cancelled. Rejected requests are not shown.
+type Cancellation struct {
+	ID          uuid.UUID  `json:"id"`
+	Status      string     `json:"status" enums:"pending,approved"`
+	RequestedBy Actor      `json:"requested_by"`
+	Reason      string     `json:"reason,omitempty"`
+	RequestedAt time.Time  `json:"requested_at"`
+	RespondedAt *time.Time `json:"responded_at,omitempty"`
+	Approvals   []Approval `json:"approvals"`
+}
+
+type Approval struct {
+	Role   string    `json:"role" enums:"giver,receiver"`
+	UserID uuid.UUID `json:"user_id"`
+	Status string    `json:"status" enums:"approved,waiting"`
+}
+
 type Event struct {
 	ID        uuid.UUID      `json:"id"`
-	EventType string         `json:"event_type" enums:"created,updated,confirmed,confirmation_corrected,amount_mismatch,completed"`
+	EventType string         `json:"event_type" enums:"created,updated,confirmed,confirmation_corrected,amount_mismatch,completed,cancellation_requested,cancellation_rejected,cancelled"`
 	Actor     Actor          `json:"actor"`
 	Payload   map[string]any `json:"payload" swaggertype:"object"`
 	CreatedAt time.Time      `json:"created_at"`

@@ -85,6 +85,8 @@ func TestLocalizeMessageCoversHandlerMessages(t *testing.T) {
 		{MessageOrdersReturned, "Buyurtmalar olindi", "Заказы получены", "Orders returned"},
 		{MessageOrderUpdated, "Buyurtma o'zgartirildi", "Заказ изменён", "Order updated"},
 		{MessageOrderConfirmed, "Buyurtma tasdiqlandi", "Заказ подтверждён", "Order confirmed"},
+		{MessageCancellationRequested, "Bekor qilish so'raldi", "Запрошена отмена заказа", "Cancellation requested"},
+		{MessageCancellationProcessed, "Bekor qilish so'rovi qayta ishlandi", "Запрос на отмену обработан", "Cancellation request processed"},
 		{MessageResourceNotFound, "Resurs topilmadi", "Ресурс не найден", "Resource not found"},
 		{MessageInvalidCredentials, "Hisob ma'lumotlari noto'g'ri", "Неверные учетные данные", "Invalid credentials"},
 		{MessageInvalidRequest, "So'rov ma'lumotlari noto'g'ri", "Некорректный запрос", "Invalid request"},
