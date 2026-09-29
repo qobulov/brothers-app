@@ -3,12 +3,17 @@ package app
 import (
 	"context"
 	"log"
+	"time"
 
 	"github.com/qobulov/brothers-app/internal/auth/otp"
 	"github.com/qobulov/brothers-app/internal/auth/session"
 	cachepkg "github.com/qobulov/brothers-app/pkg/cache"
 	"github.com/qobulov/brothers-app/utils"
 )
+
+// shutdownTimeout bounds how long in-flight requests may drain. Together with
+// the 10s shutdown hook budget it stays inside a 30s orchestrator grace period.
+const shutdownTimeout = 15 * time.Second
 
 func Start() {
 
@@ -36,7 +41,7 @@ func Start() {
 	utils.WaitForShutdown([]func(){
 		func() {
 			log.Println("Shutting down REST server...")
-			if err := restApp.Shutdown(); err != nil {
+			if err := restApp.ShutdownWithTimeout(shutdownTimeout); err != nil {
 				log.Printf("Error shutting down REST server: %v", err)
 			}
 		},

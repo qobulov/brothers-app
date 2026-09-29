@@ -23,6 +23,8 @@ func WaitForShutdown(cleanups []func()) {
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 
 	<-c // Wait for signal
+	// Restore default handling so a second signal terminates immediately.
+	signal.Stop(c)
 	log.Println("Shutting down...")
 
 	for _, cleanup := range cleanups {
