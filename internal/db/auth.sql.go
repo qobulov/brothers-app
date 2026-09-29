@@ -171,7 +171,6 @@ func (q *Queries) GetUserByEmailOrUsername(ctx context.Context, arg GetUserByEma
 const getUserByLogin = `-- name: GetUserByLogin :one
 SELECT id, email, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at FROM users
 WHERE (username = $1 OR email = $2) AND is_active = true AND deleted_at IS NULL
-FOR UPDATE
 `
 
 type GetUserByLoginParams struct {
@@ -204,7 +203,9 @@ func (q *Queries) GetUserByLogin(ctx context.Context, arg GetUserByLoginParams) 
 }
 
 const updateUserLogin = `-- name: UpdateUserLogin :one
-UPDATE users SET last_login_at = $2, updated_at = $2 WHERE id = $1 RETURNING id, email, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at
+UPDATE users SET last_login_at = $2, updated_at = $2
+WHERE id = $1 AND is_active = true AND deleted_at IS NULL
+RETURNING id, email, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at
 `
 
 type UpdateUserLoginParams struct {

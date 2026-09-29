@@ -7,7 +7,6 @@ import (
 	"github.com/qobulov/brothers-app/internal/auth/otp"
 	"github.com/qobulov/brothers-app/internal/auth/session"
 	cachepkg "github.com/qobulov/brothers-app/pkg/cache"
-	"github.com/qobulov/brothers-app/pkg/database"
 	"github.com/qobulov/brothers-app/utils"
 )
 
@@ -42,9 +41,8 @@ func Start() {
 			}
 		},
 		func() {
-			if err := database.Close(); err != nil {
-				log.Printf("Error closing DB: %v", err)
-			}
+			log.Println("Closing database pool...")
+			pool.Close()
 		},
 		func() {
 			if err := redisClient.Close(); err != nil {

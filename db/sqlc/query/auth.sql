@@ -12,11 +12,12 @@ RETURNING *;
 
 -- name: GetUserByLogin :one
 SELECT * FROM users
-WHERE (username = $1 OR email = $2) AND is_active = true AND deleted_at IS NULL
-FOR UPDATE;
+WHERE (username = $1 OR email = $2) AND is_active = true AND deleted_at IS NULL;
 
 -- name: UpdateUserLogin :one
-UPDATE users SET last_login_at = $2, updated_at = $2 WHERE id = $1 RETURNING *;
+UPDATE users SET last_login_at = $2, updated_at = $2
+WHERE id = $1 AND is_active = true AND deleted_at IS NULL
+RETURNING *;
 
 -- name: GetActiveUser :one
 SELECT * FROM users WHERE id = $1 AND is_active = true AND deleted_at IS NULL;

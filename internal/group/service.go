@@ -139,7 +139,7 @@ func (s *Service) Create(ctx context.Context, actorID uuid.UUID, name string) (G
 	if err != nil {
 		return Group{}, fmt.Errorf("creating group: %w", err)
 	}
-	_, err = tx.Exec(ctx, `
+	result, err := tx.Exec(ctx, `
 		INSERT INTO group_members (id, group_id, user_id, username, role, is_owner, joined_at, created_at, updated_at)
 		SELECT $1, $2, id, username, 'manager'::user_role, true, $3, $3, $3
 		FROM users
@@ -147,6 +147,10 @@ func (s *Service) Create(ctx context.Context, actorID uuid.UUID, name string) (G
 	`, uuid.New(), groupID, now, actorID)
 	if err != nil {
 		return Group{}, fmt.Errorf("creating owner membership: %w", err)
+	}
+	// A session can outlive its account; never commit a group without an owner.
+	if result.RowsAffected() != 1 {
+		return Group{}, apperror.ErrUnauthorized
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return Group{}, fmt.Errorf("committing group creation: %w", err)
@@ -472,7 +476,7 @@ func (s *Service) ListMembers(ctx context.Context, actorID, groupID uuid.UUID, i
 		ORDER BY is_owner DESC,
 		         CASE role WHEN 'manager' THEN 1 WHEN 'employee' THEN 2 WHEN 'investor' THEN 3 ELSE 4 END,
 		         created_at ASC, user_id ASC
-	`, groupID, query, role, status)
+	`, groupID, helpers.EscapeLike(query), role, status)
 	if err != nil {
 		return nil, fmt.Errorf("listing group members: %w", err)
 	}
@@ -539,19 +543,6 @@ func (s *Service) Invite(ctx context.Context, actorID, groupID uuid.UUID, input 
 	if err != nil {
 		return Invitation{}, err
 	}
-	var alreadyMember bool
-	err = s.pool.QueryRow(ctx, `
-		SELECT EXISTS (
-			SELECT 1 FROM group_members
-			WHERE group_id = $1 AND user_id = $2 AND deleted_at IS NULL
-		)
-	`, groupID, recipientID).Scan(&alreadyMember)
-	if err != nil {
-		return Invitation{}, fmt.Errorf("checking group membership: %w", err)
-	}
-	if alreadyMember {
-		return Invitation{}, apperror.ErrAlreadyExists
-	}
 
 	invitation := Invitation{
 		ID:           uuid.New(),
@@ -571,23 +562,44 @@ func (s *Service) Invite(ctx context.Context, actorID, groupID uuid.UUID, input 
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
+	// Expired invitations keep status 'pending' until something closes them, and
+	// the one-pending-invitation index would otherwise block re-inviting forever.
+	_, err = tx.Exec(ctx, `
+		UPDATE group_invitations
+		SET status = 'revoked', revoked_at = $3, updated_at = $3
+		WHERE group_id = $1 AND invited_user_id = $2
+		  AND status = 'pending' AND expires_at <= $3 AND deleted_at IS NULL
+	`, groupID, recipientID, invitation.CreatedAt)
+	if err != nil {
+		return Invitation{}, fmt.Errorf("revoking expired invitations: %w", err)
+	}
+
 	err = tx.QueryRow(ctx, `
 		INSERT INTO group_invitations (
 			id, group_id, invited_by, invited_user_id, email, role, location_name, status, expires_at, created_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6::user_role, $7, $8, $9, $10)
+		SELECT $1, $2, $3, $4, $5, $6::user_role, $7, $8, $9, $10
+		WHERE NOT EXISTS (
+			SELECT 1 FROM group_members
+			WHERE group_id = $2 AND user_id = $4 AND deleted_at IS NULL
+		)
 		RETURNING id
 	`, invitation.ID, invitation.GroupID, invitation.InvitedBy, invitation.RecipientID,
 		invitation.Email, invitation.Role, invitation.LocationName, invitation.Status, invitation.ExpiresAt, invitation.CreatedAt).Scan(&invitation.ID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Invitation{}, apperror.ErrAlreadyExists
+	}
 	if err != nil {
 		return Invitation{}, fmt.Errorf("creating invitation: %w", err)
 	}
-	if err := tx.QueryRow(ctx, `SELECT name FROM groups WHERE id = $1`, groupID).Scan(&invitation.GroupName); err != nil {
-		return Invitation{}, fmt.Errorf("getting invitation group: %w", err)
-	}
 	var invitedBy invitationActor
-	if err := tx.QueryRow(ctx, `SELECT id, COALESCE(name, ''), COALESCE(avatar_url, '') FROM users WHERE id = $1`, actorID).Scan(&invitedBy.ID, &invitedBy.Name, &invitedBy.AvatarURL); err != nil {
-		return Invitation{}, fmt.Errorf("getting invitation sender: %w", err)
+	err = tx.QueryRow(ctx, `
+		SELECT groups.name, users.id, COALESCE(users.name, ''), COALESCE(users.avatar_url, '')
+		FROM groups, users
+		WHERE groups.id = $1 AND users.id = $2
+	`, groupID, actorID).Scan(&invitation.GroupName, &invitedBy.ID, &invitedBy.Name, &invitedBy.AvatarURL)
+	if err != nil {
+		return Invitation{}, fmt.Errorf("getting invitation group and sender: %w", err)
 	}
 	payloadData := invitationNotificationPayload{
 		EventType:    "GROUP_INVITATION",
@@ -605,26 +617,22 @@ func (s *Service) Invite(ctx context.Context, actorID, groupID uuid.UUID, input 
 		return Invitation{}, fmt.Errorf("encoding invitation notification: %w", err)
 	}
 	titleTranslations, contentTranslations := groupInvitationNotificationTranslations(invitation.GroupName)
-	var notificationID uuid.UUID
-	err = tx.QueryRow(ctx, `
-		INSERT INTO notifications (
-			title_en, title_uz, title_ru, content_en, content_uz, content_ru,
-			type, payload, created_at, expires_at
+	_, err = tx.Exec(ctx, `
+		WITH notification AS (
+			INSERT INTO notifications (
+				title_en, title_uz, title_ru, content_en, content_uz, content_ru,
+				type, payload, created_at, expires_at
+			)
+			VALUES ($1, $2, $3, $4, $5, $6, 'TARGETED'::notification_type, $7, $8, $9)
+			RETURNING id
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, 'TARGETED'::notification_type, $7, $8, $9)
-		RETURNING id
+		INSERT INTO notification_recipients (notification_id, user_id, is_read, created_at, updated_at)
+		SELECT id, $10, false, $8, $8 FROM notification
 	`, titleTranslations.English, titleTranslations.Uzbek, titleTranslations.Russian,
 		contentTranslations.English, contentTranslations.Uzbek, contentTranslations.Russian,
-		payload, invitation.CreatedAt, invitation.ExpiresAt).Scan(&notificationID)
+		payload, invitation.CreatedAt, invitation.ExpiresAt, invitation.RecipientID)
 	if err != nil {
 		return Invitation{}, fmt.Errorf("creating invitation notification: %w", err)
-	}
-	_, err = tx.Exec(ctx, `
-		INSERT INTO notification_recipients (notification_id, user_id, is_read)
-		VALUES ($1, $2, false)
-	`, notificationID, invitation.RecipientID)
-	if err != nil {
-		return Invitation{}, fmt.Errorf("creating invitation notification recipient: %w", err)
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return Invitation{}, fmt.Errorf("committing invitation creation: %w", err)
@@ -797,7 +805,8 @@ func (s *Service) findRecipient(ctx context.Context, input InviteInput) (uuid.UU
 		if err != nil {
 			return uuid.Nil, "", apperror.ErrInvalidData
 		}
-		err = s.pool.QueryRow(ctx, `SELECT id, email FROM users WHERE lower(email) = lower($1) AND deleted_at IS NULL AND is_active`, email).Scan(&recipientID, &email)
+		// Stored emails are normalized to lowercase, so plain equality can use users_email_unique_idx.
+		err = s.pool.QueryRow(ctx, `SELECT id, email FROM users WHERE email = $1 AND deleted_at IS NULL AND is_active`, email).Scan(&recipientID, &email)
 	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return uuid.Nil, "", apperror.ErrRecordNotFound

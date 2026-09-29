@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/qobulov/brothers-app/pkg/apperror"
+	"github.com/qobulov/brothers-app/pkg/helpers"
 )
 
 type LocationEmployee struct {
@@ -187,7 +188,7 @@ func (s *Service) ListCustomers(ctx context.Context, actorID, groupID uuid.UUID,
 		        AND groups.is_active
 		  )
 		ORDER BY created_at DESC, id DESC
-	`, groupID, query, actorID)
+	`, groupID, helpers.EscapeLike(query), actorID)
 	if err != nil {
 		return nil, fmt.Errorf("listing group customers: %w", err)
 	}

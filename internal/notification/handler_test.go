@@ -98,3 +98,74 @@ func TestHandler_ListLocalizesContentAndKeepsSlug(t *testing.T) {
 		})
 	}
 }
+
+func TestHandler_ListPagesNewestFirstAndSkipsMalformedPayloads(t *testing.T) {
+	pool, cleanup := database.SetupTestDB(t)
+	defer cleanup()
+
+	userID := uuid.New()
+	_, err := pool.Exec(context.Background(), `
+		INSERT INTO users (id, email, username, language, is_active, created_at, updated_at)
+		VALUES ($1, 'paging@example.com', 'paging-user', 'en', true, now(), now())
+	`, userID)
+	if err != nil {
+		t.Fatalf("create notification user: %v", err)
+	}
+	insert := func(title, payload string, age time.Duration) {
+		t.Helper()
+		_, err := pool.Exec(context.Background(), `
+			WITH notification AS (
+				INSERT INTO notifications (title_en, title_uz, title_ru, content_en, content_uz, content_ru, type, payload)
+				VALUES ($1, $1, $1, '', '', '', 'TARGETED'::notification_type, $2::jsonb)
+				RETURNING id
+			)
+			INSERT INTO notification_recipients (notification_id, user_id, created_at)
+			SELECT id, $3, now() - $4::interval FROM notification
+		`, title, payload, userID, age.String())
+		if err != nil {
+			t.Fatalf("create notification %s: %v", title, err)
+		}
+	}
+	insert("oldest", `{"event_type":"MEMBER_JOINED"}`, 3*time.Hour)
+	insert("malformed", `{"group_id":"missing event type"}`, 2*time.Hour)
+	insert("newest", `{"event_type":"MEMBER_JOINED"}`, time.Hour)
+
+	app := fiber.New()
+	responses.Middleware(app, "test")
+	app.Use(func(c *fiber.Ctx) error {
+		c.Locals("auth_user_id", userID)
+		return c.Next()
+	})
+	app.Get("/notifications", NewHandler(pool).List)
+
+	list := func(query string) (int, []Notification) {
+		t.Helper()
+		response, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/notifications"+query, nil), int((5 * time.Second).Milliseconds()))
+		if err != nil {
+			t.Fatalf("list notifications: %v", err)
+		}
+		defer response.Body.Close()
+		if response.StatusCode != fiber.StatusOK {
+			return response.StatusCode, nil
+		}
+		var body responses.Envelope[[]Notification]
+		if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
+			t.Fatalf("decode notifications response: %v", err)
+		}
+		return response.StatusCode, body.Data
+	}
+
+	status, items := list("")
+	if status != fiber.StatusOK || len(items) != 2 || items[0].Title != "newest" || items[1].Title != "oldest" {
+		t.Fatalf("status %d, items %#v; want newest then oldest without the malformed row", status, items)
+	}
+	status, items = list("?limit=1&offset=2")
+	if status != fiber.StatusOK || len(items) != 1 || items[0].Title != "oldest" {
+		t.Fatalf("status %d, page %#v; want only oldest", status, items)
+	}
+	for _, query := range []string{"?limit=0", "?limit=101", "?limit=abc", "?offset=-1"} {
+		if status, _ := list(query); status != fiber.StatusBadRequest {
+			t.Fatalf("%s status = %d, want 400", query, status)
+		}
+	}
+}

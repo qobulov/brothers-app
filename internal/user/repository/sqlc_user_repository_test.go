@@ -7,9 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	db "github.com/qobulov/brothers-app/internal/db"
-	"github.com/qobulov/brothers-app/internal/entities"
 	"github.com/qobulov/brothers-app/internal/user/repository"
-	"github.com/qobulov/brothers-app/pkg/apperror"
 	"github.com/qobulov/brothers-app/pkg/database"
 	"github.com/stretchr/testify/suite"
 )
@@ -36,85 +34,59 @@ func TestUserRepositoryTestSuite(t *testing.T) {
 	suite.Run(t, new(UserRepositoryTestSuite))
 }
 
-func (s *UserRepositoryTestSuite) createUser(name string) *entities.User {
+func (s *UserRepositoryTestSuite) createUser(username, email string, active bool) uuid.UUID {
 	s.T().Helper()
 	id := uuid.New()
-	username := "user_" + id.String()
-	phone := "+998" + id.String()[:9]
 	_, err := s.db.Exec(s.T().Context(), `
-		INSERT INTO users (id, name, phone, username, language, is_active, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, 'uz', true, now(), now())
-	`, id, name, phone, username)
+		INSERT INTO users (id, username, email, language, is_active, created_at, updated_at)
+		VALUES ($1, $2, $3, 'uz', $4, now(), now())
+	`, id, username, email, active)
 	s.Require().NoError(err)
-	return &entities.User{ID: id, Name: name, Phone: phone, Username: username}
+	return id
 }
 
-func (s *UserRepositoryTestSuite) TestFindByID() {
-	user := s.createUser("Find By ID User")
-	found, err := s.repo.FindByID(s.T().Context(), user.ID.String())
-	s.NoError(err)
-	s.Equal(user.ID, found.ID)
-	s.Equal(user.Name, found.Name)
-	s.Equal(user.Phone, found.Phone)
+func (s *UserRepositoryTestSuite) TestSearch_MatchesUsernameOrEmailCaseInsensitively() {
+	byUsername := s.createUser("JohnDoe", "first@example.com", true)
+	byEmail := s.createUser("someone", "johnny@example.com", true)
+	s.createUser("other", "other@example.com", true)
+
+	users, err := s.repo.Search(s.T().Context(), "john")
+	s.Require().NoError(err)
+	s.Require().Len(users, 2)
+	s.Equal(byUsername, users[0].ID)
+	s.Equal(byEmail, users[1].ID)
+	s.Equal("JohnDoe", users[0].Username)
+	s.Equal("first@example.com", users[0].Email)
 }
 
-func (s *UserRepositoryTestSuite) TestFindByID_NotFound() {
-	found, err := s.repo.FindByID(s.T().Context(), uuid.NewString())
-	s.ErrorIs(err, apperror.ErrRecordNotFound)
-	s.Nil(found)
-}
+func (s *UserRepositoryTestSuite) TestSearch_ExcludesInactiveAndDeletedUsers() {
+	s.createUser("john_inactive", "inactive@example.com", false)
+	deleted := s.createUser("john_deleted", "deleted@example.com", true)
+	_, err := s.db.Exec(s.T().Context(), `UPDATE users SET deleted_at = now() WHERE id = $1`, deleted)
+	s.Require().NoError(err)
 
-func (s *UserRepositoryTestSuite) TestFindAll() {
-	s.createUser("User 1")
-	s.createUser("User 2")
-	s.createUser("User 3")
-
-	users, err := s.repo.FindAll(s.T().Context())
-	s.NoError(err)
-	s.Len(users, 3)
-}
-
-func (s *UserRepositoryTestSuite) TestFindAll_Empty() {
-	users, err := s.repo.FindAll(s.T().Context())
+	users, err := s.repo.Search(s.T().Context(), "john")
 	s.NoError(err)
 	s.Empty(users)
 }
 
-func (s *UserRepositoryTestSuite) TestFindAll_CancelledContext() {
+func (s *UserRepositoryTestSuite) TestSearch_TreatsWildcardsLiterally() {
+	literal := s.createUser("a_b", "ab1@example.com", true)
+	s.createUser("axb", "ab2@example.com", true)
+
+	users, err := s.repo.Search(s.T().Context(), "a_b")
+	s.Require().NoError(err)
+	s.Require().Len(users, 1)
+	s.Equal(literal, users[0].ID)
+
+	users, err = s.repo.Search(s.T().Context(), "%")
+	s.NoError(err)
+	s.Empty(users)
+}
+
+func (s *UserRepositoryTestSuite) TestSearch_CancelledContext() {
 	ctx, cancel := context.WithCancel(s.T().Context())
 	cancel()
-	_, err := s.repo.FindAll(ctx)
+	_, err := s.repo.Search(ctx, "john")
 	s.ErrorIs(err, context.Canceled)
-}
-
-func (s *UserRepositoryTestSuite) TestPatch() {
-	user := s.createUser("Original Name")
-	patched, err := s.repo.Patch(s.T().Context(), user.ID.String(), &entities.User{Name: "Updated Name"})
-	s.NoError(err)
-	s.Equal(user.ID, patched.ID)
-	s.Equal("Updated Name", patched.Name)
-
-	updated, err := s.repo.FindByID(s.T().Context(), user.ID.String())
-	s.NoError(err)
-	s.Equal("Updated Name", updated.Name)
-	s.Equal(user.Phone, updated.Phone)
-}
-
-func (s *UserRepositoryTestSuite) TestPatch_NotFound() {
-	_, err := s.repo.Patch(s.T().Context(), uuid.NewString(), &entities.User{Name: "Updated Name"})
-	s.ErrorIs(err, apperror.ErrRecordNotFound)
-}
-
-func (s *UserRepositoryTestSuite) TestDelete() {
-	user := s.createUser("Delete User")
-	s.NoError(s.repo.Delete(s.T().Context(), user.ID.String()))
-
-	found, err := s.repo.FindByID(s.T().Context(), user.ID.String())
-	s.ErrorIs(err, apperror.ErrRecordNotFound)
-	s.Nil(found)
-}
-
-func (s *UserRepositoryTestSuite) TestDelete_NotFound() {
-	err := s.repo.Delete(s.T().Context(), uuid.NewString())
-	s.ErrorIs(err, apperror.ErrRecordNotFound)
 }

@@ -3,6 +3,8 @@ package notification
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
+	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -46,12 +48,23 @@ func NewHandler(pool *pgxpool.Pool) *Handler {
 // @Summary List my notifications
 // @Tags notifications
 // @Produce json
+// @Param limit query int false "Page size" default(50) minimum(1) maximum(100)
+// @Param offset query int false "Number of notifications to skip" default(0) minimum(0)
 // @Success 200 {object} NotificationsResponse
+// @Failure 400 {object} group.ErrorResponse
 // @Failure 401 {object} group.ErrorResponse
 // @Security BearerAuth
 // @Router /notifications [get]
 func (h *Handler) List(c *fiber.Ctx) error {
 	userID, err := userID(c)
+	if err != nil {
+		return responses.Error(c, err)
+	}
+	limit, err := queryInt(c, "limit", defaultPageSize, 1, maxPageSize)
+	if err != nil {
+		return responses.Error(c, err)
+	}
+	offset, err := queryInt(c, "offset", 0, 0, maxOffset)
 	if err != nil {
 		return responses.Error(c, err)
 	}
@@ -69,8 +82,9 @@ func (h *Handler) List(c *fiber.Ctx) error {
 		  AND recipients.deleted_at IS NULL
 		  AND notifications.deleted_at IS NULL
 		  AND (notifications.expires_at IS NULL OR notifications.expires_at > now())
-		ORDER BY notifications.created_at DESC
-	`, userID, language)
+		ORDER BY recipients.created_at DESC, recipients.id DESC
+		LIMIT $3 OFFSET $4
+	`, userID, language, limit, offset)
 	if err != nil {
 		return responses.Error(c, fmt.Errorf("listing notifications: %w", err))
 	}
@@ -82,12 +96,15 @@ func (h *Handler) List(c *fiber.Ctx) error {
 		if err := rows.Scan(&item.ID, &item.Title, &item.Content, &item.Type, &payload, &item.IsRead, &item.ReadAt, &item.ExpiresAt); err != nil {
 			return responses.Error(c, fmt.Errorf("scanning notification: %w", err))
 		}
+		// One malformed row must not hide every other notification from the user.
 		if err := json.Unmarshal(payload, &item.Payload); err != nil {
-			return responses.Error(c, fmt.Errorf("decoding notification payload object: %w", err))
+			slog.Warn("skipping notification with invalid payload", "notification_id", item.ID, "error", err)
+			continue
 		}
 		eventType, ok := item.Payload["event_type"].(string)
 		if !ok || eventType == "" {
-			return responses.Error(c, fmt.Errorf("notification payload event_type is missing"))
+			slog.Warn("skipping notification without event_type", "notification_id", item.ID)
+			continue
 		}
 		item.EventType = eventType
 		delete(item.Payload, "event_type")
@@ -97,6 +114,25 @@ func (h *Handler) List(c *fiber.Ctx) error {
 		return responses.Error(c, fmt.Errorf("iterating notifications: %w", err))
 	}
 	return responses.Success(c, fiber.StatusOK, items, responses.MessageNotificationsReturned)
+}
+
+const (
+	defaultPageSize = 50
+	maxPageSize     = 100
+	maxOffset       = 10000
+)
+
+// queryInt reads an optional integer query parameter, rejecting values outside [min, max].
+func queryInt(c *fiber.Ctx, name string, fallback, min, max int) (int, error) {
+	raw := c.Query(name)
+	if raw == "" {
+		return fallback, nil
+	}
+	value, err := strconv.Atoi(raw)
+	if err != nil || value < min || value > max {
+		return 0, fmt.Errorf("%w: %s must be between %d and %d", apperror.ErrInvalidData, name, min, max)
+	}
+	return value, nil
 }
 
 func userID(c *fiber.Ctx) (uuid.UUID, error) {

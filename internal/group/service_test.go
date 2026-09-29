@@ -583,6 +583,73 @@ func TestService_GroupBalanceVisibility(t *testing.T) {
 	}
 }
 
+func TestService_InviteAfterExpiredInvitation(t *testing.T) {
+	pool, cleanup := database.SetupTestDB(t)
+	defer cleanup()
+
+	ownerID := createUser(t, pool, "expiry-owner@example.com", "expiry-owner")
+	recipientID := createUser(t, pool, "expiry-recipient@example.com", "expiry-recipient")
+	service := NewService(pool)
+	created, err := service.Create(context.Background(), ownerID, "Expiry")
+	if err != nil {
+		t.Fatalf("create group: %v", err)
+	}
+	input := InviteInput{UserID: recipientID, Role: "employee"}
+	first, err := service.Invite(context.Background(), ownerID, created.ID, input)
+	if err != nil {
+		t.Fatalf("first invitation: %v", err)
+	}
+	if _, err := service.Invite(context.Background(), ownerID, created.ID, input); !errors.Is(apperror.Normalize(err), apperror.ErrDuplicatedKey) {
+		t.Fatalf("duplicate pending invitation error = %v, want duplicated key", err)
+	}
+
+	_, err = pool.Exec(context.Background(), `UPDATE group_invitations SET expires_at = now() - interval '1 minute' WHERE id = $1`, first.ID)
+	if err != nil {
+		t.Fatalf("expire invitation: %v", err)
+	}
+	second, err := service.Invite(context.Background(), ownerID, created.ID, input)
+	if err != nil {
+		t.Fatalf("invitation after expiry: %v", err)
+	}
+	if second.ID == first.ID {
+		t.Fatal("expected a new invitation")
+	}
+	var firstStatus string
+	if err := pool.QueryRow(context.Background(), `SELECT status FROM group_invitations WHERE id = $1`, first.ID).Scan(&firstStatus); err != nil {
+		t.Fatalf("get expired invitation: %v", err)
+	}
+	if firstStatus != "revoked" {
+		t.Fatalf("expired invitation status = %q, want revoked", firstStatus)
+	}
+
+	if _, err := service.RespondInvitation(context.Background(), recipientID, second.ID, "accept"); err != nil {
+		t.Fatalf("accept invitation: %v", err)
+	}
+	if _, err := service.Invite(context.Background(), ownerID, created.ID, input); !errors.Is(err, apperror.ErrAlreadyExists) {
+		t.Fatalf("invite existing member error = %v, want already exists", err)
+	}
+}
+
+func TestService_CreateRejectsDeletedActor(t *testing.T) {
+	pool, cleanup := database.SetupTestDB(t)
+	defer cleanup()
+
+	actorID := createUser(t, pool, "deleted-actor@example.com", "deleted-actor")
+	if _, err := pool.Exec(context.Background(), `UPDATE users SET deleted_at = now() WHERE id = $1`, actorID); err != nil {
+		t.Fatalf("delete actor: %v", err)
+	}
+	if _, err := NewService(pool).Create(context.Background(), actorID, "Orphan"); !errors.Is(err, apperror.ErrUnauthorized) {
+		t.Fatalf("create error = %v, want unauthorized", err)
+	}
+	var groups int
+	if err := pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM groups`).Scan(&groups); err != nil {
+		t.Fatalf("count groups: %v", err)
+	}
+	if groups != 0 {
+		t.Fatalf("groups = %d, want no ownerless group", groups)
+	}
+}
+
 func TestValidMemberFilters(t *testing.T) {
 	tests := []struct {
 		name       string

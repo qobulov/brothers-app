@@ -220,37 +220,45 @@ func (s *Service) Login(ctx context.Context, login, password string) (dto.AuthDa
 	if login == "" || password == "" {
 		return dto.AuthData{}, apperror.ErrInvalidCredentials
 	}
-	var result dto.AuthData
-	err := s.withTx(ctx, func(q *db.Queries) error {
-		user, queryErr := q.GetUserByLogin(ctx, db.GetUserByLoginParams{Username: text(login), Email: text(email)})
-		if queryErr != nil {
-			if errors.Is(queryErr, pgx.ErrNoRows) {
-				return apperror.ErrInvalidCredentials
-			}
-			return fmt.Errorf("finding login user: %w", queryErr)
-		}
-		hash := user.PasswordHash.String
-		if hash == "" {
-			hash = user.Password.String
-		}
-		if !user.IsActive || bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) != nil {
-			return apperror.ErrInvalidCredentials
-		}
-		user, queryErr = q.UpdateUserLogin(ctx, db.UpdateUserLoginParams{ID: user.ID, LastLoginAt: timestamp(s.now().UTC())})
-		if queryErr != nil {
-			return fmt.Errorf("updating login time: %w", queryErr)
-		}
-		pair, issueErr := s.issueSession(ctx, user)
-		if issueErr != nil {
-			return issueErr
-		}
-		result = dto.AuthData{
-			Tokens: tokenData(pair),
-			User:   SafeUser(toEntity(user)),
-		}
-		return nil
-	})
-	return result, err
+	// bcrypt runs outside any transaction so a login never holds a pool
+	// connection or row lock while hashing.
+	user, err := s.queries.GetUserByLogin(ctx, db.GetUserByLoginParams{Username: text(login), Email: text(email)})
+	if errors.Is(err, pgx.ErrNoRows) {
+		// Hash anyway so unknown accounts take as long as wrong passwords.
+		_ = bcrypt.CompareHashAndPassword(dummyPasswordHash, []byte(password))
+		return dto.AuthData{}, apperror.ErrInvalidCredentials
+	}
+	if err != nil {
+		return dto.AuthData{}, fmt.Errorf("finding login user: %w", err)
+	}
+	if !user.IsActive || !passwordMatches(user, password) {
+		return dto.AuthData{}, apperror.ErrInvalidCredentials
+	}
+	user, err = s.queries.UpdateUserLogin(ctx, db.UpdateUserLoginParams{ID: user.ID, LastLoginAt: timestamp(s.now().UTC())})
+	if errors.Is(err, pgx.ErrNoRows) {
+		// The account was deactivated or deleted after the password check.
+		return dto.AuthData{}, apperror.ErrInvalidCredentials
+	}
+	if err != nil {
+		return dto.AuthData{}, fmt.Errorf("updating login time: %w", err)
+	}
+	pair, err := s.issueSession(ctx, user)
+	if err != nil {
+		return dto.AuthData{}, err
+	}
+	return dto.AuthData{Tokens: tokenData(pair), User: SafeUser(toEntity(user))}, nil
+}
+
+// dummyPasswordHash is a bcrypt hash of a discarded random value, used to
+// equalize login timing for unknown accounts.
+var dummyPasswordHash = []byte("$2a$10$BhiSASoMqxbz6RqSG.E7P.aooDeyhnD/tvOQtOqwrseAslEcBziIq")
+
+func passwordMatches(user db.User, password string) bool {
+	hash := user.PasswordHash.String
+	if hash == "" {
+		hash = user.Password.String
+	}
+	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil
 }
 
 func loginIdentifiers(value string) (username, email string) {
@@ -265,47 +273,42 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (dto.AuthDat
 	if refreshToken == "" {
 		return dto.AuthData{}, apperror.ErrUnauthorized
 	}
-	var result dto.AuthData
-	err := s.withTx(ctx, func(q *db.Queries) error {
-		now := s.now().UTC()
-		newRefresh, tokenErr := helpers.RandomToken(32)
-		if tokenErr != nil {
-			return fmt.Errorf("creating refresh token: %w", tokenErr)
-		}
-		refreshExpiresAt := now.Add(30 * 24 * time.Hour)
-		if s.sessions == nil {
-			return fmt.Errorf("session store is not configured")
-		}
-		session, queryErr := s.sessions.Rotate(ctx, helpers.HashSecret(refreshToken), helpers.HashSecret(newRefresh), refreshExpiresAt.Sub(now))
-		if errors.Is(queryErr, sessionpkg.ErrNotFound) {
-			return apperror.ErrUnauthorized
-		}
-		if queryErr != nil {
-			return fmt.Errorf("rotating refresh session: %w", queryErr)
-		}
-		user, queryErr := q.GetActiveUser(ctx, db.GetActiveUserParams{ID: pgUUID(session.UserID)})
-		if errors.Is(queryErr, pgx.ErrNoRows) {
-			return apperror.ErrUnauthorized
-		}
-		if queryErr != nil {
-			return fmt.Errorf("loading refresh user: %w", queryErr)
-		}
-		access, tokenErr := s.signAccessToken(toEntity(user), session.SessionID, now)
-		if tokenErr != nil {
-			return tokenErr
-		}
-		result = dto.AuthData{
-			Tokens: tokenData(tokenPair{
-				AccessToken:      access,
-				AccessExpiresAt:  now.Add(time.Duration(s.cfg.JWTExpiration) * time.Second),
-				RefreshToken:     newRefresh,
-				RefreshExpiresAt: refreshExpiresAt,
-			}),
-			User: SafeUser(toEntity(user)),
-		}
-		return nil
-	})
-	return result, err
+	if s.sessions == nil {
+		return dto.AuthData{}, fmt.Errorf("session store is not configured")
+	}
+	now := s.now().UTC()
+	newRefresh, err := helpers.RandomToken(32)
+	if err != nil {
+		return dto.AuthData{}, fmt.Errorf("creating refresh token: %w", err)
+	}
+	refreshExpiresAt := now.Add(30 * 24 * time.Hour)
+	session, err := s.sessions.Rotate(ctx, helpers.HashSecret(refreshToken), helpers.HashSecret(newRefresh), refreshExpiresAt.Sub(now))
+	if errors.Is(err, sessionpkg.ErrNotFound) {
+		return dto.AuthData{}, apperror.ErrUnauthorized
+	}
+	if err != nil {
+		return dto.AuthData{}, fmt.Errorf("rotating refresh session: %w", err)
+	}
+	user, err := s.queries.GetActiveUser(ctx, db.GetActiveUserParams{ID: pgUUID(session.UserID)})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return dto.AuthData{}, apperror.ErrUnauthorized
+	}
+	if err != nil {
+		return dto.AuthData{}, fmt.Errorf("loading refresh user: %w", err)
+	}
+	access, err := s.signAccessToken(toEntity(user), session.SessionID, now)
+	if err != nil {
+		return dto.AuthData{}, err
+	}
+	return dto.AuthData{
+		Tokens: tokenData(tokenPair{
+			AccessToken:      access,
+			AccessExpiresAt:  now.Add(time.Duration(s.cfg.JWTExpiration) * time.Second),
+			RefreshToken:     newRefresh,
+			RefreshExpiresAt: refreshExpiresAt,
+		}),
+		User: SafeUser(toEntity(user)),
+	}, nil
 }
 
 func (s *Service) CurrentUser(ctx context.Context, userID uuid.UUID) (dto.UserData, error) {
@@ -417,19 +420,12 @@ func (s *Service) ResetPassword(ctx context.Context, req dto.ResetPasswordReques
 	if err != nil {
 		return fmt.Errorf("hashing reset password: %w", err)
 	}
-	err = s.withTx(ctx, func(q *db.Queries) error {
-		now := timestamp(s.now().UTC())
-		rows, updateErr := q.UpdateUserPassword(ctx, db.UpdateUserPasswordParams{ID: pgUUID(userID), PasswordHash: text(string(hash)), UpdatedAt: now})
-		if updateErr != nil {
-			return fmt.Errorf("updating password: %w", updateErr)
-		}
-		if rows != 1 {
-			return apperror.ErrInvalidResetToken
-		}
-		return nil
-	})
+	rows, err := s.queries.UpdateUserPassword(ctx, db.UpdateUserPasswordParams{ID: pgUUID(userID), PasswordHash: text(string(hash)), UpdatedAt: timestamp(s.now().UTC())})
 	if err != nil {
-		return err
+		return fmt.Errorf("updating password: %w", err)
+	}
+	if rows != 1 {
+		return apperror.ErrInvalidResetToken
 	}
 	if s.sessions == nil {
 		return fmt.Errorf("session store is not configured")

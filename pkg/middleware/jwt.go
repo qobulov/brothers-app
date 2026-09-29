@@ -3,7 +3,6 @@ package middleware
 import (
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -13,40 +12,6 @@ import (
 	"github.com/qobulov/brothers-app/pkg/config"
 	"github.com/qobulov/brothers-app/pkg/responses"
 )
-
-func JWTMiddleware() fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		tokenStr, ok := authorizationToken(c.Get("Authorization"))
-		if !ok {
-			return unauthorized(c)
-		}
-
-		// tokenStr := c.Cookies("token") // Assuming the token is stored in a cookie named "token"
-		// if tokenStr == "" {
-		// 	return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "missing token"})
-		// }
-
-		token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
-			if token.Method != jwt.SigningMethodHS256 {
-				return nil, jwt.ErrSignatureInvalid
-			}
-			return []byte(os.Getenv("JWT_SECRET")), nil
-		}, jwt.WithValidMethods([]string{"HS256"}))
-
-		if err != nil || !token.Valid {
-			return unauthorized(c)
-		}
-
-		claims, ok := token.Claims.(jwt.MapClaims)
-		if !ok {
-			return unauthorized(c)
-		}
-		userID := claims["user_id"]
-		c.Locals("user_id", userID)
-
-		return c.Next()
-	}
-}
 
 // SessionJWTMiddleware validates an access token and checks that its single
 // referenced session is still active. It is used by the new auth endpoints.

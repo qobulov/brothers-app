@@ -13,6 +13,7 @@ import (
 	"github.com/qobulov/brothers-app/pkg/config"
 	"github.com/qobulov/brothers-app/pkg/helpers"
 	"github.com/redis/go-redis/v9"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // Only the commands used by these error paths are implemented; no Redis server is needed.
@@ -289,5 +290,18 @@ func TestOptionalProfileFields(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 		})
+	}
+}
+
+func TestDummyPasswordHashCostsAsMuchAsRealHashes(t *testing.T) {
+	cost, err := bcrypt.Cost(dummyPasswordHash)
+	if err != nil {
+		t.Fatalf("dummy hash is not a bcrypt hash: %v", err)
+	}
+	if cost != bcrypt.DefaultCost {
+		t.Fatalf("dummy hash cost = %d, want %d", cost, bcrypt.DefaultCost)
+	}
+	if err := bcrypt.CompareHashAndPassword(dummyPasswordHash, []byte("password")); !errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
+		t.Fatalf("compare error = %v, want mismatch", err)
 	}
 }
