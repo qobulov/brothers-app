@@ -204,20 +204,9 @@ func TestService_CreateInviteAndAccept(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create deleted customer: %v", err)
 	}
-	_, err = pool.Exec(context.Background(), `
-		INSERT INTO orders (group_id, total)
-		VALUES ($1, 7000), ($1, 4500)
-	`, created.ID)
-	if err != nil {
-		t.Fatalf("create active group orders: %v", err)
-	}
-	_, err = pool.Exec(context.Background(), `
-		INSERT INTO orders (group_id, total, deleted_at)
-		VALUES ($1, 2000, now())
-	`, created.ID)
-	if err != nil {
-		t.Fatalf("create deleted group order: %v", err)
-	}
+	addGroupOrder(t, pool, created.ID, ownerID, false)
+	addGroupOrder(t, pool, created.ID, ownerID, false)
+	addGroupOrder(t, pool, created.ID, ownerID, true)
 
 	groups, err := service.List(context.Background(), recipientID)
 	if err != nil {
@@ -410,13 +399,7 @@ func TestService_Delete(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create group customer: %v", err)
 	}
-	_, err = pool.Exec(context.Background(), `
-		INSERT INTO orders (group_id, total)
-		VALUES ($1, 7200)
-	`, created.ID)
-	if err != nil {
-		t.Fatalf("create group order: %v", err)
-	}
+	addGroupOrder(t, pool, created.ID, ownerID, false)
 	invitation, err := service.Invite(context.Background(), ownerID, created.ID, InviteInput{
 		UserID: inviteeID,
 		Role:   "investor",
@@ -736,5 +719,33 @@ func addEmployeeBalance(t *testing.T, pool *pgxpool.Pool, groupID, memberID uuid
 	`, groupID, memberID, balance)
 	if err != nil {
 		t.Fatalf("add employee balance: %v", err)
+	}
+}
+
+// addGroupOrder inserts an order between the group's first two members using
+// an existing active customer, so member and customer counts stay unchanged.
+func addGroupOrder(t *testing.T, pool *pgxpool.Pool, groupID, createdBy uuid.UUID, deleted bool) {
+	t.Helper()
+	_, err := pool.Exec(context.Background(), `
+		WITH members AS (
+			SELECT id, row_number() OVER (ORDER BY joined_at, id) AS position
+			FROM group_members
+			WHERE group_id = $1 AND deleted_at IS NULL
+		), customer AS (
+			SELECT id FROM customers WHERE group_id = $1 AND deleted_at IS NULL ORDER BY id LIMIT 1
+		)
+		INSERT INTO orders (
+			group_id, created_by, giver_member_id, receiver_member_id,
+			giver_customer_id, receiver_customer_id, amount_usd, deleted_at
+		)
+		SELECT $1, $2,
+		       (SELECT id FROM members WHERE position = 1),
+		       (SELECT id FROM members WHERE position = 2),
+		       customer.id, customer.id, 7000,
+		       CASE WHEN $3 THEN now() END
+		FROM customer
+	`, groupID, createdBy, deleted)
+	if err != nil {
+		t.Fatalf("create group order: %v", err)
 	}
 }
