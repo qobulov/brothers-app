@@ -10,7 +10,7 @@ type RegisterRequest struct {
 	Email     string `json:"email" example:"ali@example.com"`
 	Phone     string `json:"phone,omitempty" example:"+998901234567"`
 	Username  string `json:"username" example:"qobulov"`
-	FirstName string `json:"first_name" example:"Qobul"`
+	FirstName string `json:"first_name" example:"Azizbek"`
 	LastName  string `json:"last_name" example:"Qobulov"`
 	Password  string `json:"password" example:"strong-password"`
 	Language  string `json:"language" example:"uz"`
@@ -49,7 +49,7 @@ type ResetPasswordRequest struct {
 // UpdateProfileRequest contains only user-editable profile fields. Pointer
 // fields preserve PATCH semantics: omitted fields stay unchanged.
 type UpdateProfileRequest struct {
-	FirstName *string `json:"first_name,omitempty" example:"Qobul"`
+	FirstName *string `json:"first_name,omitempty" example:"Azizbek"`
 	LastName  *string `json:"last_name,omitempty" example:"Qobulov"`
 	AvatarURL *string `json:"avatar_url,omitempty" example:"https://example.com/avatar.jpg"`
 	Language  *string `json:"language,omitempty" enums:"uz,ru,en" example:"uz"`

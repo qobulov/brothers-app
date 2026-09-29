@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/qobulov/brothers-app/pkg/apperror"
+	"github.com/qobulov/brothers-app/pkg/localization"
 	"github.com/qobulov/brothers-app/pkg/responses"
 )
 
@@ -17,7 +18,7 @@ type Handler struct {
 }
 
 type Notification struct {
-	ID        int64          `json:"id"`
+	ID        uuid.UUID      `json:"id"`
 	Title     string         `json:"title"`
 	Content   string         `json:"content"`
 	Type      string         `json:"type" enums:"GLOBAL,TARGETED"`
@@ -54,15 +55,22 @@ func (h *Handler) List(c *fiber.Ctx) error {
 	if err != nil {
 		return responses.Error(c, err)
 	}
+	language := localization.ResolveAcceptLanguage(c.Get(fiber.HeaderAcceptLanguage))
 	rows, err := h.pool.Query(c.UserContext(), `
-		SELECT notifications.id, notifications.title, notifications.content, notifications.type::text,
+		SELECT notifications.id,
+		       CASE $2 WHEN 'uz' THEN notifications.title_uz WHEN 'ru' THEN notifications.title_ru ELSE notifications.title_en END,
+		       CASE $2 WHEN 'uz' THEN notifications.content_uz WHEN 'ru' THEN notifications.content_ru ELSE notifications.content_en END,
+		       notifications.type::text,
 		       notifications.payload, recipients.is_read,
 		       recipients.read_at, notifications.expires_at
 		FROM notification_recipients recipients
 		JOIN notifications ON notifications.id = recipients.notification_id
-		WHERE recipients.user_id = $1 AND (notifications.expires_at IS NULL OR notifications.expires_at > now())
+		WHERE recipients.user_id = $1
+		  AND recipients.deleted_at IS NULL
+		  AND notifications.deleted_at IS NULL
+		  AND (notifications.expires_at IS NULL OR notifications.expires_at > now())
 		ORDER BY notifications.created_at DESC
-	`, userID)
+	`, userID, language)
 	if err != nil {
 		return responses.Error(c, fmt.Errorf("listing notifications: %w", err))
 	}
@@ -88,7 +96,7 @@ func (h *Handler) List(c *fiber.Ctx) error {
 	if err := rows.Err(); err != nil {
 		return responses.Error(c, fmt.Errorf("iterating notifications: %w", err))
 	}
-	return responses.Success(c, fiber.StatusOK, items, "notifications returned")
+	return responses.Success(c, fiber.StatusOK, items, responses.MessageNotificationsReturned)
 }
 
 func userID(c *fiber.Ctx) (uuid.UUID, error) {

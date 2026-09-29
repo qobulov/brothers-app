@@ -50,7 +50,7 @@ conflict.
 ```json
 {
   "avatar_url": "https://example.com/avatar.jpg",
-  "first_name": "Qobul",
+  "first_name": "Azizbek",
   "language": "uz",
   "last_name": "Qobulov",
   "password": "strong-password",

@@ -9,6 +9,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/qobulov/brothers-app/pkg/localization"
 )
 
 type AppError struct {
@@ -285,7 +286,7 @@ func Message(err error) string {
 // English. It accepts both a plain language code and an Accept-Language value.
 func MessageForLanguage(err error, language string) string {
 	err = Normalize(err)
-	language = supportedLanguage(language)
+	language = localization.ResolveAcceptLanguage(language)
 
 	switch {
 	case errors.Is(err, ErrUnauthorized):
@@ -326,17 +327,6 @@ func MessageForLanguage(err error, language string) string {
 		}
 		return localized(language, "Serverda ichki xatolik yuz berdi", "Внутренняя ошибка сервера", "Internal server error")
 	}
-}
-
-func supportedLanguage(value string) string {
-	for _, candidate := range strings.Split(strings.ToLower(value), ",") {
-		candidate = strings.TrimSpace(strings.SplitN(candidate, ";", 2)[0])
-		candidate = strings.SplitN(candidate, "-", 2)[0]
-		if candidate == "uz" || candidate == "ru" || candidate == "en" {
-			return candidate
-		}
-	}
-	return "en"
 }
 
 func localized(language, uz, ru, en string) string {

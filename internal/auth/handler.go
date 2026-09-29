@@ -28,13 +28,13 @@ func NewHandler(authService *service.Service) *Handler { return &Handler{service
 func (h *Handler) Register(c *fiber.Ctx) error {
 	var request authdto.RegisterRequest
 	if err := c.BodyParser(&request); err != nil {
-		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), "invalid request")
+		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
 	}
 	data, err := h.service.Register(c.UserContext(), request)
 	if err != nil {
 		return responses.Error(c, err)
 	}
-	return responses.Success(c, fiber.StatusOK, data, "Request processed successfully")
+	return responses.Success(c, fiber.StatusOK, data, responses.MessageRequestProcessed)
 }
 
 // SendOTP godoc
@@ -52,13 +52,13 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 func (h *Handler) SendOTP(c *fiber.Ctx) error {
 	var request authdto.SendOTPRequest
 	if err := c.BodyParser(&request); err != nil {
-		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), "invalid request")
+		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
 	}
 	data, err := h.service.SendOTP(c.UserContext(), request)
 	if err != nil {
 		return responses.Error(c, err)
 	}
-	return responses.Success(c, fiber.StatusOK, data, "Request processed successfully")
+	return responses.Success(c, fiber.StatusOK, data, responses.MessageRequestProcessed)
 }
 
 // Login godoc
@@ -76,13 +76,13 @@ func (h *Handler) SendOTP(c *fiber.Ctx) error {
 func (h *Handler) Login(c *fiber.Ctx) error {
 	var request authdto.LoginRequest
 	if err := c.BodyParser(&request); err != nil {
-		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), "invalid request")
+		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
 	}
 	data, err := h.service.Login(c.UserContext(), request.Login, request.Password)
 	if err != nil {
 		return responses.Error(c, err)
 	}
-	return responses.Success(c, fiber.StatusOK, data, "Запрос успешно обработан")
+	return responses.Success(c, fiber.StatusOK, data, responses.MessageRequestProcessed)
 }
 
 // Refresh godoc
@@ -100,13 +100,13 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 func (h *Handler) Refresh(c *fiber.Ctx) error {
 	var request authdto.RefreshRequest
 	if err := c.BodyParser(&request); err != nil {
-		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), "invalid request")
+		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
 	}
 	data, err := h.service.Refresh(c.UserContext(), request.RefreshToken)
 	if err != nil {
 		return responses.Error(c, err)
 	}
-	return responses.Success(c, fiber.StatusOK, data, "Запрос успешно обработан")
+	return responses.Success(c, fiber.StatusOK, data, responses.MessageRequestProcessed)
 }
 
 // CurrentUser godoc
@@ -127,7 +127,7 @@ func (h *Handler) CurrentUser(c *fiber.Ctx) error {
 	if err != nil {
 		return responses.Error(c, err)
 	}
-	return responses.Success(c, fiber.StatusOK, data, "Запрос успешно обработан")
+	return responses.Success(c, fiber.StatusOK, data, responses.MessageRequestProcessed)
 }
 
 // UpdateCurrentUser godoc
@@ -149,13 +149,13 @@ func (h *Handler) UpdateCurrentUser(c *fiber.Ctx) error {
 	}
 	var request authdto.UpdateProfileRequest
 	if err := c.BodyParser(&request); err != nil {
-		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), "invalid request")
+		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
 	}
 	data, err := h.service.UpdateCurrentUser(c.UserContext(), userID, request)
 	if err != nil {
 		return responses.Error(c, err)
 	}
-	return responses.Success(c, fiber.StatusOK, data, "Запрос успешно обработан")
+	return responses.Success(c, fiber.StatusOK, data, responses.MessageRequestProcessed)
 }
 
 // VerifyPassword godoc
@@ -172,13 +172,13 @@ func (h *Handler) UpdateCurrentUser(c *fiber.Ctx) error {
 func (h *Handler) VerifyPassword(c *fiber.Ctx) error {
 	var request authdto.OTPVerifyRequest
 	if err := c.BodyParser(&request); err != nil {
-		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), "invalid request")
+		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
 	}
 	data, err := h.service.VerifyPasswordOTP(c.UserContext(), request.Email, request.OTP)
 	if err != nil {
 		return responses.Error(c, err)
 	}
-	return responses.Success(c, fiber.StatusOK, data, "Запрос успешно обработан")
+	return responses.Success(c, fiber.StatusOK, data, responses.MessageRequestProcessed)
 }
 
 // ResetPassword godoc
@@ -195,12 +195,12 @@ func (h *Handler) VerifyPassword(c *fiber.Ctx) error {
 func (h *Handler) ResetPassword(c *fiber.Ctx) error {
 	var request authdto.ResetPasswordRequest
 	if err := c.BodyParser(&request); err != nil {
-		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), "invalid request")
+		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
 	}
 	if err := h.service.ResetPassword(c.UserContext(), request); err != nil {
 		return responses.Error(c, err)
 	}
-	return responses.Success[any](c, fiber.StatusOK, nil, "Запрос успешно обработан")
+	return responses.Success[any](c, fiber.StatusOK, nil, responses.MessageRequestProcessed)
 }
 
 // Logout godoc
@@ -220,7 +220,7 @@ func (h *Handler) Logout(c *fiber.Ctx) error {
 	if err := h.service.Logout(c.UserContext(), userID, sessionID); err != nil {
 		return responses.Error(c, err)
 	}
-	return responses.Success[any](c, fiber.StatusOK, nil, "Запрос успешно обработан")
+	return responses.Success[any](c, fiber.StatusOK, nil, responses.MessageRequestProcessed)
 }
 
 func authLocals(c *fiber.Ctx) (uuid.UUID, uuid.UUID, error) {

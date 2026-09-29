@@ -29,12 +29,7 @@ func ErrorLocalized(c *fiber.Ctx, err error, language string) error {
 		language = c.Get(fiber.HeaderAcceptLanguage)
 	}
 
-	message := appError.MessageForLanguage(err, language)
-	if c.Locals(appEnvironmentLocal) == "development" && appError.Code(err) == 1500 {
-		message = err.Error()
-	}
-
-	return Failure(c, appError.StatusCode(err), appError.Code(err), appError.Slug(err), message, ErrorDetails{Reason: err.Error()})
+	return Failure(c, appError.StatusCode(err), appError.Code(err), appError.Slug(err), appError.MessageForLanguage(err, language), ErrorDetails{Reason: err.Error()})
 }
 
 func ErrorWithMessage(c *fiber.Ctx, err error, message string) error {

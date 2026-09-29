@@ -16,7 +16,7 @@ func TestFailureUsesAcceptLanguage(t *testing.T) {
 	app := fiber.New()
 	Middleware(app, "production")
 	app.Get("/", func(c *fiber.Ctx) error {
-		return Failure(c, fiber.StatusNotFound, 1404, "not_found", "Ресурс не найден", nil)
+		return Failure(c, fiber.StatusNotFound, 1404, "not_found", MessageResourceNotFound, nil)
 	})
 
 	request := httptest.NewRequest("GET", "/", nil)

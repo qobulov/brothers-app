@@ -419,11 +419,15 @@ const docTemplate = `{
             }
         },
         "/groups/{groupID}": {
-            "get": {
+            "delete": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
+                ],
+                "description": "Owner-only operation. Requires an explicit confirmation and preserves financial and audit history.",
+                "consumes": [
+                    "application/json"
                 ],
                 "produces": [
                     "application/json"
@@ -431,7 +435,7 @@ const docTemplate = `{
                 "tags": [
                     "groups"
                 ],
-                "summary": "Get group details",
+                "summary": "Soft-delete a group",
                 "parameters": [
                     {
                         "type": "string",
@@ -439,13 +443,92 @@ const docTemplate = `{
                         "name": "groupID",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "Deletion confirmation",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/group.DeleteRequest"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/group.GroupResponse"
+                            "$ref": "#/definitions/responses.MessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/groups/{groupID}/customers": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "This resource is read-only. The optional query parameter filters by phone.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "group customers"
+                ],
+                "summary": "List group customers",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group UUID",
+                        "name": "groupID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Phone search",
+                        "name": "query",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/group.CustomersResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
                         }
                     },
                     "401": {
@@ -526,6 +609,182 @@ const docTemplate = `{
                 }
             }
         },
+        "/groups/{groupID}/locations": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "group locations"
+                ],
+                "summary": "List group locations",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group UUID",
+                        "name": "groupID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/group.LocationsResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "group locations"
+                ],
+                "summary": "Create a group location",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group UUID",
+                        "name": "groupID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Location payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/group.CreateLocationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/group.LocationResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/groups/{groupID}/locations/{locationID}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "group locations"
+                ],
+                "summary": "Soft-delete an unassigned group location",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group UUID",
+                        "name": "groupID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Location UUID",
+                        "name": "locationID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/responses.MessageResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/groups/{groupID}/members": {
             "get": {
                 "security": [
@@ -547,6 +806,35 @@ const docTemplate = `{
                         "name": "groupID",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search by name, username, email, or location",
+                        "name": "query",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "all",
+                            "manager",
+                            "employee",
+                            "investor"
+                        ],
+                        "type": "string",
+                        "description": "Role filter",
+                        "name": "role",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "all",
+                            "active",
+                            "pending"
+                        ],
+                        "type": "string",
+                        "description": "Status filter",
+                        "name": "status",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -554,6 +842,12 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/group.MembersResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
                         }
                     },
                     "401": {
@@ -808,8 +1102,8 @@ const docTemplate = `{
                 "summary": "Get order by ID",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "Order ID",
+                        "type": "string",
+                        "description": "Order UUID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -834,8 +1128,8 @@ const docTemplate = `{
                 "summary": "Delete an order by ID",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "Order ID",
+                        "type": "string",
+                        "description": "Order UUID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -863,8 +1157,8 @@ const docTemplate = `{
                 "summary": "Update an order partially",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "Order ID",
+                        "type": "string",
+                        "description": "Order UUID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -965,7 +1259,7 @@ const docTemplate = `{
                 },
                 "message": {
                     "type": "string",
-                    "example": "Запрос успешно обработан"
+                    "example": "Request processed successfully"
                 },
                 "meta": {
                     "$ref": "#/definitions/authdto.ResponseMeta"
@@ -992,7 +1286,7 @@ const docTemplate = `{
                 },
                 "message": {
                     "type": "string",
-                    "example": "Запрос успешно обработан"
+                    "example": "Request processed successfully"
                 },
                 "meta": {
                     "$ref": "#/definitions/authdto.ResponseMeta"
@@ -1098,7 +1392,7 @@ const docTemplate = `{
                 },
                 "first_name": {
                     "type": "string",
-                    "example": "Qobul"
+                    "example": "Azizbek"
                 },
                 "language": {
                     "type": "string",
@@ -1209,7 +1503,7 @@ const docTemplate = `{
                 },
                 "message": {
                     "type": "string",
-                    "example": "Запрос успешно обработан"
+                    "example": "Request processed successfully"
                 },
                 "meta": {
                     "$ref": "#/definitions/authdto.ResponseMeta"
@@ -1301,7 +1595,7 @@ const docTemplate = `{
                 },
                 "message": {
                     "type": "string",
-                    "example": "Запрос успешно обработан"
+                    "example": "Request processed successfully"
                 },
                 "meta": {
                     "$ref": "#/definitions/authdto.ResponseMeta"
@@ -1342,7 +1636,7 @@ const docTemplate = `{
                 },
                 "first_name": {
                     "type": "string",
-                    "example": "Qobul"
+                    "example": "Azizbek"
                 },
                 "language": {
                     "type": "string",
@@ -1406,7 +1700,7 @@ const docTemplate = `{
                 },
                 "message": {
                     "type": "string",
-                    "example": "Запрос успешно обработан"
+                    "example": "Request processed successfully"
                 },
                 "meta": {
                     "$ref": "#/definitions/authdto.ResponseMeta"
@@ -1421,11 +1715,73 @@ const docTemplate = `{
                 }
             }
         },
+        "group.CreateLocationRequest": {
+            "type": "object",
+            "properties": {
+                "employee_id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Tashkent"
+                }
+            }
+        },
         "group.CreateRequest": {
             "type": "object",
             "properties": {
                 "name": {
                     "type": "string"
+                }
+            }
+        },
+        "group.Customer": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                }
+            }
+        },
+        "group.CustomersResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/group.Customer"
+                    }
+                },
+                "message": {
+                    "type": "string",
+                    "example": "request processed successfully"
+                },
+                "meta": {
+                    "$ref": "#/definitions/responses.Meta"
+                },
+                "slug": {
+                    "type": "string",
+                    "example": "ok"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "group.DeleteRequest": {
+            "type": "object",
+            "properties": {
+                "confirm": {
+                    "type": "boolean"
                 }
             }
         },
@@ -1473,6 +1829,44 @@ const docTemplate = `{
                 }
             }
         },
+        "group.GroupListItem": {
+            "type": "object",
+            "properties": {
+                "customers_count": {
+                    "type": "integer"
+                },
+                "group_balance_usd": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_owner": {
+                    "type": "boolean"
+                },
+                "locations_count": {
+                    "type": "integer"
+                },
+                "members_count": {
+                    "type": "integer"
+                },
+                "my_profit_uzs": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "order_count": {
+                    "type": "integer"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "subscription_active": {
+                    "type": "boolean"
+                }
+            }
+        },
         "group.GroupResponse": {
             "type": "object",
             "properties": {
@@ -1485,7 +1879,7 @@ const docTemplate = `{
                 },
                 "message": {
                     "type": "string",
-                    "example": "group returned"
+                    "example": "group created"
                 },
                 "meta": {
                     "$ref": "#/definitions/responses.Meta"
@@ -1510,7 +1904,7 @@ const docTemplate = `{
                 "data": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/group.Group"
+                        "$ref": "#/definitions/group.GroupListItem"
                     }
                 },
                 "message": {
@@ -1626,13 +2020,113 @@ const docTemplate = `{
                 }
             }
         },
-        "group.Member": {
+        "group.Location": {
+            "type": "object",
+            "properties": {
+                "created_by": {
+                    "type": "string"
+                },
+                "employee": {
+                    "$ref": "#/definitions/group.LocationEmployee"
+                },
+                "group_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "group.LocationEmployee": {
             "type": "object",
             "properties": {
                 "avatar_url": {
                     "type": "string"
                 },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "group.LocationResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "data": {
+                    "$ref": "#/definitions/group.Location"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "request processed successfully"
+                },
+                "meta": {
+                    "$ref": "#/definitions/responses.Meta"
+                },
+                "slug": {
+                    "type": "string",
+                    "example": "ok"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "group.LocationsResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/group.Location"
+                    }
+                },
+                "message": {
+                    "type": "string",
+                    "example": "request processed successfully"
+                },
+                "meta": {
+                    "$ref": "#/definitions/responses.Meta"
+                },
+                "slug": {
+                    "type": "string",
+                    "example": "ok"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "group.Member": {
+            "type": "object",
+            "properties": {
+                "access_level": {
+                    "type": "string"
+                },
+                "avatar_url": {
+                    "type": "string"
+                },
+                "balance_usd": {
+                    "type": "integer"
+                },
                 "email": {
+                    "type": "string"
+                },
+                "full_name": {
                     "type": "string"
                 },
                 "invitation_id": {
@@ -1640,6 +2134,15 @@ const docTemplate = `{
                 },
                 "is_owner": {
                     "type": "boolean"
+                },
+                "location_name": {
+                    "type": "string"
+                },
+                "member_id": {
+                    "type": "string"
+                },
+                "profit_uzs": {
+                    "type": "integer"
                 },
                 "role": {
                     "type": "string"
@@ -1705,7 +2208,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "string"
                 },
                 "is_read": {
                     "type": "boolean"
@@ -1769,7 +2272,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "id": {
-                    "type": "integer"
+                    "type": "string"
                 },
                 "total": {
                     "type": "number"
@@ -1813,9 +2316,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "request_id": {
-                    "type": "string"
-                },
-                "service": {
                     "type": "string"
                 },
                 "timestamp": {

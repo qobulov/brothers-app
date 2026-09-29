@@ -7,13 +7,13 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/qobulov/brothers-app/pkg/localization"
 )
 
 type Meta struct {
 	Timestamp  string `json:"timestamp"`
 	RequestID  string `json:"request_id"`
 	APIVersion string `json:"api_version"`
-	Service    string `json:"service"`
 	Duration   string `json:"duration"`
 }
 
@@ -32,6 +32,50 @@ type requestMeta struct {
 }
 
 const appEnvironmentLocal = "app_environment"
+
+const (
+	MessageRequestProcessed      = "request_processed"
+	MessageGroupCreated          = "group_created"
+	MessageGroupsReturned        = "groups_returned"
+	MessageGroupDeleted          = "group_deleted"
+	MessageInvitationCreated     = "invitation_created"
+	MessageMembersReturned       = "members_returned"
+	MessageInvitationAction      = "invitation_action_processed"
+	MessageUsersReturned         = "users_returned"
+	MessageNotificationsReturned = "notifications_returned"
+	MessageUserDeleted           = "user_deleted"
+	MessageOrderDeleted          = "order_deleted"
+	MessageResourceNotFound      = "resource_not_found"
+	MessageInvalidCredentials    = "invalid_credentials"
+	MessageIDRequired            = "id_required"
+	MessageInvalidRequest        = "invalid_request"
+	MessageInvalidID             = "invalid_id"
+	MessageInvalidUsername       = "invalid_username"
+	MessageTotalMustBePositive   = "total_must_be_positive"
+)
+
+type translation struct{ uz, ru, en string }
+
+var messageTranslations = map[string]translation{
+	MessageRequestProcessed:      {"So'rov muvaffaqiyatli bajarildi", "Запрос успешно обработан", "Request processed successfully"},
+	MessageGroupCreated:          {"Guruh yaratildi", "Группа создана", "Group created"},
+	MessageGroupsReturned:        {"Guruhlar olindi", "Группы получены", "Groups returned"},
+	MessageGroupDeleted:          {"Guruh o'chirildi", "Группа удалена", "Group deleted"},
+	MessageInvitationCreated:     {"Taklif yaratildi", "Приглашение создано", "Invitation created"},
+	MessageMembersReturned:       {"A'zolar olindi", "Участники получены", "Members returned"},
+	MessageInvitationAction:      {"Taklif javobi qayta ishlandi", "Ответ на приглашение обработан", "Invitation action processed"},
+	MessageUsersReturned:         {"Foydalanuvchilar olindi", "Пользователи получены", "Users returned"},
+	MessageNotificationsReturned: {"Bildirishnomalar olindi", "Уведомления получены", "Notifications returned"},
+	MessageUserDeleted:           {"Foydalanuvchi o'chirildi", "Пользователь удалён", "User deleted"},
+	MessageOrderDeleted:          {"Buyurtma o'chirildi", "Заказ удалён", "Order deleted"},
+	MessageResourceNotFound:      {"Resurs topilmadi", "Ресурс не найден", "Resource not found"},
+	MessageInvalidCredentials:    {"Hisob ma'lumotlari noto'g'ri", "Неверные учетные данные", "Invalid credentials"},
+	MessageIDRequired:            {"ID kiritilishi shart", "Необходимо указать ID", "ID is required"},
+	MessageInvalidRequest:        {"So'rov ma'lumotlari noto'g'ri", "Некорректный запрос", "Invalid request"},
+	MessageInvalidID:             {"ID noto'g'ri", "Некорректный ID", "Invalid ID"},
+	MessageInvalidUsername:       {"Foydalanuvchi nomi noto'g'ri", "Некорректное имя пользователя", "Username is invalid"},
+	MessageTotalMustBePositive:   {"Umumiy summa musbat bo'lishi kerak", "Сумма должна быть положительной", "Total must be positive"},
+}
 
 // FailureReport contains request metadata and the original error, never the body or headers.
 type FailureReport struct {
@@ -71,44 +115,19 @@ func Success[T any](c *fiber.Ctx, status int, data T, message string) error {
 }
 
 func localizeMessage(message, language string) string {
-	switch message {
-	case "Request processed successfully", "Запрос успешно обработан":
-		return localized(language, "So'rov muvaffaqiyatli bajarildi", "Запрос успешно обработан", "Request processed successfully")
-	case "user deleted":
-		return localized(language, "Foydalanuvchi o'chirildi", "Пользователь удалён", "User deleted")
-	case "order deleted":
-		return localized(language, "Buyurtma o'chirildi", "Заказ удалён", "Order deleted")
-	case "Resurs topilmadi", "Ресурс не найден", "Resource not found":
-		return localized(language, "Resurs topilmadi", "Ресурс не найден", "Resource not found")
-	case "Hisob ma'lumotlari noto'g'ri", "Неверные учетные данные", "Invalid credentials":
-		return localized(language, "Hisob ma'lumotlari noto'g'ri", "Неверные учетные данные", "Invalid credentials")
-	case "id is required":
-		return localized(language, "ID kiritilishi shart", "Необходимо указать ID", "ID is required")
-	case "invalid request":
-		return localized(language, "So'rov ma'lumotlari noto'g'ri", "Некорректный запрос", "Invalid request")
-	case "invalid id":
-		return localized(language, "ID noto'g'ri", "Некорректный ID", "Invalid ID")
-	case "username is invalid":
-		return localized(language, "Foydalanuvchi nomi noto'g'ri", "Некорректное имя пользователя", "Username is invalid")
-	case "total must be positive":
-		return localized(language, "Umumiy summa musbat bo'lishi kerak", "Сумма должна быть положительной", "Total must be positive")
-	default:
+	translation, ok := messageTranslations[message]
+	if !ok {
 		return message
 	}
+	return localized(language, translation.uz, translation.ru, translation.en)
 }
 
 func localized(language, uz, ru, en string) string {
-	for _, candidate := range strings.Split(strings.ToLower(language), ",") {
-		candidate = strings.TrimSpace(strings.SplitN(candidate, ";", 2)[0])
-		candidate = strings.SplitN(candidate, "-", 2)[0]
-		switch candidate {
-		case "uz":
-			return uz
-		case "ru":
-			return ru
-		case "en":
-			return en
-		}
+	switch localization.ResolveAcceptLanguage(language) {
+	case "uz":
+		return uz
+	case "ru":
+		return ru
 	}
 	return en
 }
@@ -150,7 +169,6 @@ func meta(c *fiber.Ctx) Meta {
 		Timestamp:  time.Now().UTC().Format(time.RFC3339),
 		RequestID:  value.requestID,
 		APIVersion: "v1",
-		Service:    "brothers_app",
 		Duration:   time.Since(value.startedAt).String(),
 	}
 }

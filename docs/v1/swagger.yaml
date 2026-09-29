@@ -15,7 +15,7 @@ definitions:
       data:
         $ref: '#/definitions/authdto.AuthData'
       message:
-        example: Запрос успешно обработан
+        example: Request processed successfully
         type: string
       meta:
         $ref: '#/definitions/authdto.ResponseMeta'
@@ -34,7 +34,7 @@ definitions:
       data:
         x-nullable: true
       message:
-        example: Запрос успешно обработан
+        example: Request processed successfully
         type: string
       meta:
         $ref: '#/definitions/authdto.ResponseMeta'
@@ -106,7 +106,7 @@ definitions:
         example: ali@example.com
         type: string
       first_name:
-        example: Qobul
+        example: Azizbek
         type: string
       language:
         example: uz
@@ -183,7 +183,7 @@ definitions:
       data:
         $ref: '#/definitions/authdto.ResetVerifyData'
       message:
-        example: Запрос успешно обработан
+        example: Request processed successfully
         type: string
       meta:
         $ref: '#/definitions/authdto.ResponseMeta'
@@ -250,7 +250,7 @@ definitions:
       data:
         $ref: '#/definitions/authdto.StartData'
       message:
-        example: Запрос успешно обработан
+        example: Request processed successfully
         type: string
       meta:
         $ref: '#/definitions/authdto.ResponseMeta'
@@ -278,7 +278,7 @@ definitions:
         example: https://example.com/avatar.jpg
         type: string
       first_name:
-        example: Qobul
+        example: Azizbek
         type: string
       language:
         enum:
@@ -322,7 +322,7 @@ definitions:
       data:
         $ref: '#/definitions/authdto.UserData'
       message:
-        example: Запрос успешно обработан
+        example: Request processed successfully
         type: string
       meta:
         $ref: '#/definitions/authdto.ResponseMeta'
@@ -333,10 +333,52 @@ definitions:
         example: true
         type: boolean
     type: object
+  group.CreateLocationRequest:
+    properties:
+      employee_id:
+        format: uuid
+        type: string
+      name:
+        example: Tashkent
+        type: string
+    type: object
   group.CreateRequest:
     properties:
       name:
         type: string
+    type: object
+  group.Customer:
+    properties:
+      id:
+        type: string
+      phone:
+        type: string
+    type: object
+  group.CustomersResponse:
+    properties:
+      code:
+        example: 0
+        type: integer
+      data:
+        items:
+          $ref: '#/definitions/group.Customer'
+        type: array
+      message:
+        example: request processed successfully
+        type: string
+      meta:
+        $ref: '#/definitions/responses.Meta'
+      slug:
+        example: ok
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  group.DeleteRequest:
+    properties:
+      confirm:
+        type: boolean
     type: object
   group.ErrorResponse:
     properties:
@@ -368,6 +410,31 @@ definitions:
       role:
         type: string
     type: object
+  group.GroupListItem:
+    properties:
+      customers_count:
+        type: integer
+      group_balance_usd:
+        type: integer
+      id:
+        type: string
+      is_owner:
+        type: boolean
+      locations_count:
+        type: integer
+      members_count:
+        type: integer
+      my_profit_uzs:
+        type: integer
+      name:
+        type: string
+      order_count:
+        type: integer
+      role:
+        type: string
+      subscription_active:
+        type: boolean
+    type: object
   group.GroupResponse:
     properties:
       code:
@@ -376,7 +443,7 @@ definitions:
       data:
         $ref: '#/definitions/group.Group'
       message:
-        example: group returned
+        example: group created
         type: string
       meta:
         $ref: '#/definitions/responses.Meta'
@@ -394,7 +461,7 @@ definitions:
         type: integer
       data:
         items:
-          $ref: '#/definitions/group.Group'
+          $ref: '#/definitions/group.GroupListItem'
         type: array
       message:
         example: groups returned
@@ -473,16 +540,90 @@ definitions:
       user_id:
         type: string
     type: object
-  group.Member:
+  group.Location:
+    properties:
+      created_by:
+        type: string
+      employee:
+        $ref: '#/definitions/group.LocationEmployee'
+      group_id:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+  group.LocationEmployee:
     properties:
       avatar_url:
         type: string
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+  group.LocationResponse:
+    properties:
+      code:
+        example: 0
+        type: integer
+      data:
+        $ref: '#/definitions/group.Location'
+      message:
+        example: request processed successfully
+        type: string
+      meta:
+        $ref: '#/definitions/responses.Meta'
+      slug:
+        example: ok
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  group.LocationsResponse:
+    properties:
+      code:
+        example: 0
+        type: integer
+      data:
+        items:
+          $ref: '#/definitions/group.Location'
+        type: array
+      message:
+        example: request processed successfully
+        type: string
+      meta:
+        $ref: '#/definitions/responses.Meta'
+      slug:
+        example: ok
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  group.Member:
+    properties:
+      access_level:
+        type: string
+      avatar_url:
+        type: string
+      balance_usd:
+        type: integer
       email:
+        type: string
+      full_name:
         type: string
       invitation_id:
         type: string
       is_owner:
         type: boolean
+      location_name:
+        type: string
+      member_id:
+        type: string
+      profit_uzs:
+        type: integer
       role:
         type: string
       status:
@@ -528,7 +669,7 @@ definitions:
       expires_at:
         type: string
       id:
-        type: integer
+        type: string
       is_read:
         type: boolean
       payload:
@@ -570,7 +711,7 @@ definitions:
   orderdto.OrderResponse:
     properties:
       id:
-        type: integer
+        type: string
       total:
         type: number
     type: object
@@ -600,8 +741,6 @@ definitions:
       duration:
         type: string
       request_id:
-        type: string
-      service:
         type: string
       timestamp:
         type: string
@@ -888,12 +1027,64 @@ paths:
       tags:
       - groups
   /groups/{groupID}:
-    get:
+    delete:
+      consumes:
+      - application/json
+      description: Owner-only operation. Requires an explicit confirmation and preserves
+        financial and audit history.
       parameters:
       - description: Group UUID
         in: path
         name: groupID
         required: true
+        type: string
+      - description: Deletion confirmation
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/group.DeleteRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/responses.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Soft-delete a group
+      tags:
+      - groups
+  /groups/{groupID}/customers:
+    get:
+      description: This resource is read-only. The optional query parameter filters
+        by phone.
+      parameters:
+      - description: Group UUID
+        in: path
+        name: groupID
+        required: true
+        type: string
+      - description: Phone search
+        in: query
+        name: query
         type: string
       produces:
       - application/json
@@ -901,7 +1092,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/group.GroupResponse'
+            $ref: '#/definitions/group.CustomersResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
         "401":
           description: Unauthorized
           schema:
@@ -912,9 +1107,9 @@ paths:
             $ref: '#/definitions/group.ErrorResponse'
       security:
       - BearerAuth: []
-      summary: Get group details
+      summary: List group customers
       tags:
-      - groups
+      - group customers
   /groups/{groupID}/invitations:
     post:
       consumes:
@@ -955,7 +1150,7 @@ paths:
       summary: Create a group invitation
       tags:
       - group invitations
-  /groups/{groupID}/members:
+  /groups/{groupID}/locations:
     get:
       parameters:
       - description: Group UUID
@@ -969,7 +1164,144 @@ paths:
         "200":
           description: OK
           schema:
+            $ref: '#/definitions/group.LocationsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List group locations
+      tags:
+      - group locations
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Group UUID
+        in: path
+        name: groupID
+        required: true
+        type: string
+      - description: Location payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/group.CreateLocationRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/group.LocationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a group location
+      tags:
+      - group locations
+  /groups/{groupID}/locations/{locationID}:
+    delete:
+      parameters:
+      - description: Group UUID
+        in: path
+        name: groupID
+        required: true
+        type: string
+      - description: Location UUID
+        in: path
+        name: locationID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/responses.MessageResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Soft-delete an unassigned group location
+      tags:
+      - group locations
+  /groups/{groupID}/members:
+    get:
+      parameters:
+      - description: Group UUID
+        in: path
+        name: groupID
+        required: true
+        type: string
+      - description: Search by name, username, email, or location
+        in: query
+        name: query
+        type: string
+      - description: Role filter
+        enum:
+        - all
+        - manager
+        - employee
+        - investor
+        in: query
+        name: role
+        type: string
+      - description: Status filter
+        enum:
+        - all
+        - active
+        - pending
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
             $ref: '#/definitions/group.MembersResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
         "401":
           description: Unauthorized
           schema:
@@ -1128,11 +1460,11 @@ paths:
   /orders/{id}:
     delete:
       parameters:
-      - description: Order ID
+      - description: Order UUID
         in: path
         name: id
         required: true
-        type: integer
+        type: string
       produces:
       - application/json
       responses:
@@ -1145,11 +1477,11 @@ paths:
       - orders
     get:
       parameters:
-      - description: Order ID
+      - description: Order UUID
         in: path
         name: id
         required: true
-        type: integer
+        type: string
       produces:
       - application/json
       responses:
@@ -1164,11 +1496,11 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: Order ID
+      - description: Order UUID
         in: path
         name: id
         required: true
-        type: integer
+        type: string
       - description: Order update payload
         in: body
         name: order

@@ -39,5 +39,5 @@ func (h *HttpUserHandler) Lookup(c *fiber.Ctx) error {
 	if err != nil {
 		return responses.Error(c, err)
 	}
-	return responses.Success(c, fiber.StatusOK, userdto.ToUserResponseList(users), "users returned")
+	return responses.Success(c, fiber.StatusOK, userdto.ToUserResponseList(users), responses.MessageUsersReturned)
 }

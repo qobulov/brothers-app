@@ -1,6 +1,8 @@
 package orderdto
 
+import "github.com/google/uuid"
+
 type OrderResponse struct {
-	ID    uint    `json:"id"`
-	Total float64 `json:"total"`
+	ID    uuid.UUID `json:"id"`
+	Total float64   `json:"total"`
 }

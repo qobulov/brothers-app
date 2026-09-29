@@ -24,7 +24,8 @@ func TestRegistrationIdentityExistsMessage(t *testing.T) {
 		{name: "uzbek", language: "uz", want: "Email, telefon raqami yoki foydalanuvchi nomi allaqachon mavjud"},
 		{name: "russian", language: "ru", want: "Email, номер телефона или имя пользователя уже существуют"},
 		{name: "english", language: "en", want: "Email, phone, or username already exists"},
-		{name: "accept language", language: "de-DE,de;q=0.9,uz-UZ;q=0.8,en;q=0.7", want: "Email, telefon raqami yoki foydalanuvchi nomi allaqachon mavjud"},
+		{name: "accept language priority", language: "de-DE,de;q=0.9,uz-UZ;q=0.8,en;q=0.7", want: "Email, telefon raqami yoki foydalanuvchi nomi allaqachon mavjud"},
+		{name: "highest accept language priority", language: "uz;q=0.1,ru;q=0.9,en;q=0.8", want: "Email, номер телефона или имя пользователя уже существуют"},
 		{name: "unsupported defaults to english", language: "de", want: "Email, phone, or username already exists"},
 	}
 

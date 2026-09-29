@@ -107,5 +107,5 @@ func authorizationToken(header string) (string, bool) {
 }
 
 func unauthorized(c *fiber.Ctx) error {
-	return responses.Failure(c, fiber.StatusUnauthorized, 1401, "unauthorized", "Неверные учетные данные", nil)
+	return responses.Failure(c, fiber.StatusUnauthorized, 1401, "unauthorized", responses.MessageInvalidCredentials, nil)
 }

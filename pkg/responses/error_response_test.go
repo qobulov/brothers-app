@@ -21,13 +21,10 @@ func TestErrorShowsTechnicalMessageOnlyInDevelopment(t *testing.T) {
 	tests := []struct {
 		name        string
 		environment string
+		language    string
 		wantMessage string
 	}{
-		{
-			name:        "development",
-			environment: "development",
-			wantMessage: technicalError.Error(),
-		},
+		{name: "development Uzbek", environment: "development", language: "uz", wantMessage: "Serverda ichki xatolik yuz berdi"},
 		{
 			name:        "production",
 			environment: "production",
@@ -45,7 +42,9 @@ func TestErrorShowsTechnicalMessageOnlyInDevelopment(t *testing.T) {
 				return Error(c, technicalError)
 			})
 
-			response, err := app.Test(httptest.NewRequest("GET", "/", nil))
+			request := httptest.NewRequest("GET", "/", nil)
+			request.Header.Set(fiber.HeaderAcceptLanguage, tt.language)
+			response, err := app.Test(request)
 			require.NoError(t, err)
 			defer response.Body.Close()
 
@@ -83,7 +82,7 @@ func TestErrorWithMessageUsesAcceptLanguage(t *testing.T) {
 	app := fiber.New()
 	Middleware(app, "production")
 	app.Get("/", func(c *fiber.Ctx) error {
-		return ErrorWithMessage(c, apperror.ErrInvalidData, "invalid request")
+		return ErrorWithMessage(c, apperror.ErrInvalidData, MessageInvalidRequest)
 	})
 
 	request := httptest.NewRequest("GET", "/", nil)

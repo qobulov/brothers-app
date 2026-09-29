@@ -18,6 +18,10 @@ type CreateRequest struct {
 	Name string `json:"name"`
 }
 
+type DeleteRequest struct {
+	Confirm bool `json:"confirm"`
+}
+
 type InviteRequest struct {
 	UserID       string `json:"user_id"`
 	Email        string `json:"email"`
@@ -47,13 +51,13 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 	}
 	var request CreateRequest
 	if err := c.BodyParser(&request); err != nil {
-		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), "invalid request")
+		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
 	}
 	group, err := h.service.Create(c.UserContext(), actorID, request.Name)
 	if err != nil {
 		return responses.Error(c, err)
 	}
-	return responses.Success(c, fiber.StatusCreated, group, "group created")
+	return responses.Success(c, fiber.StatusCreated, group, responses.MessageGroupCreated)
 }
 
 // List godoc
@@ -73,20 +77,25 @@ func (h *Handler) List(c *fiber.Ctx) error {
 	if err != nil {
 		return responses.Error(c, err)
 	}
-	return responses.Success(c, fiber.StatusOK, groups, "groups returned")
+	return responses.Success(c, fiber.StatusOK, groups, responses.MessageGroupsReturned)
 }
 
-// Get godoc
-// @Summary Get group details
+// Delete godoc
+// @Summary Soft-delete a group
+// @Description Owner-only operation. Requires an explicit confirmation and preserves financial and audit history.
 // @Tags groups
+// @Accept json
 // @Produce json
 // @Param groupID path string true "Group UUID"
-// @Success 200 {object} GroupResponse
+// @Param request body DeleteRequest true "Deletion confirmation"
+// @Success 200 {object} responses.MessageResponse
+// @Failure 400 {object} ErrorResponse
 // @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
 // @Security BearerAuth
-// @Router /groups/{groupID} [get]
-func (h *Handler) Get(c *fiber.Ctx) error {
+// @Router /groups/{groupID} [delete]
+func (h *Handler) Delete(c *fiber.Ctx) error {
 	actorID, err := authenticatedUserID(c)
 	if err != nil {
 		return responses.Error(c, err)
@@ -95,11 +104,14 @@ func (h *Handler) Get(c *fiber.Ctx) error {
 	if err != nil {
 		return responses.Error(c, err)
 	}
-	group, err := h.service.Get(c.UserContext(), actorID, groupID)
-	if err != nil {
+	var request DeleteRequest
+	if err := c.BodyParser(&request); err != nil {
+		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
+	}
+	if err := h.service.Delete(c.UserContext(), actorID, groupID, request.Confirm); err != nil {
 		return responses.Error(c, err)
 	}
-	return responses.Success(c, fiber.StatusOK, group, "group returned")
+	return responses.Message(c, fiber.StatusOK, responses.MessageGroupDeleted)
 }
 
 // Invite godoc
@@ -126,7 +138,7 @@ func (h *Handler) Invite(c *fiber.Ctx) error {
 	}
 	var request InviteRequest
 	if err := c.BodyParser(&request); err != nil {
-		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), "invalid request")
+		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
 	}
 	input := InviteInput{Email: request.Email, Role: request.Role, LocationName: request.LocationName}
 	if strings.TrimSpace(request.UserID) != "" {
@@ -139,7 +151,7 @@ func (h *Handler) Invite(c *fiber.Ctx) error {
 	if err != nil {
 		return responses.Error(c, err)
 	}
-	return responses.Success(c, fiber.StatusCreated, invitation, "invitation created")
+	return responses.Success(c, fiber.StatusCreated, invitation, responses.MessageInvitationCreated)
 }
 
 // ListMembers godoc
@@ -147,7 +159,11 @@ func (h *Handler) Invite(c *fiber.Ctx) error {
 // @Tags groups
 // @Produce json
 // @Param groupID path string true "Group UUID"
+// @Param query query string false "Search by name, username, email, or location"
+// @Param role query string false "Role filter" Enums(all,manager,employee,investor)
+// @Param status query string false "Status filter" Enums(all,active,pending)
 // @Success 200 {object} MembersResponse
+// @Failure 400 {object} ErrorResponse
 // @Failure 401 {object} ErrorResponse
 // @Failure 403 {object} ErrorResponse
 // @Security BearerAuth
@@ -161,11 +177,15 @@ func (h *Handler) ListMembers(c *fiber.Ctx) error {
 	if err != nil {
 		return responses.Error(c, err)
 	}
-	members, err := h.service.ListMembers(c.UserContext(), actorID, groupID)
+	members, err := h.service.ListMembers(c.UserContext(), actorID, groupID, ListMembersInput{
+		Query:  c.Query("query"),
+		Role:   c.Query("role"),
+		Status: c.Query("status"),
+	})
 	if err != nil {
 		return responses.Error(c, err)
 	}
-	return responses.Success(c, fiber.StatusOK, members, "members returned")
+	return responses.Success(c, fiber.StatusOK, members, responses.MessageMembersReturned)
 }
 
 type InvitationActionRequest struct {
@@ -196,13 +216,13 @@ func (h *Handler) Action(c *fiber.Ctx) error {
 	}
 	var request InvitationActionRequest
 	if err := c.BodyParser(&request); err != nil {
-		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), "invalid request")
+		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
 	}
 	invitation, err := h.service.RespondInvitation(c.UserContext(), actorID, invitationID, strings.ToLower(strings.TrimSpace(request.Action)))
 	if err != nil {
 		return responses.Error(c, err)
 	}
-	return responses.Success(c, fiber.StatusOK, invitation, "invitation action processed")
+	return responses.Success(c, fiber.StatusOK, invitation, responses.MessageInvitationAction)
 }
 
 func authenticatedUserID(c *fiber.Ctx) (uuid.UUID, error) {

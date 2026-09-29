@@ -2,8 +2,8 @@ package rest
 
 import (
 	"fmt"
-	"strconv"
 
+	"github.com/google/uuid"
 	"github.com/qobulov/brothers-app/pkg/apperror"
 
 	"github.com/gofiber/fiber/v2"
@@ -32,7 +32,7 @@ func NewHttpOrderHandler(useCase usecase.OrderUseCase) *HttpOrderHandler {
 func (h *HttpOrderHandler) CreateOrder(c *fiber.Ctx) error {
 	var req orderdto.CreateOrderRequest
 	if err := c.BodyParser(&req); err != nil {
-		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), "invalid request")
+		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
 	}
 
 	order := &entities.Order{Total: req.Total}
@@ -40,7 +40,7 @@ func (h *HttpOrderHandler) CreateOrder(c *fiber.Ctx) error {
 		return responses.Error(c, err)
 	}
 
-	return responses.Success(c, fiber.StatusCreated, orderdto.ToOrderResponse(order), "Запрос успешно обработан")
+	return responses.Success(c, fiber.StatusCreated, orderdto.ToOrderResponse(order), responses.MessageRequestProcessed)
 }
 
 // FindAllOrders godoc
@@ -55,21 +55,20 @@ func (h *HttpOrderHandler) FindAllOrders(c *fiber.Ctx) error {
 		return responses.Error(c, err)
 	}
 
-	return responses.Success(c, fiber.StatusOK, orderdto.ToOrderResponseList(orders), "Запрос успешно обработан")
+	return responses.Success(c, fiber.StatusOK, orderdto.ToOrderResponseList(orders), responses.MessageRequestProcessed)
 }
 
 // FindOrderByID godoc
 // @Summary Get order by ID
 // @Tags orders
 // @Produce json
-// @Param id path int true "Order ID"
+// @Param id path string true "Order UUID"
 // @Success 200 {object} orderdto.OrderResponse
 // @Router /orders/{id} [get]
 func (h *HttpOrderHandler) FindOrderByID(c *fiber.Ctx) error {
-	id := c.Params("id")
-	orderID, err := strconv.Atoi(id)
+	orderID, err := uuid.Parse(c.Params("id"))
 	if err != nil {
-		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidID, err), "invalid id")
+		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidID, err), responses.MessageInvalidID)
 	}
 
 	order, err := h.orderUseCase.FindOrderByID(orderID)
@@ -77,7 +76,7 @@ func (h *HttpOrderHandler) FindOrderByID(c *fiber.Ctx) error {
 		return responses.Error(c, err)
 	}
 
-	return responses.Success(c, fiber.StatusOK, orderdto.ToOrderResponse(order), "Запрос успешно обработан")
+	return responses.Success(c, fiber.StatusOK, orderdto.ToOrderResponse(order), responses.MessageRequestProcessed)
 }
 
 // PatchOrder godoc
@@ -85,20 +84,19 @@ func (h *HttpOrderHandler) FindOrderByID(c *fiber.Ctx) error {
 // @Tags orders
 // @Accept json
 // @Produce json
-// @Param id path int true "Order ID"
+// @Param id path string true "Order UUID"
 // @Param order body orderdto.CreateOrderRequest true "Order update payload"
 // @Success 200 {object} orderdto.OrderResponse
 // @Router /orders/{id} [patch]
 func (h *HttpOrderHandler) PatchOrder(c *fiber.Ctx) error {
-	id := c.Params("id")
-	orderID, err := strconv.Atoi(id)
+	orderID, err := uuid.Parse(c.Params("id"))
 	if err != nil {
-		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidID, err), "invalid id")
+		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidID, err), responses.MessageInvalidID)
 	}
 
 	var req orderdto.CreateOrderRequest
 	if err := c.BodyParser(&req); err != nil {
-		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), "invalid request")
+		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
 	}
 
 	order := &entities.Order{Total: req.Total}
@@ -113,34 +111,33 @@ func (h *HttpOrderHandler) PatchOrder(c *fiber.Ctx) error {
 		return responses.Error(c, err)
 	}
 
-	return responses.Success(c, fiber.StatusOK, orderdto.ToOrderResponse(updatedOrder), "Запрос успешно обработан")
+	return responses.Success(c, fiber.StatusOK, orderdto.ToOrderResponse(updatedOrder), responses.MessageRequestProcessed)
 }
 
 // DeleteOrder godoc
 // @Summary Delete an order by ID
 // @Tags orders
 // @Produce json
-// @Param id path int true "Order ID"
+// @Param id path string true "Order UUID"
 // @Success 200 {object} responses.MessageResponse
 // @Router /orders/{id} [delete]
 func (h *HttpOrderHandler) DeleteOrder(c *fiber.Ctx) error {
-	id := c.Params("id")
-	orderID, err := strconv.Atoi(id)
+	orderID, err := uuid.Parse(c.Params("id"))
 	if err != nil {
-		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidID, err), "invalid id")
+		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidID, err), responses.MessageInvalidID)
 	}
 
 	if err := h.orderUseCase.DeleteOrder(orderID); err != nil {
 		return responses.Error(c, err)
 	}
 
-	return responses.Message(c, fiber.StatusOK, "order deleted")
+	return responses.Message(c, fiber.StatusOK, responses.MessageOrderDeleted)
 }
 
 func validatePatchOrder(order *entities.Order) (string, error) {
 
 	if order.Total <= 0 {
-		return "total must be positive", apperror.ErrInvalidData
+		return responses.MessageTotalMustBePositive, apperror.ErrInvalidData
 	}
 
 	return "", nil

@@ -7,6 +7,8 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createOrder = `-- name: CreateOrder :one
@@ -20,8 +22,8 @@ type CreateOrderParams struct {
 }
 
 type CreateOrderRow struct {
-	ID    int64   `json:"id"`
-	Total float64 `json:"total"`
+	ID    pgtype.UUID `json:"id"`
+	Total float64     `json:"total"`
 }
 
 func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (CreateOrderRow, error) {
@@ -32,18 +34,19 @@ func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Creat
 }
 
 const deleteOrder = `-- name: DeleteOrder :one
-DELETE FROM orders
-WHERE id = $1
+UPDATE orders
+SET deleted_at = now(), updated_at = now()
+WHERE id = $1 AND deleted_at IS NULL
 RETURNING id
 `
 
 type DeleteOrderParams struct {
-	ID int64 `json:"id"`
+	ID pgtype.UUID `json:"id"`
 }
 
-func (q *Queries) DeleteOrder(ctx context.Context, arg DeleteOrderParams) (int64, error) {
+func (q *Queries) DeleteOrder(ctx context.Context, arg DeleteOrderParams) (pgtype.UUID, error) {
 	row := q.db.QueryRow(ctx, deleteOrder, arg.ID)
-	var id int64
+	var id pgtype.UUID
 	err := row.Scan(&id)
 	return id, err
 }
@@ -51,16 +54,16 @@ func (q *Queries) DeleteOrder(ctx context.Context, arg DeleteOrderParams) (int64
 const getOrderByID = `-- name: GetOrderByID :one
 SELECT id, total::float8 AS total
 FROM orders
-WHERE id = $1
+WHERE id = $1 AND deleted_at IS NULL
 `
 
 type GetOrderByIDParams struct {
-	ID int64 `json:"id"`
+	ID pgtype.UUID `json:"id"`
 }
 
 type GetOrderByIDRow struct {
-	ID    int64   `json:"id"`
-	Total float64 `json:"total"`
+	ID    pgtype.UUID `json:"id"`
+	Total float64     `json:"total"`
 }
 
 func (q *Queries) GetOrderByID(ctx context.Context, arg GetOrderByIDParams) (GetOrderByIDRow, error) {
@@ -73,12 +76,13 @@ func (q *Queries) GetOrderByID(ctx context.Context, arg GetOrderByIDParams) (Get
 const listOrders = `-- name: ListOrders :many
 SELECT id, total::float8 AS total
 FROM orders
-ORDER BY id
+WHERE deleted_at IS NULL
+ORDER BY created_at, id
 `
 
 type ListOrdersRow struct {
-	ID    int64   `json:"id"`
-	Total float64 `json:"total"`
+	ID    pgtype.UUID `json:"id"`
+	Total float64     `json:"total"`
 }
 
 func (q *Queries) ListOrders(ctx context.Context) ([]ListOrdersRow, error) {
@@ -103,19 +107,20 @@ func (q *Queries) ListOrders(ctx context.Context) ([]ListOrdersRow, error) {
 
 const updateOrder = `-- name: UpdateOrder :one
 UPDATE orders
-SET total = $1::float8
-WHERE id = $2
+SET total = $1::float8,
+    updated_at = now()
+WHERE id = $2 AND deleted_at IS NULL
 RETURNING id, total::float8 AS total
 `
 
 type UpdateOrderParams struct {
-	Total float64 `json:"total"`
-	ID    int64   `json:"id"`
+	Total float64     `json:"total"`
+	ID    pgtype.UUID `json:"id"`
 }
 
 type UpdateOrderRow struct {
-	ID    int64   `json:"id"`
-	Total float64 `json:"total"`
+	ID    pgtype.UUID `json:"id"`
+	Total float64     `json:"total"`
 }
 
 func (q *Queries) UpdateOrder(ctx context.Context, arg UpdateOrderParams) (UpdateOrderRow, error) {

@@ -227,6 +227,14 @@ func (s *PublicRoutesTestSuite) TestRegistrationRoutesRegistered() {
 	}
 }
 
+func (s *PublicRoutesTestSuite) TestGroupDetailGetRouteNotRegistered() {
+	for _, route := range s.app.GetRoutes() {
+		if route.Method == fiber.MethodGet && route.Path == "/api/v1/groups/:groupID" {
+			s.T().Fatal("GET /api/v1/groups/:groupID must not be registered")
+		}
+	}
+}
+
 func (s *PublicRoutesTestSuite) TestRegisterConflictLocalized() {
 	s.createLoginUser("existing-user", "+998901234577", "existing@example.com", "securepassword123")
 
@@ -246,7 +254,7 @@ func (s *PublicRoutesTestSuite) TestRegisterConflictLocalized() {
 				"email":      "existing@example.com",
 				"phone":      "+998901234577",
 				"username":   "new-" + test.language,
-				"first_name": "Qobul",
+				"first_name": "Azizbek",
 				"last_name":  "Qobulov",
 				"password":   "strong-password",
 				"language":   test.language,
@@ -305,7 +313,7 @@ func (s *PublicRoutesTestSuite) TestCurrentProfilePatch() {
 	s.Require().NotEmpty(loginEnvelope.Data.Tokens.RefreshExpiresAt)
 
 	patchBody, err := json.Marshal(map[string]any{
-		"first_name": "Qobul",
+		"first_name": "Azizbek",
 		"last_name":  "Qobulov",
 		"language":   "ru",
 		"avatar_url": "https://example.com/avatar.jpg",
@@ -332,10 +340,93 @@ func (s *PublicRoutesTestSuite) TestCurrentProfilePatch() {
 		} `json:"data"`
 	}
 	s.Require().NoError(json.NewDecoder(patchResponse.Body).Decode(&patchEnvelope))
-	s.Equal("Qobul", patchEnvelope.Data.FirstName)
+	s.Equal("Azizbek", patchEnvelope.Data.FirstName)
 	s.Equal("Qobulov", patchEnvelope.Data.LastName)
 	s.Equal("ru", patchEnvelope.Data.Language)
 	s.True(patchEnvelope.Data.IsActive, "database-managed is_active must be ignored")
+}
+
+func (s *PublicRoutesTestSuite) TestDeleteGroupRequiresConfirmationAndLocalizesResponse() {
+	const password = "securepassword123"
+	s.createLoginUser("delete-group-owner", "+998901234569", "delete-group-owner@example.com", password)
+
+	loginBody, err := json.Marshal(map[string]string{
+		"login":    "delete-group-owner",
+		"password": password,
+	})
+	s.Require().NoError(err)
+	loginRequest := httptest.NewRequest("POST", "/api/v1/auth/login", bytes.NewReader(loginBody))
+	loginRequest.Header.Set("Content-Type", "application/json")
+	loginResponse, err := s.app.Test(loginRequest, -1)
+	s.Require().NoError(err)
+	defer loginResponse.Body.Close()
+	s.Require().Equal(fiber.StatusOK, loginResponse.StatusCode)
+
+	var loginEnvelope struct {
+		Data struct {
+			Tokens struct {
+				AccessToken string `json:"access_token"`
+			} `json:"tokens"`
+		} `json:"data"`
+	}
+	s.Require().NoError(json.NewDecoder(loginResponse.Body).Decode(&loginEnvelope))
+
+	createBody, err := json.Marshal(map[string]string{"name": "Delete through API"})
+	s.Require().NoError(err)
+	createRequest := httptest.NewRequest("POST", "/api/v1/groups", bytes.NewReader(createBody))
+	createRequest.Header.Set("Content-Type", "application/json")
+	createRequest.Header.Set("Authorization", loginEnvelope.Data.Tokens.AccessToken)
+	createResponse, err := s.app.Test(createRequest, -1)
+	s.Require().NoError(err)
+	defer createResponse.Body.Close()
+	s.Require().Equal(fiber.StatusCreated, createResponse.StatusCode)
+
+	var createEnvelope struct {
+		Data struct {
+			ID uuid.UUID `json:"id"`
+		} `json:"data"`
+	}
+	s.Require().NoError(json.NewDecoder(createResponse.Body).Decode(&createEnvelope))
+	s.Require().NotEqual(uuid.Nil, createEnvelope.Data.ID)
+
+	unconfirmedBody, err := json.Marshal(map[string]bool{"confirm": false})
+	s.Require().NoError(err)
+	unconfirmedRequest := httptest.NewRequest(
+		"DELETE",
+		"/api/v1/groups/"+createEnvelope.Data.ID.String(),
+		bytes.NewReader(unconfirmedBody),
+	)
+	unconfirmedRequest.Header.Set("Content-Type", "application/json")
+	unconfirmedRequest.Header.Set("Authorization", loginEnvelope.Data.Tokens.AccessToken)
+	unconfirmedResponse, err := s.app.Test(unconfirmedRequest, -1)
+	s.Require().NoError(err)
+	defer unconfirmedResponse.Body.Close()
+	s.Require().Equal(fiber.StatusBadRequest, unconfirmedResponse.StatusCode)
+
+	confirmedBody, err := json.Marshal(map[string]bool{"confirm": true})
+	s.Require().NoError(err)
+	confirmedRequest := httptest.NewRequest(
+		"DELETE",
+		"/api/v1/groups/"+createEnvelope.Data.ID.String(),
+		bytes.NewReader(confirmedBody),
+	)
+	confirmedRequest.Header.Set("Content-Type", "application/json")
+	confirmedRequest.Header.Set("Authorization", loginEnvelope.Data.Tokens.AccessToken)
+	confirmedRequest.Header.Set(fiber.HeaderAcceptLanguage, "ru")
+	confirmedResponse, err := s.app.Test(confirmedRequest, -1)
+	s.Require().NoError(err)
+	defer confirmedResponse.Body.Close()
+	s.Require().Equal(fiber.StatusOK, confirmedResponse.StatusCode)
+
+	var deleteEnvelope struct {
+		Success bool   `json:"success"`
+		Slug    string `json:"slug"`
+		Message string `json:"message"`
+	}
+	s.Require().NoError(json.NewDecoder(confirmedResponse.Body).Decode(&deleteEnvelope))
+	s.True(deleteEnvelope.Success)
+	s.Equal("ok", deleteEnvelope.Slug)
+	s.Equal("Группа удалена", deleteEnvelope.Message)
 }
 
 func (s *PublicRoutesTestSuite) createLoginUser(username, phone, email, password string) {
@@ -361,7 +452,7 @@ func (s *PublicRoutesTestSuite) TestGetOrders() {
 }
 
 func (s *PublicRoutesTestSuite) TestGetOrderByID_NotFound() {
-	req := httptest.NewRequest("GET", "/api/v1/orders/999", nil)
+	req := httptest.NewRequest("GET", "/api/v1/orders/"+uuid.NewString(), nil)
 	resp, err := s.app.Test(req, -1)
 	s.NoError(err)
 	s.NotEqual(fiber.StatusInternalServerError, resp.StatusCode)
@@ -389,8 +480,17 @@ func (s *PublicRoutesTestSuite) TestPatchOrder() {
 	createJsonBody, _ := json.Marshal(createBody)
 	createReq := httptest.NewRequest("POST", "/api/v1/orders", bytes.NewBuffer(createJsonBody))
 	createReq.Header.Set("Content-Type", "application/json")
-	createResp, _ := s.app.Test(createReq, -1)
+	createResp, err := s.app.Test(createReq, -1)
+	s.Require().NoError(err)
+	defer createResp.Body.Close()
 	s.True(createResp.StatusCode == fiber.StatusOK || createResp.StatusCode == fiber.StatusCreated)
+	var createEnvelope struct {
+		Data struct {
+			ID uuid.UUID `json:"id"`
+		} `json:"data"`
+	}
+	s.Require().NoError(json.NewDecoder(createResp.Body).Decode(&createEnvelope))
+	s.NotEqual(uuid.Nil, createEnvelope.Data.ID)
 
 	// Then try to patch it
 	body := map[string]interface{}{
@@ -398,7 +498,7 @@ func (s *PublicRoutesTestSuite) TestPatchOrder() {
 	}
 	jsonBody, _ := json.Marshal(body)
 
-	req := httptest.NewRequest("PATCH", "/api/v1/orders/1", bytes.NewBuffer(jsonBody))
+	req := httptest.NewRequest("PATCH", "/api/v1/orders/"+createEnvelope.Data.ID.String(), bytes.NewBuffer(jsonBody))
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := s.app.Test(req, -1)
@@ -414,11 +514,20 @@ func (s *PublicRoutesTestSuite) TestDeleteOrder() {
 	createJsonBody, _ := json.Marshal(createBody)
 	createReq := httptest.NewRequest("POST", "/api/v1/orders", bytes.NewBuffer(createJsonBody))
 	createReq.Header.Set("Content-Type", "application/json")
-	createResp, _ := s.app.Test(createReq, -1)
+	createResp, err := s.app.Test(createReq, -1)
+	s.Require().NoError(err)
+	defer createResp.Body.Close()
 	s.True(createResp.StatusCode == fiber.StatusOK || createResp.StatusCode == fiber.StatusCreated)
+	var createEnvelope struct {
+		Data struct {
+			ID uuid.UUID `json:"id"`
+		} `json:"data"`
+	}
+	s.Require().NoError(json.NewDecoder(createResp.Body).Decode(&createEnvelope))
+	s.NotEqual(uuid.Nil, createEnvelope.Data.ID)
 
 	// Then try to delete it
-	req := httptest.NewRequest("DELETE", "/api/v1/orders/1", nil)
+	req := httptest.NewRequest("DELETE", "/api/v1/orders/"+createEnvelope.Data.ID.String(), nil)
 	resp, err := s.app.Test(req, -1)
 	s.NoError(err)
 	s.True(resp.StatusCode >= 200 && resp.StatusCode < 500)

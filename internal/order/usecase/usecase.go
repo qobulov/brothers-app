@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"github.com/google/uuid"
 	"github.com/qobulov/brothers-app/internal/entities"
 	"github.com/qobulov/brothers-app/internal/order/repository"
 )
@@ -33,7 +34,7 @@ func (s *OrderService) FindAllOrders() ([]*entities.Order, error) {
 }
 
 // OrderService Methods - 3 find by id
-func (s *OrderService) FindOrderByID(id int) (*entities.Order, error) {
+func (s *OrderService) FindOrderByID(id uuid.UUID) (*entities.Order, error) {
 	order, err := s.repo.FindByID(id)
 	if err != nil {
 		return &entities.Order{}, err
@@ -43,7 +44,7 @@ func (s *OrderService) FindOrderByID(id int) (*entities.Order, error) {
 }
 
 // OrderService Methods - 4 patch
-func (s *OrderService) PatchOrder(id int, order *entities.Order) (*entities.Order, error) {
+func (s *OrderService) PatchOrder(id uuid.UUID, order *entities.Order) (*entities.Order, error) {
 	if err := s.repo.Patch(id, order); err != nil {
 		return nil, err
 	}
@@ -57,7 +58,7 @@ func (s *OrderService) PatchOrder(id int, order *entities.Order) (*entities.Orde
 }
 
 // OrderService Methods - 5 delete
-func (s *OrderService) DeleteOrder(id int) error {
+func (s *OrderService) DeleteOrder(id uuid.UUID) error {
 	if err := s.repo.Delete(id); err != nil {
 		return err
 	}

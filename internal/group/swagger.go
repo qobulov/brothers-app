@@ -7,19 +7,19 @@ type GroupResponse struct {
 	Success bool           `json:"success" example:"true"`
 	Code    int            `json:"code" example:"0"`
 	Slug    string         `json:"slug" example:"ok"`
-	Message string         `json:"message" example:"group returned"`
+	Message string         `json:"message" example:"group created"`
 	Data    Group          `json:"data"`
 	Meta    responses.Meta `json:"meta"`
 }
 
 // GroupsResponse documents the standard success envelope for group lists.
 type GroupsResponse struct {
-	Success bool           `json:"success" example:"true"`
-	Code    int            `json:"code" example:"0"`
-	Slug    string         `json:"slug" example:"ok"`
-	Message string         `json:"message" example:"groups returned"`
-	Data    []Group        `json:"data"`
-	Meta    responses.Meta `json:"meta"`
+	Success bool            `json:"success" example:"true"`
+	Code    int             `json:"code" example:"0"`
+	Slug    string          `json:"slug" example:"ok"`
+	Message string          `json:"message" example:"groups returned"`
+	Data    []GroupListItem `json:"data"`
+	Meta    responses.Meta  `json:"meta"`
 }
 
 // InvitationResponse documents the standard success envelope for one invitation.
@@ -57,6 +57,33 @@ type MembersResponse struct {
 	Slug    string         `json:"slug" example:"ok"`
 	Message string         `json:"message" example:"members returned"`
 	Data    []Member       `json:"data"`
+	Meta    responses.Meta `json:"meta"`
+}
+
+type LocationResponse struct {
+	Success bool           `json:"success" example:"true"`
+	Code    int            `json:"code" example:"0"`
+	Slug    string         `json:"slug" example:"ok"`
+	Message string         `json:"message" example:"request processed successfully"`
+	Data    Location       `json:"data"`
+	Meta    responses.Meta `json:"meta"`
+}
+
+type LocationsResponse struct {
+	Success bool           `json:"success" example:"true"`
+	Code    int            `json:"code" example:"0"`
+	Slug    string         `json:"slug" example:"ok"`
+	Message string         `json:"message" example:"request processed successfully"`
+	Data    []Location     `json:"data"`
+	Meta    responses.Meta `json:"meta"`
+}
+
+type CustomersResponse struct {
+	Success bool           `json:"success" example:"true"`
+	Code    int            `json:"code" example:"0"`
+	Slug    string         `json:"slug" example:"ok"`
+	Message string         `json:"message" example:"request processed successfully"`
+	Data    []Customer     `json:"data"`
 	Meta    responses.Meta `json:"meta"`
 }
 

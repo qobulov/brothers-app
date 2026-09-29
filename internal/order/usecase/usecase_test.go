@@ -3,6 +3,7 @@ package usecase_test
 import (
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	db "github.com/qobulov/brothers-app/internal/db"
 	"github.com/qobulov/brothers-app/internal/entities"
@@ -81,7 +82,7 @@ func (s *OrderUseCaseTestSuite) TestFindOrderByID() {
 	s.NoError(err)
 
 	// Find by ID
-	found, err := s.service.FindOrderByID(int(order.ID))
+	found, err := s.service.FindOrderByID(order.ID)
 	s.NoError(err)
 	s.NotNil(found)
 	s.Equal(order.ID, found.ID)
@@ -89,7 +90,7 @@ func (s *OrderUseCaseTestSuite) TestFindOrderByID() {
 }
 
 func (s *OrderUseCaseTestSuite) TestFindOrderByID_NotFound() {
-	_, err := s.service.FindOrderByID(99999)
+	_, err := s.service.FindOrderByID(uuid.New())
 	s.Error(err)
 }
 
@@ -101,7 +102,7 @@ func (s *OrderUseCaseTestSuite) TestPatchOrder() {
 	err := s.service.CreateOrder(order)
 	s.NoError(err)
 
-	orderID := int(order.ID)
+	orderID := order.ID
 
 	// Update order
 	updateData := &entities.Order{
@@ -111,14 +112,14 @@ func (s *OrderUseCaseTestSuite) TestPatchOrder() {
 	s.NoError(err)
 	s.NotNil(updated)
 	s.Equal(500.0, updated.Total)
-	s.Equal(orderID, int(updated.ID))
+	s.Equal(orderID, updated.ID)
 }
 
 func (s *OrderUseCaseTestSuite) TestPatchOrder_NotFound() {
 	updateData := &entities.Order{
 		Total: 999.0,
 	}
-	updated, err := s.service.PatchOrder(99999, updateData)
+	updated, err := s.service.PatchOrder(uuid.New(), updateData)
 	s.Error(err)
 	s.Nil(updated)
 	s.ErrorIs(err, apperror.ErrRecordNotFound)
@@ -132,7 +133,7 @@ func (s *OrderUseCaseTestSuite) TestDeleteOrder() {
 	err := s.service.CreateOrder(order)
 	s.NoError(err)
 
-	orderID := int(order.ID)
+	orderID := order.ID
 
 	// Delete order
 	err = s.service.DeleteOrder(orderID)
@@ -144,7 +145,7 @@ func (s *OrderUseCaseTestSuite) TestDeleteOrder() {
 }
 
 func (s *OrderUseCaseTestSuite) TestDeleteOrder_NotFound() {
-	err := s.service.DeleteOrder(99999)
+	err := s.service.DeleteOrder(uuid.New())
 	s.Error(err)
 	s.ErrorIs(err, apperror.ErrRecordNotFound)
 }

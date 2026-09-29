@@ -42,7 +42,11 @@ func RegisterPrivateRoutes(app fiber.Router, pool *pgxpool.Pool, otpCache *otp.C
 	groups := secureRoute.Group("/groups")
 	groups.Post("/", groupHandler.Create)
 	groups.Get("/", groupHandler.List)
-	groups.Get("/:groupID", groupHandler.Get)
+	groups.Delete("/:groupID", groupHandler.Delete)
 	groups.Post("/:groupID/invitations", groupHandler.Invite)
 	groups.Get("/:groupID/members", groupHandler.ListMembers)
+	groups.Get("/:groupID/locations", groupHandler.ListLocations)
+	groups.Post("/:groupID/locations", groupHandler.CreateLocation)
+	groups.Delete("/:groupID/locations/:locationID", groupHandler.DeleteLocation)
+	groups.Get("/:groupID/customers", groupHandler.ListCustomers)
 }

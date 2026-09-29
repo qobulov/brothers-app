@@ -45,7 +45,7 @@ reference.
 
 ## Financial assumptions to confirm before migration
 
-- USD balance and UZS profit use integer minor units (for example USD cents),
+- USD balance and UZS profit use whole integer currency units (no cents or tiyin),
   never Go `float64`. Column names must state their units.
 - Orders and immutable ledger entries are the source of financial history;
   summary balances are derived from them or maintained transactionally.

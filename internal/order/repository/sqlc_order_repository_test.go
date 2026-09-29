@@ -3,6 +3,7 @@ package repository_test
 import (
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	db "github.com/qobulov/brothers-app/internal/db"
 	"github.com/qobulov/brothers-app/internal/entities"
@@ -53,7 +54,7 @@ func (s *OrderRepositoryTestSuite) TestFindByID() {
 	s.NoError(err)
 
 	// Find by ID
-	found, err := s.repo.FindByID(int(order.ID))
+	found, err := s.repo.FindByID(order.ID)
 	s.NoError(err)
 	s.NotNil(found)
 	s.Equal(order.ID, found.ID)
@@ -61,7 +62,7 @@ func (s *OrderRepositoryTestSuite) TestFindByID() {
 }
 
 func (s *OrderRepositoryTestSuite) TestFindByID_NotFound() {
-	_, err := s.repo.FindByID(99999)
+	_, err := s.repo.FindByID(uuid.New())
 	s.Error(err)
 }
 
@@ -102,11 +103,11 @@ func (s *OrderRepositoryTestSuite) TestPatch() {
 	updateData := &entities.Order{
 		Total: 250.0,
 	}
-	err = s.repo.Patch(int(order.ID), updateData)
+	err = s.repo.Patch(order.ID, updateData)
 	s.NoError(err)
 
 	// Verify update
-	updated, err := s.repo.FindByID(int(order.ID))
+	updated, err := s.repo.FindByID(order.ID)
 	s.NoError(err)
 	s.Equal(250.0, updated.Total)
 }
@@ -115,7 +116,7 @@ func (s *OrderRepositoryTestSuite) TestPatch_NotFound() {
 	updateData := &entities.Order{
 		Total: 999.0,
 	}
-	err := s.repo.Patch(99999, updateData)
+	err := s.repo.Patch(uuid.New(), updateData)
 	s.Error(err)
 	s.ErrorIs(err, apperror.ErrRecordNotFound)
 }
@@ -128,7 +129,7 @@ func (s *OrderRepositoryTestSuite) TestDelete() {
 	err := s.repo.Save(order)
 	s.NoError(err)
 
-	orderID := int(order.ID)
+	orderID := order.ID
 
 	// Delete order
 	err = s.repo.Delete(orderID)
@@ -140,7 +141,7 @@ func (s *OrderRepositoryTestSuite) TestDelete() {
 }
 
 func (s *OrderRepositoryTestSuite) TestDelete_NotFound() {
-	err := s.repo.Delete(99999)
+	err := s.repo.Delete(uuid.New())
 	s.Error(err)
 	s.ErrorIs(err, apperror.ErrRecordNotFound)
 }

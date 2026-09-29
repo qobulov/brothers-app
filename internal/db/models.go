@@ -8,6 +8,39 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AuditLog struct {
+	ID          pgtype.UUID        `json:"id"`
+	GroupID     pgtype.UUID        `json:"group_id"`
+	ActorUserID pgtype.UUID        `json:"actor_user_id"`
+	Action      string             `json:"action"`
+	EntityType  string             `json:"entity_type"`
+	EntityID    pgtype.UUID        `json:"entity_id"`
+	OldData     []byte             `json:"old_data"`
+	NewData     []byte             `json:"new_data"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`
+}
+
+type Customer struct {
+	ID        pgtype.UUID        `json:"id"`
+	GroupID   pgtype.UUID        `json:"group_id"`
+	Phone     string             `json:"phone"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt pgtype.Timestamptz `json:"deleted_at"`
+}
+
+type EmployeeBalance struct {
+	ID         pgtype.UUID        `json:"id"`
+	GroupID    pgtype.UUID        `json:"group_id"`
+	MemberID   pgtype.UUID        `json:"member_id"`
+	BalanceUsd int64              `json:"balance_usd"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt  pgtype.Timestamptz `json:"deleted_at"`
+}
+
 type Group struct {
 	ID        pgtype.UUID        `json:"id"`
 	Name      string             `json:"name"`
@@ -22,18 +55,21 @@ type GroupInvitation struct {
 	ID            pgtype.UUID        `json:"id"`
 	GroupID       pgtype.UUID        `json:"group_id"`
 	InvitedBy     pgtype.UUID        `json:"invited_by"`
+	InvitedUserID pgtype.UUID        `json:"invited_user_id"`
+	LocationName  pgtype.Text        `json:"location_name"`
+	Email         pgtype.Text        `json:"email"`
 	Phone         pgtype.Text        `json:"phone"`
 	Role          interface{}        `json:"role"`
 	TokenHash     pgtype.Text        `json:"token_hash"`
+	Status        string             `json:"status"`
 	ExpiresAt     pgtype.Timestamptz `json:"expires_at"`
 	AcceptedAt    pgtype.Timestamptz `json:"accepted_at"`
 	RejectedAt    pgtype.Timestamptz `json:"rejected_at"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	InvitedUserID pgtype.UUID        `json:"invited_user_id"`
-	Email         pgtype.Text        `json:"email"`
-	Status        string             `json:"status"`
 	RespondedAt   pgtype.Timestamptz `json:"responded_at"`
 	RevokedAt     pgtype.Timestamptz `json:"revoked_at"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt     pgtype.Timestamptz `json:"deleted_at"`
 }
 
 type GroupMember struct {
@@ -49,28 +85,63 @@ type GroupMember struct {
 	DeletedAt pgtype.Timestamptz `json:"deleted_at"`
 }
 
-type Notification struct {
-	ID        int64              `json:"id"`
-	Title     string             `json:"title"`
-	Content   string             `json:"content"`
-	Type      interface{}        `json:"type"`
-	ActionUrl pgtype.Text        `json:"action_url"`
-	Payload   []byte             `json:"payload"`
+type Location struct {
+	ID         pgtype.UUID        `json:"id"`
+	GroupID    pgtype.UUID        `json:"group_id"`
+	Name       string             `json:"name"`
+	EmployeeID pgtype.UUID        `json:"employee_id"`
+	CreatedBy  pgtype.UUID        `json:"created_by"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt  pgtype.Timestamptz `json:"deleted_at"`
+}
+
+type MemberProfitPeriod struct {
+	ID        pgtype.UUID        `json:"id"`
+	GroupID   pgtype.UUID        `json:"group_id"`
+	MemberID  pgtype.UUID        `json:"member_id"`
+	Year      int16              `json:"year"`
+	Month     int16              `json:"month"`
+	ProfitUzs int64              `json:"profit_uzs"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt pgtype.Timestamptz `json:"deleted_at"`
+}
+
+type Notification struct {
+	ID        pgtype.UUID        `json:"id"`
+	TitleUz   string             `json:"title_uz"`
+	TitleRu   string             `json:"title_ru"`
+	TitleEn   string             `json:"title_en"`
+	ContentUz string             `json:"content_uz"`
+	ContentRu string             `json:"content_ru"`
+	ContentEn string             `json:"content_en"`
+	Type      interface{}        `json:"type"`
+	Payload   []byte             `json:"payload"`
 	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt pgtype.Timestamptz `json:"deleted_at"`
 }
 
 type NotificationRecipient struct {
-	ID             int64              `json:"id"`
-	NotificationID int64              `json:"notification_id"`
+	ID             pgtype.UUID        `json:"id"`
+	NotificationID pgtype.UUID        `json:"notification_id"`
 	UserID         pgtype.UUID        `json:"user_id"`
 	IsRead         bool               `json:"is_read"`
 	ReadAt         pgtype.Timestamptz `json:"read_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt      pgtype.Timestamptz `json:"deleted_at"`
 }
 
 type Order struct {
-	ID    int64          `json:"id"`
-	Total pgtype.Numeric `json:"total"`
+	ID        pgtype.UUID        `json:"id"`
+	GroupID   pgtype.UUID        `json:"group_id"`
+	Total     pgtype.Numeric     `json:"total"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt pgtype.Timestamptz `json:"deleted_at"`
 }
 
 type User struct {

@@ -15,7 +15,7 @@ type StartResponse struct {
 	Success bool         `json:"success" example:"true"`
 	Code    int          `json:"code" example:"0"`
 	Slug    string       `json:"slug" example:"ok"`
-	Message string       `json:"message" example:"Запрос успешно обработан"`
+	Message string       `json:"message" example:"Request processed successfully"`
 	Data    StartData    `json:"data"`
 	Meta    ResponseMeta `json:"meta"`
 }
@@ -33,7 +33,7 @@ type AuthResponse struct {
 	Success bool         `json:"success" example:"true"`
 	Code    int          `json:"code" example:"0"`
 	Slug    string       `json:"slug" example:"ok"`
-	Message string       `json:"message" example:"Запрос успешно обработан"`
+	Message string       `json:"message" example:"Request processed successfully"`
 	Data    AuthData     `json:"data"`
 	Meta    ResponseMeta `json:"meta"`
 }
@@ -42,7 +42,7 @@ type UserResponse struct {
 	Success bool         `json:"success" example:"true"`
 	Code    int          `json:"code" example:"0"`
 	Slug    string       `json:"slug" example:"ok"`
-	Message string       `json:"message" example:"Запрос успешно обработан"`
+	Message string       `json:"message" example:"Request processed successfully"`
 	Data    UserData     `json:"data"`
 	Meta    ResponseMeta `json:"meta"`
 }
@@ -51,7 +51,7 @@ type ResetVerifyResponse struct {
 	Success bool            `json:"success" example:"true"`
 	Code    int             `json:"code" example:"0"`
 	Slug    string          `json:"slug" example:"ok"`
-	Message string          `json:"message" example:"Запрос успешно обработан"`
+	Message string          `json:"message" example:"Request processed successfully"`
 	Data    ResetVerifyData `json:"data"`
 	Meta    ResponseMeta    `json:"meta"`
 }
@@ -60,7 +60,7 @@ type EmptyResponse struct {
 	Success bool         `json:"success" example:"true"`
 	Code    int          `json:"code" example:"0"`
 	Slug    string       `json:"slug" example:"ok"`
-	Message string       `json:"message" example:"Запрос успешно обработан"`
+	Message string       `json:"message" example:"Request processed successfully"`
 	Data    any          `json:"data" extensions:"x-nullable"`
 	Meta    ResponseMeta `json:"meta"`
 }
