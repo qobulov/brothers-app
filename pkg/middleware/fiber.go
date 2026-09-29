@@ -1,14 +1,19 @@
 package middleware
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 
+	"github.com/qobulov/brothers-app/pkg/apperror"
 	"github.com/qobulov/brothers-app/pkg/config"
+	"github.com/qobulov/brothers-app/pkg/responses"
 )
 
 // LoadCommon sets common global middleware for the app
@@ -35,4 +40,23 @@ func FiberMiddleware(app *fiber.App, cfg *config.Config) error {
 		}),
 	)
 	return nil
+}
+
+// RequestTimeout propagates one deadline through the complete request path.
+// Database and Redis operations receive this context through c.UserContext().
+func RequestTimeout(limit time.Duration) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		ctx, cancel := context.WithTimeout(c.UserContext(), limit)
+		defer cancel()
+		c.SetUserContext(ctx)
+
+		err := c.Next()
+		if !errors.Is(err, context.DeadlineExceeded) && !errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return err
+		}
+		if c.Response().StatusCode() >= fiber.StatusBadRequest {
+			return err
+		}
+		return responses.Error(c, apperror.ErrTimeout)
+	}
 }

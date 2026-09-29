@@ -40,6 +40,9 @@ func (s *PublicRoutesTestSuite) SetupTest() {
 }
 
 func (s *PublicRoutesTestSuite) TearDownTest() {
+	if s.app != nil {
+		s.Require().NoError(s.app.Shutdown())
+	}
 	// Clean up database after each test
 	if s.cleanup != nil {
 		s.cleanup()

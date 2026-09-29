@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
@@ -30,12 +31,13 @@ func TestFailureUsesAcceptLanguage(t *testing.T) {
 	require.Equal(t, "Resource not found", body.Message)
 }
 
-func TestFailureReporterGetsOriginalErrorWithoutRequestSecrets(t *testing.T) {
+func TestFailureReporterGetsOriginalErrorAndRedactedRequestBody(t *testing.T) {
 	var reports []FailureReport
 	app := fiber.New(fiber.Config{ErrorHandler: Error})
 	Middleware(app, "test", func(report FailureReport) { reports = append(reports, report) })
 	app.Post("/items/:id", func(c *fiber.Ctx) error { return errors.New("database connection refused") })
-	request := httptest.NewRequest("POST", "/items/private-id?token=secret", nil)
+	request := httptest.NewRequest("POST", "/items/private-id?token=secret", strings.NewReader(`{"email":"ali@example.com","username":"qobulov","purpose":"registration","password":"secret","nested":{"refresh_token":"token-value"}}`))
+	request.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
 	request.Header.Set("Authorization", "Bearer secret")
 	request.Header.Set("X-Request-ID", "test-request-123")
 	response, err := app.Test(request)
@@ -44,9 +46,42 @@ func TestFailureReporterGetsOriginalErrorWithoutRequestSecrets(t *testing.T) {
 	require.Len(t, reports, 1)
 	require.Equal(t, "/items/:id", reports[0].Path)
 	require.Equal(t, "database connection refused", reports[0].Reason)
+	require.JSONEq(t, `{"email":"[REDACTED]","username":"[REDACTED]","purpose":"registration","password":"[REDACTED]","nested":{"refresh_token":"[REDACTED]"}}`, reports[0].RequestBody)
 	require.Equal(t, "test-request-123", reports[0].Meta.RequestID)
 	require.Equal(t, 500, reports[0].Status)
 	var body Envelope[ErrorDetails]
 	require.NoError(t, json.NewDecoder(response.Body).Decode(&body))
 	require.Equal(t, reports[0].Meta, body.Meta)
+	encodedBody, err := json.Marshal(body)
+	require.NoError(t, err)
+	require.JSONEq(t, string(encodedBody), reports[0].ResponseBody)
+}
+
+func TestFailureReporterOmitsInvalidJSONBody(t *testing.T) {
+	var report FailureReport
+	app := fiber.New()
+	Middleware(app, "test", func(value FailureReport) { report = value })
+	app.Post("/items", func(c *fiber.Ctx) error {
+		return Failure(c, fiber.StatusBadRequest, 1400, "invalid_data", "invalid data", nil)
+	})
+	request := httptest.NewRequest("POST", "/items", strings.NewReader(`{"password":"secret"`))
+	response, err := app.Test(request)
+	require.NoError(t, err)
+	defer response.Body.Close()
+	require.Equal(t, "<request body omitted: invalid JSON>", report.RequestBody)
+}
+
+func TestFailureReporterKeepsFullRequestBodyInDevelopment(t *testing.T) {
+	var report FailureReport
+	app := fiber.New()
+	Middleware(app, "development", func(value FailureReport) { report = value })
+	app.Post("/items", func(c *fiber.Ctx) error {
+		return Failure(c, fiber.StatusBadRequest, 1400, "invalid_data", "invalid data", nil)
+	})
+	const requestBody = `{"email":"ali@example.com","username":"qobulov","purpose":"registration","password":"secret"}`
+	request := httptest.NewRequest("POST", "/items", strings.NewReader(requestBody))
+	response, err := app.Test(request)
+	require.NoError(t, err)
+	defer response.Body.Close()
+	require.JSONEq(t, requestBody, report.RequestBody)
 }

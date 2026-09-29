@@ -3,6 +3,7 @@ package responses
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"strings"
 	"time"
 
@@ -77,11 +78,14 @@ var messageTranslations = map[string]translation{
 	MessageTotalMustBePositive:   {"Umumiy summa musbat bo'lishi kerak", "Сумма должна быть положительной", "Total must be positive"},
 }
 
-// FailureReport contains request metadata and the original error, never the body or headers.
+// FailureReport contains request metadata, the original error, and a bounded
+// JSON request body. The body is complete in development and redacted elsewhere.
+// Headers are never included.
 type FailureReport struct {
 	Method, Path, Environment string
 	Status, Code              int
 	Slug, Reason              string
+	RequestBody, ResponseBody string
 	Meta                      Meta
 }
 
@@ -134,6 +138,14 @@ func localized(language, uz, ru, en string) string {
 
 func Failure(c *fiber.Ctx, status, code int, slug, message string, data any) error {
 	metadata := meta(c)
+	response := Envelope[any]{
+		Success: false,
+		Code:    code,
+		Slug:    slug,
+		Message: localizeMessage(message, c.Get(fiber.HeaderAcceptLanguage)),
+		Data:    data,
+		Meta:    metadata,
+	}
 	if report, ok := c.Locals("error_reporter").(func(FailureReport)); ok {
 		reason := message
 		if details, ok := data.(ErrorDetails); ok {
@@ -147,17 +159,73 @@ func Failure(c *fiber.Ctx, status, code int, slug, message string, data any) err
 		environment, _ := c.Locals(appEnvironmentLocal).(string)
 		report(FailureReport{
 			Method: strings.Clone(c.Method()), Path: strings.Clone(path), Environment: environment,
-			Status: status, Code: code, Slug: slug, Reason: reason, Meta: metadata,
+			Status: status, Code: code, Slug: slug, Reason: reason,
+			RequestBody: safeRequestBody(c.Body(), environment), ResponseBody: safeResponseBody(response, environment), Meta: metadata,
 		})
 	}
-	return c.Status(status).JSON(Envelope[any]{
-		Success: false,
-		Code:    code,
-		Slug:    slug,
-		Message: localizeMessage(message, c.Get(fiber.HeaderAcceptLanguage)),
-		Data:    data,
-		Meta:    metadata,
-	})
+	return c.Status(status).JSON(response)
+}
+
+const maxReportedRequestBodyBytes = 16 * 1024
+
+func safeRequestBody(body []byte, environment string) string {
+	if len(body) == 0 {
+		return ""
+	}
+	if len(body) > maxReportedRequestBodyBytes {
+		return "<request body omitted: too large>"
+	}
+
+	var value any
+	if err := json.Unmarshal(body, &value); err != nil {
+		return "<request body omitted: invalid JSON>"
+	}
+	if environment != "development" {
+		redactRequestValue(value)
+	}
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return "<request body omitted: cannot encode>"
+	}
+	return string(encoded)
+}
+
+func safeResponseBody(response any, environment string) string {
+	body, err := json.Marshal(response)
+	if err != nil {
+		return "<response body omitted: cannot encode>"
+	}
+	return safeRequestBody(body, environment)
+}
+
+func redactRequestValue(value any) {
+	switch current := value.(type) {
+	case map[string]any:
+		for key, item := range current {
+			if sensitiveRequestField(key) {
+				current[key] = "[REDACTED]"
+				continue
+			}
+			redactRequestValue(item)
+		}
+	case []any:
+		for _, item := range current {
+			redactRequestValue(item)
+		}
+	}
+}
+
+func sensitiveRequestField(key string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(key))
+	for _, fragment := range []string{
+		"password", "passwd", "pwd", "token", "secret", "authorization", "api_key", "apikey",
+		"otp", "email", "phone", "username", "first_name", "last_name", "avatar_url",
+	} {
+		if strings.Contains(normalized, fragment) {
+			return true
+		}
+	}
+	return false
 }
 
 func meta(c *fiber.Ctx) Meta {

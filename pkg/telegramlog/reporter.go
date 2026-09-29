@@ -191,7 +191,8 @@ func (r *Reporter) send(ctx context.Context, message string) (time.Duration, err
 	return 0, nil
 }
 
-var credentialPattern = regexp.MustCompile(`(?i)("?(?:password|passwd|pwd|otp|otp_code|token|access_token|refresh_token|reset_token|secret|authorization|api_key)"?\s*[:=]\s*)(?:"[^"]*"|'[^']*'|[^\s,;]+)`)
+var credentialPattern = regexp.MustCompile(`(?i)("?(?:password|passwd|pwd|otp|otp_code|token|access_token|refresh_token|reset_token|secret|authorization|api_key|apikey|email|phone|username|first_name|last_name|avatar_url)"?\s*[:=]\s*)(?:"[^"]*"|'[^']*'|[^\s,;]+)`)
+var sensitiveJSONKeyPattern = regexp.MustCompile(`(?i)(password|passwd|pwd|otp|token|secret|authorization|api_?key|email|phone|username|first_name|last_name|avatar_url)`)
 var bearerPattern = regexp.MustCompile(`(?i)Bearer\s+[A-Za-z0-9._~+/=-]+`)
 var urlPasswordPattern = regexp.MustCompile(`(://[^\s/:@]+:)[^\s@]+@`)
 
@@ -207,16 +208,76 @@ func (r *Reporter) redact(value string) string {
 }
 
 func (r *Reporter) format(event responses.FailureReport) string {
-	field := func(value string, limit int) string {
-		value = r.redact(value)
+	plainField := func(value string, limit int) string {
 		runes := []rune(value)
 		if len(runes) > limit {
 			value = string(runes[:limit]) + "… [truncated]"
 		}
 		return html.EscapeString(value)
 	}
-	// Bound the entire rendered text, even when errors contain non-BMP Unicode.
-	return fmt.Sprintf("<b>Brothers API error</b>\nEnvironment: <code>%s</code>\nTime (UTC): <code>%s</code>\nEndpoint: <code>%s %s</code>\nHTTP: <code>%d</code> · Code: <code>%d</code>\nSlug: <code>%s</code>\nRequest ID: <code>%s</code>\nDuration: <code>%s</code>\n\n<b>Reason</b>\n<pre>%s</pre>",
+	field := func(value string, limit int) string {
+		return plainField(r.redact(value), limit)
+	}
+	bodySection := func(title, body string, limit int) string {
+		if body == "" {
+			return ""
+		}
+		if strings.ToLower(strings.TrimSpace(event.Environment)) == "development" {
+			body = prettyJSON(body)
+		} else {
+			body = r.prettyRedactedJSON(body)
+		}
+		return fmt.Sprintf("\n\n<b>%s</b>\n<pre>%s</pre>", title, plainField(body, limit))
+	}
+	// Bound every variable section so the rendered text stays below Telegram's
+	// 4096 UTF-16 code unit limit, including non-BMP Unicode.
+	requestBody := bodySection("Request body", event.RequestBody, 800)
+	responseBody := bodySection("Response body", event.ResponseBody, 800)
+	return fmt.Sprintf("<b>Brothers API error</b>\nEnvironment: <code>%s</code>\nTime (UTC): <code>%s</code>\nEndpoint: <code>%s %s</code>\nHTTP: <code>%d</code> · Code: <code>%d</code>\nSlug: <code>%s</code>\nRequest ID: <code>%s</code>\nDuration: <code>%s</code>\n\n<b>Reason</b>\n<pre>%s</pre>%s",
 		field(event.Environment, 32), field(event.Meta.Timestamp, 40), field(event.Method, 10), field(event.Path, 200),
-		event.Status, event.Code, field(event.Slug, 80), field(event.Meta.RequestID, 128), field(event.Meta.Duration, 32), field(event.Reason, 1300))
+		event.Status, event.Code, field(event.Slug, 80), field(event.Meta.RequestID, 128), field(event.Meta.Duration, 32), field(event.Reason, 700), requestBody+responseBody)
+}
+
+func prettyJSON(value string) string {
+	var formatted bytes.Buffer
+	if err := json.Indent(&formatted, []byte(value), "", "  "); err != nil {
+		return value
+	}
+	return formatted.String()
+}
+
+func (r *Reporter) prettyRedactedJSON(value string) string {
+	var decoded any
+	if err := json.Unmarshal([]byte(value), &decoded); err != nil {
+		return r.redact(value)
+	}
+	decoded = r.redactJSONValue(decoded)
+	formatted, err := json.MarshalIndent(decoded, "", "  ")
+	if err != nil {
+		return r.redact(value)
+	}
+	return string(formatted)
+}
+
+func (r *Reporter) redactJSONValue(value any) any {
+	switch current := value.(type) {
+	case map[string]any:
+		for key, item := range current {
+			if sensitiveJSONKeyPattern.MatchString(key) {
+				current[key] = "[REDACTED]"
+				continue
+			}
+			current[key] = r.redactJSONValue(item)
+		}
+		return current
+	case []any:
+		for index, item := range current {
+			current[index] = r.redactJSONValue(item)
+		}
+		return current
+	case string:
+		return r.redact(current)
+	default:
+		return current
+	}
 }

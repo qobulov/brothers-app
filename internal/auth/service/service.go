@@ -53,16 +53,22 @@ func New(pool *pgxpool.Pool, otpCache *otp.Cache, sessions sessionpkg.Store, cfg
 func (s *Service) SendOTP(ctx context.Context, req dto.SendOTPRequest) (dto.StartData, error) {
 	purpose, err := normalizeOTPPurpose(req.Purpose)
 	if err != nil {
-		return dto.StartData{}, apperror.ErrInvalidData
+		return dto.StartData{}, err
 	}
 
 	var email string
 	var userID uuid.UUID
 	switch purpose {
 	case registrationPurpose:
+		if strings.TrimSpace(req.Username) != "" {
+			return dto.StartData{}, fmt.Errorf("%w: registration accepts email only; username must be omitted", apperror.ErrInvalidData)
+		}
+		if strings.TrimSpace(req.Email) == "" {
+			return dto.StartData{}, fmt.Errorf("%w: email is required for registration", apperror.ErrInvalidData)
+		}
 		email, err = helpers.NormalizeEmail(req.Email)
-		if err != nil || strings.TrimSpace(req.Username) != "" {
-			return dto.StartData{}, apperror.ErrInvalidData
+		if err != nil {
+			return dto.StartData{}, fmt.Errorf("%w: registration email must be valid", apperror.ErrInvalidData)
 		}
 		_, err = s.queries.GetUserByEmail(ctx, db.GetUserByEmailParams{Email: text(email)})
 		if err == nil {
@@ -74,7 +80,7 @@ func (s *Service) SendOTP(ctx context.Context, req dto.SendOTPRequest) (dto.Star
 	case passwordResetPurpose:
 		lookupEmail, username, lookupErr := passwordResetIdentifier(req)
 		if lookupErr != nil {
-			return dto.StartData{}, apperror.ErrInvalidData
+			return dto.StartData{}, lookupErr
 		}
 
 		var user db.User
@@ -106,15 +112,18 @@ func (s *Service) SendOTP(ctx context.Context, req dto.SendOTPRequest) (dto.Star
 func passwordResetIdentifier(req dto.SendOTPRequest) (email, username string, err error) {
 	emailInput := strings.TrimSpace(req.Email)
 	username = strings.TrimSpace(req.Username)
-	if (emailInput == "" && username == "") || (emailInput != "" && username != "") {
-		return "", "", apperror.ErrInvalidData
+	if emailInput == "" && username == "" {
+		return "", "", fmt.Errorf("%w: email or username is required for password reset", apperror.ErrInvalidData)
+	}
+	if emailInput != "" && username != "" {
+		return "", "", fmt.Errorf("%w: provide either email or username for password reset, not both", apperror.ErrInvalidData)
 	}
 	if username != "" {
 		return "", username, nil
 	}
 	email, err = helpers.NormalizeEmail(emailInput)
 	if err != nil {
-		return "", "", apperror.ErrInvalidData
+		return "", "", fmt.Errorf("%w: password reset email must be valid", apperror.ErrInvalidData)
 	}
 	return email, "", nil
 }
@@ -364,7 +373,7 @@ func (s *Service) VerifyPasswordOTP(ctx context.Context, email, code string) (dt
 		}
 		user, findErr := s.queries.GetUserByEmail(ctx, db.GetUserByEmailParams{Email: text(email)})
 		if errors.Is(findErr, pgx.ErrNoRows) {
-			return dto.ResetVerifyData{}, apperror.ErrInvalidOTP
+			return dto.ResetVerifyData{}, s.passwordResetUserNotFound(email)
 		}
 		if findErr != nil {
 			return dto.ResetVerifyData{}, fmt.Errorf("loading default password reset subject: %w", findErr)
@@ -596,7 +605,7 @@ func normalizeOTPPurpose(value string) (string, error) {
 		purpose = registrationPurpose
 	}
 	if purpose != registrationPurpose && purpose != passwordResetPurpose {
-		return "", apperror.ErrInvalidData
+		return "", fmt.Errorf("%w: purpose must be registration or password_reset", apperror.ErrInvalidData)
 	}
 	return purpose, nil
 }
@@ -606,6 +615,13 @@ func (s *Service) generateOTP() (string, error) {
 }
 
 func defaultOTPEnabled() bool { return defaultOTP != "" }
+
+func (s *Service) passwordResetUserNotFound(email string) error {
+	if s.cfg != nil && strings.EqualFold(strings.TrimSpace(s.cfg.AppEnv), "development") {
+		return fmt.Errorf("%w: password reset user not found for email %q", apperror.ErrInvalidOTP, email)
+	}
+	return apperror.ErrInvalidOTP
+}
 
 func (s *Service) withTx(ctx context.Context, fn func(*db.Queries) error) error {
 	tx, err := s.pool.Begin(ctx)

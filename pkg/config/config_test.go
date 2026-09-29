@@ -1,6 +1,9 @@
 package config
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestLoadConfigPrefersDeploymentEnvironment(t *testing.T) {
 	t.Setenv("PORT", "3000")
@@ -32,5 +35,14 @@ func TestLoadConfigUsesFormulaSMTPFromVariable(t *testing.T) {
 	cfg := LoadConfig("file-that-does-not-exist")
 	if cfg.SMTPFrom != "noreply@example.com" {
 		t.Fatalf("SMTPFrom = %q, want Formula SMTP_FROM value", cfg.SMTPFrom)
+	}
+}
+
+func TestLoadConfigReadsAPIRequestTimeout(t *testing.T) {
+	t.Setenv("API_REQUEST_TIMEOUT", "750ms")
+
+	cfg := LoadConfig("file-that-does-not-exist")
+	if cfg.APIRequestTimeout != 750*time.Millisecond {
+		t.Fatalf("APIRequestTimeout = %s, want 750ms", cfg.APIRequestTimeout)
 	}
 }

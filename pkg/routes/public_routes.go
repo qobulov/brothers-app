@@ -5,7 +5,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	authHandler "github.com/qobulov/brothers-app/internal/auth"
-	"github.com/qobulov/brothers-app/internal/auth/email"
 	"github.com/qobulov/brothers-app/internal/auth/otp"
 	authService "github.com/qobulov/brothers-app/internal/auth/service"
 	"github.com/qobulov/brothers-app/internal/auth/session"
@@ -18,7 +17,7 @@ import (
 	orderUseCase "github.com/qobulov/brothers-app/internal/order/usecase"
 )
 
-func RegisterPublicRoutes(app fiber.Router, pool *pgxpool.Pool, otpCache *otp.Cache, sessions session.Store, cfg *config.Config) {
+func RegisterPublicRoutes(app fiber.Router, pool *pgxpool.Pool, otpCache *otp.Cache, sessions session.Store, cfg *config.Config, emailSender authService.EmailSender) {
 
 	api := app.Group("/api/v1")
 
@@ -30,8 +29,7 @@ func RegisterPublicRoutes(app fiber.Router, pool *pgxpool.Pool, otpCache *otp.Ca
 	orderService := orderUseCase.NewOrderService(orderRepo)
 	orderHandler := orderHandler.NewHttpOrderHandler(orderService)
 
-	emailClient := email.New(cfg)
-	authService := authService.New(pool, otpCache, sessions, cfg, emailClient)
+	authService := authService.New(pool, otpCache, sessions, cfg, emailSender)
 	authHandler := authHandler.NewHandler(authService)
 
 	// === Public Routes ===

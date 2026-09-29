@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -46,6 +47,31 @@ func TestDefaultOTPSkipsCacheVerification(t *testing.T) {
 	s := &Service{otp: otp.NewCache(failingOTPCache{err: errors.New("redis unavailable")}), cfg: &config.Config{}}
 	if err := s.consumeOTP(context.Background(), registrationPurpose, "ali@example.com", defaultOTP); err != nil {
 		t.Fatalf("consumeOTP() = %v, want default OTP accepted without Redis", err)
+	}
+}
+
+func TestPasswordResetUserNotFoundReasonDependsOnEnvironment(t *testing.T) {
+	tests := []struct {
+		name        string
+		environment string
+		wantDetail  bool
+	}{
+		{name: "development includes exact reason", environment: "development", wantDetail: true},
+		{name: "production keeps generic reason", environment: "production"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			s := &Service{cfg: &config.Config{AppEnv: test.environment}}
+			err := s.passwordResetUserNotFound("ali@example.com")
+			if !errors.Is(err, apperror.ErrInvalidOTP) {
+				t.Fatalf("passwordResetUserNotFound() = %v, want ErrInvalidOTP", err)
+			}
+			hasDetail := strings.Contains(err.Error(), `password reset user not found for email "ali@example.com"`)
+			if hasDetail != test.wantDetail {
+				t.Fatalf("passwordResetUserNotFound() detail = %t, want %t; error = %q", hasDetail, test.wantDetail, err)
+			}
+		})
 	}
 }
 
@@ -130,27 +156,43 @@ func TestNormalizeOTPPurpose(t *testing.T) {
 	}
 }
 
+func TestSendOTPRejectsUsernameForRegistrationWithReason(t *testing.T) {
+	s := &Service{}
+	_, err := s.SendOTP(t.Context(), authdto.SendOTPRequest{
+		Email: "ali@example.com", Username: "qobulov", Purpose: registrationPurpose,
+	})
+	if !errors.Is(err, apperror.ErrInvalidData) {
+		t.Fatalf("SendOTP() error = %v, want ErrInvalidData", err)
+	}
+	if want := "registration accepts email only; username must be omitted"; !strings.Contains(err.Error(), want) {
+		t.Fatalf("SendOTP() error = %q, want reason %q", err, want)
+	}
+}
+
 func TestPasswordResetIdentifier(t *testing.T) {
 	tests := []struct {
 		name         string
 		request      authdto.SendOTPRequest
 		wantEmail    string
 		wantUsername string
-		wantErr      bool
+		wantReason   string
 	}{
 		{name: "email", request: authdto.SendOTPRequest{Email: " Ali@Example.COM "}, wantEmail: "ali@example.com"},
 		{name: "username", request: authdto.SendOTPRequest{Username: " qobulov "}, wantUsername: "qobulov"},
-		{name: "both identifiers", request: authdto.SendOTPRequest{Email: "ali@example.com", Username: "qobulov"}, wantErr: true},
-		{name: "missing identifier", request: authdto.SendOTPRequest{}, wantErr: true},
-		{name: "invalid email", request: authdto.SendOTPRequest{Email: "invalid"}, wantErr: true},
+		{name: "both identifiers", request: authdto.SendOTPRequest{Email: "ali@example.com", Username: "qobulov"}, wantReason: "provide either email or username for password reset, not both"},
+		{name: "missing identifier", request: authdto.SendOTPRequest{}, wantReason: "email or username is required for password reset"},
+		{name: "invalid email", request: authdto.SendOTPRequest{Email: "invalid"}, wantReason: "password reset email must be valid"},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			email, username, err := passwordResetIdentifier(test.request)
-			if test.wantErr {
+			if test.wantReason != "" {
 				if !errors.Is(err, apperror.ErrInvalidData) {
 					t.Fatalf("passwordResetIdentifier() error = %v, want ErrInvalidData", err)
+				}
+				if !strings.Contains(err.Error(), test.wantReason) {
+					t.Fatalf("passwordResetIdentifier() error = %q, want reason %q", err, test.wantReason)
 				}
 				return
 			}

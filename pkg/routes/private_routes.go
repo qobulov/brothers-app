@@ -2,7 +2,6 @@ package routes
 
 import (
 	authHandler "github.com/qobulov/brothers-app/internal/auth"
-	"github.com/qobulov/brothers-app/internal/auth/email"
 	"github.com/qobulov/brothers-app/internal/auth/otp"
 	authService "github.com/qobulov/brothers-app/internal/auth/service"
 	"github.com/qobulov/brothers-app/internal/auth/session"
@@ -28,8 +27,7 @@ func RegisterPrivateRoutes(app fiber.Router, pool *pgxpool.Pool, otpCache *otp.C
 	notificationHandler := notification.NewHandler(pool)
 	userLookupHandler := userHandler.NewHttpUserHandler(userUseCase.NewUserService(userRepository.NewSQLCUserRepository(queries)))
 
-	emailClient := email.New(cfg)
-	service := authService.New(pool, otpCache, sessions, cfg, emailClient)
+	service := authService.New(pool, otpCache, sessions, cfg, nil)
 	handler := authHandler.NewHandler(service)
 	secureRoute.Get("/me", handler.CurrentUser)
 	secureRoute.Patch("/me", handler.UpdateCurrentUser)

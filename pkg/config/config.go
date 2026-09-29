@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -12,6 +13,7 @@ import (
 type Config struct {
 	AppPort                      string
 	AppEnv                       string
+	APIRequestTimeout            time.Duration
 	DBHost                       string
 	DBPort                       string
 	DBUser                       string
@@ -56,6 +58,7 @@ func LoadConfig(env string) *Config {
 	cfg := &Config{
 		AppPort:                      getEnv("PORT", getEnv("APP_PORT", "8000")),
 		AppEnv:                       getEnv("APP_ENV", "development"),
+		APIRequestTimeout:            getEnvAsDuration("API_REQUEST_TIMEOUT", 10*time.Second),
 		DBHost:                       getEnv("DB_HOST", "localhost"),
 		DBPort:                       getEnv("DB_PORT", "5432"),
 		DBUser:                       getEnv("DB_USER", "postgres"),
@@ -114,4 +117,16 @@ func getEnvAsBool(key string, fallback bool) bool {
 		}
 	}
 	return fallback
+}
+
+func getEnvAsDuration(key string, fallback time.Duration) time.Duration {
+	value := os.Getenv(key)
+	if value == "" {
+		return fallback
+	}
+	duration, err := time.ParseDuration(value)
+	if err != nil || duration <= 0 {
+		return fallback
+	}
+	return duration
 }

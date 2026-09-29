@@ -63,6 +63,13 @@ func (c *Client) SendOTP(ctx context.Context, recipient, code string) error {
 		return err
 	}
 	defer connection.Close()
+	deadline := time.Now().Add(timeout)
+	if contextDeadline, ok := ctx.Deadline(); ok && contextDeadline.Before(deadline) {
+		deadline = contextDeadline
+	}
+	if err := connection.SetDeadline(deadline); err != nil {
+		return fmt.Errorf("setting smtp deadline: %w", err)
+	}
 
 	client, err := smtp.NewClient(connection, c.host)
 	if err != nil {

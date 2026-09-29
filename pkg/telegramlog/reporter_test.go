@@ -32,7 +32,9 @@ func TestReporterDeliversEscapedAndRedactedError(t *testing.T) {
 	r := newReporter(server.URL, defaultChatID, 0, server.Client(), 0, []string{"smtp-secret"})
 	r.Report(responses.FailureReport{Method: "POST", Path: "/api/v1/auth/otp/send", Environment: "test", Status: 500, Code: 1500,
 		Slug: "internal_error", Reason: `ERROR: column <email> missing; password="smtp-secret" otp=123456 Authorization: Bearer abc.def.xyz postgres://user:dbsecret@db/app`,
-		Meta: responses.Meta{RequestID: "test-request-123", Timestamp: "2026-09-27T12:00:00Z"}})
+		RequestBody:  `{"email":"ali@example.com","username":"qobulov","purpose":"registration","password":"body-secret"}`,
+		ResponseBody: `{"success":false,"code":1500,"data":{"email":"ali@example.com"}}`,
+		Meta:         responses.Meta{RequestID: "test-request-123", Timestamp: "2026-09-27T12:00:00Z"}})
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	if err := r.Close(ctx); err != nil {
@@ -46,12 +48,12 @@ func TestReporterDeliversEscapedAndRedactedError(t *testing.T) {
 	if _, ok := payload["message_thread_id"]; ok {
 		t.Fatalf("unexpected General topic thread ID: %v", payload)
 	}
-	for _, expected := range []string{"test-request-123", "&lt;email&gt;", "POST /api/v1/auth/otp/send", "[REDACTED]"} {
+	for _, expected := range []string{"test-request-123", "&lt;email&gt;", "POST /api/v1/auth/otp/send", "Request body", "Response body", "registration", "[REDACTED]", "\n  &#34;purpose&#34;"} {
 		if !strings.Contains(message, expected) {
 			t.Errorf("missing %q", expected)
 		}
 	}
-	for _, secret := range []string{"smtp-secret", "123456", "abc.def.xyz", "dbsecret"} {
+	for _, secret := range []string{"smtp-secret", "123456", "abc.def.xyz", "dbsecret", "ali@example.com", "qobulov", "body-secret"} {
 		if strings.Contains(message, secret) {
 			t.Errorf("secret leaked: %q", secret)
 		}
@@ -146,12 +148,49 @@ func TestSendChecksTelegramResult(t *testing.T) {
 func TestMessageFitsTelegramLimit(t *testing.T) {
 	r := &Reporter{}
 	value := strings.Repeat("😀<&>", 3000)
-	text := r.format(responses.FailureReport{Reason: value, Method: value, Path: value, Slug: value, Environment: value, Meta: responses.Meta{RequestID: value, Timestamp: value, Duration: value}})
+	text := r.format(responses.FailureReport{Reason: value, RequestBody: value, ResponseBody: value, Method: value, Path: value, Slug: value, Environment: value, Meta: responses.Meta{RequestID: value, Timestamp: value, Duration: value}})
 	if count := len(utf16.Encode([]rune(html.UnescapeString(text)))); count > 4096 {
 		t.Fatalf("message length = %d", count)
 	}
 	if !strings.HasSuffix(text, "</pre>") {
 		t.Fatal("HTML was truncated mid-tag")
+	}
+}
+
+func TestDevelopmentReportShowsFullRequestBody(t *testing.T) {
+	t.Parallel()
+	r := &Reporter{secrets: []string{"body-secret"}}
+	text := html.UnescapeString(r.format(responses.FailureReport{
+		Environment:  "development",
+		RequestBody:  `{"email":"ali@example.com","username":"qobulov","password":"body-secret"}`,
+		ResponseBody: `{"data":{"email":"ali@example.com"}}`,
+	}))
+	for _, value := range []string{"ali@example.com", "qobulov", "body-secret"} {
+		if !strings.Contains(text, value) {
+			t.Fatalf("development request body is missing %q: %s", value, text)
+		}
+	}
+}
+
+func TestPrettyJSON(t *testing.T) {
+	t.Parallel()
+	got := prettyJSON(`{"email":"ali@example.com","nested":{"purpose":"registration"}}`)
+	want := "{\n  \"email\": \"ali@example.com\",\n  \"nested\": {\n    \"purpose\": \"registration\"\n  }\n}"
+	if got != want {
+		t.Fatalf("prettyJSON() = %q, want %q", got, want)
+	}
+}
+
+func TestPrettyRedactedJSONRemainsValid(t *testing.T) {
+	t.Parallel()
+	r := &Reporter{}
+	got := r.prettyRedactedJSON(`{"email":"ali@example.com","purpose":"registration","nested":{"refresh_token":"secret"}}`)
+	var decoded map[string]any
+	if err := json.Unmarshal([]byte(got), &decoded); err != nil {
+		t.Fatalf("redacted body is not valid JSON: %v\n%s", err, got)
+	}
+	if decoded["email"] != "[REDACTED]" || decoded["purpose"] != "registration" {
+		t.Fatalf("unexpected redacted JSON: %v", decoded)
 	}
 }
 
