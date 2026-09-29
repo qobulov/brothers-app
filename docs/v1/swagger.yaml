@@ -662,9 +662,9 @@ definitions:
         enum:
         - GROUP_INVITATION
         - ORDER_CREATED
-        - ORDER_CONFIRMED
-        - MEMBER_JOINED
-        - ORDER_CANCELLED
+        - ORDER_UPDATED
+        - ORDER_AMOUNT_MISMATCH
+        - ORDER_COMPLETED
         type: string
       expires_at:
         type: string
@@ -700,6 +700,263 @@ definitions:
         type: string
       success:
         type: boolean
+    type: object
+  order.Actor:
+    properties:
+      name:
+        type: string
+      user_id:
+        type: string
+    type: object
+  order.ConfirmRequest:
+    properties:
+      amount_usd:
+        example: 7000
+        type: integer
+      fee_uzs:
+        example: 50000
+        type: integer
+    type: object
+  order.Confirmation:
+    properties:
+      amount_usd:
+        type: integer
+      confirmed_at:
+        type: string
+      fee_uzs:
+        type: integer
+      role:
+        enum:
+        - giver
+        - receiver
+        type: string
+      status:
+        enum:
+        - pending
+        - confirmed
+        type: string
+      user_id:
+        type: string
+    type: object
+  order.CreateRequest:
+    properties:
+      amount_usd:
+        example: 7000
+        type: integer
+      fee_uzs:
+        example: 50000
+        type: integer
+      giver_customer_phone:
+        example: "+998901234567"
+        type: string
+      giver_user_id:
+        format: uuid
+        type: string
+      receiver_customer_phone:
+        example: "+998907654321"
+        type: string
+      receiver_user_id:
+        format: uuid
+        type: string
+    type: object
+  order.EditRequest:
+    properties:
+      amount_usd:
+        example: 6800
+        type: integer
+      fee_uzs:
+        example: 40000
+        type: integer
+      giver_customer_phone:
+        example: "+998901234567"
+        type: string
+      giver_user_id:
+        format: uuid
+        type: string
+      receiver_customer_phone:
+        example: "+998907654321"
+        type: string
+      receiver_user_id:
+        format: uuid
+        type: string
+    type: object
+  order.Event:
+    properties:
+      actor:
+        $ref: '#/definitions/order.Actor'
+      created_at:
+        type: string
+      event_type:
+        enum:
+        - created
+        - updated
+        - confirmed
+        - confirmation_corrected
+        - amount_mismatch
+        - completed
+        type: string
+      id:
+        type: string
+      payload:
+        type: object
+    type: object
+  order.ListItem:
+    properties:
+      amount_usd:
+        type: integer
+      created_at:
+        type: string
+      giver:
+        $ref: '#/definitions/order.PartySummary'
+      id:
+        type: string
+      receiver:
+        $ref: '#/definitions/order.PartySummary'
+      state:
+        enum:
+        - waiting_for_you
+        - waiting_for_confirmation
+        - amount_mismatch
+        - completed
+        - cancelled
+        type: string
+      status:
+        enum:
+        - pending
+        - completed
+        - cancelled
+        type: string
+    type: object
+  order.Location:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+  order.Order:
+    properties:
+      amount_usd:
+        type: integer
+      completed_at:
+        type: string
+      confirmations:
+        items:
+          $ref: '#/definitions/order.Confirmation'
+        type: array
+      created_at:
+        type: string
+      created_by:
+        $ref: '#/definitions/order.Actor'
+      fee_uzs:
+        type: integer
+      giver:
+        $ref: '#/definitions/order.Party'
+      group_id:
+        type: string
+      id:
+        type: string
+      receiver:
+        $ref: '#/definitions/order.Party'
+      state:
+        enum:
+        - waiting_for_you
+        - waiting_for_confirmation
+        - amount_mismatch
+        - completed
+        - cancelled
+        type: string
+      status:
+        enum:
+        - pending
+        - completed
+        - cancelled
+        type: string
+      updated_at:
+        type: string
+    type: object
+  order.OrderEventsResponse:
+    properties:
+      code:
+        example: 0
+        type: integer
+      data:
+        items:
+          $ref: '#/definitions/order.Event'
+        type: array
+      message:
+        example: Request processed successfully
+        type: string
+      meta:
+        $ref: '#/definitions/responses.Meta'
+      slug:
+        example: ok
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  order.OrderResponse:
+    properties:
+      code:
+        example: 0
+        type: integer
+      data:
+        $ref: '#/definitions/order.Order'
+      message:
+        example: Order created
+        type: string
+      meta:
+        $ref: '#/definitions/responses.Meta'
+      slug:
+        example: ok
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  order.OrdersResponse:
+    properties:
+      code:
+        example: 0
+        type: integer
+      data:
+        items:
+          $ref: '#/definitions/order.ListItem'
+        type: array
+      message:
+        example: Orders returned
+        type: string
+      meta:
+        $ref: '#/definitions/responses.Meta'
+      slug:
+        example: ok
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  order.Party:
+    properties:
+      avatar_url:
+        type: string
+      customer_phone:
+        type: string
+      location:
+        $ref: '#/definitions/order.Location'
+      name:
+        type: string
+      user_id:
+        type: string
+    type: object
+  order.PartySummary:
+    properties:
+      location_name:
+        type: string
+      name:
+        type: string
+      user_id:
+        type: string
     type: object
   responses.ErrorDetails:
     properties:
@@ -1301,6 +1558,291 @@ paths:
       summary: List active and pending group members
       tags:
       - groups
+  /groups/{groupID}/orders:
+    get:
+      description: Newest first. Employees only see orders they take part in.
+      parameters:
+      - description: Group UUID
+        in: path
+        name: groupID
+        required: true
+        type: string
+      - description: Status filter
+        enum:
+        - pending
+        - completed
+        - cancelled
+        in: query
+        name: status
+        type: string
+      - default: 50
+        description: Page size
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - default: 0
+        description: Number of orders to skip
+        in: query
+        maximum: 10000
+        minimum: 0
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/order.OrdersResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List group orders
+      tags:
+      - orders
+    post:
+      consumes:
+      - application/json
+      description: Managers create orders for any two employees; an employee only
+        for an order they take part in.
+      parameters:
+      - description: Group UUID
+        in: path
+        name: groupID
+        required: true
+        type: string
+      - description: Order payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/order.CreateRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/order.OrderResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create an order between two employees
+      tags:
+      - orders
+  /groups/{groupID}/orders/{orderID}:
+    get:
+      description: The other party's confirmed amount is hidden until you confirm;
+        their fee is never shown to a party.
+      parameters:
+      - description: Group UUID
+        in: path
+        name: groupID
+        required: true
+        type: string
+      - description: Order UUID
+        in: path
+        name: orderID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/order.OrderResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get an order
+      tags:
+      - orders
+    patch:
+      consumes:
+      - application/json
+      description: Any change clears both confirmations. Completed orders cannot be
+        edited.
+      parameters:
+      - description: Group UUID
+        in: path
+        name: groupID
+        required: true
+        type: string
+      - description: Order UUID
+        in: path
+        name: orderID
+        required: true
+        type: string
+      - description: Fields to change
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/order.EditRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/order.OrderResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Edit a pending order
+      tags:
+      - orders
+  /groups/{groupID}/orders/{orderID}/confirmations:
+    post:
+      consumes:
+      - application/json
+      description: Only the giver or receiver. When both amounts match the order completes
+        and balances and profits update.
+      parameters:
+      - description: Group UUID
+        in: path
+        name: groupID
+        required: true
+        type: string
+      - description: Order UUID
+        in: path
+        name: orderID
+        required: true
+        type: string
+      - description: Amount you received or paid, and the fee you collected
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/order.ConfirmRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/order.OrderResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Confirm or correct your amount for an order
+      tags:
+      - orders
+  /groups/{groupID}/orders/{orderID}/events:
+    get:
+      parameters:
+      - description: Group UUID
+        in: path
+        name: groupID
+        required: true
+        type: string
+      - description: Order UUID
+        in: path
+        name: orderID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/order.OrderEventsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Order history
+      tags:
+      - orders
   /invitations/{invitationID}/action:
     post:
       consumes:

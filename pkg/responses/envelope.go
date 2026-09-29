@@ -45,6 +45,10 @@ const (
 	MessageUsersReturned         = "users_returned"
 	MessageNotificationsReturned = "notifications_returned"
 	MessageUserDeleted           = "user_deleted"
+	MessageOrderCreated          = "order_created"
+	MessageOrdersReturned        = "orders_returned"
+	MessageOrderUpdated          = "order_updated"
+	MessageOrderConfirmed        = "order_confirmed"
 	MessageResourceNotFound      = "resource_not_found"
 	MessageInvalidCredentials    = "invalid_credentials"
 	MessageIDRequired            = "id_required"
@@ -66,6 +70,10 @@ var messageTranslations = map[string]translation{
 	MessageUsersReturned:         {"Foydalanuvchilar olindi", "Пользователи получены", "Users returned"},
 	MessageNotificationsReturned: {"Bildirishnomalar olindi", "Уведомления получены", "Notifications returned"},
 	MessageUserDeleted:           {"Foydalanuvchi o'chirildi", "Пользователь удалён", "User deleted"},
+	MessageOrderCreated:          {"Buyurtma yaratildi", "Заказ создан", "Order created"},
+	MessageOrdersReturned:        {"Buyurtmalar olindi", "Заказы получены", "Orders returned"},
+	MessageOrderUpdated:          {"Buyurtma o'zgartirildi", "Заказ изменён", "Order updated"},
+	MessageOrderConfirmed:        {"Buyurtma tasdiqlandi", "Заказ подтверждён", "Order confirmed"},
 	MessageResourceNotFound:      {"Resurs topilmadi", "Ресурс не найден", "Resource not found"},
 	MessageInvalidCredentials:    {"Hisob ma'lumotlari noto'g'ri", "Неверные учетные данные", "Invalid credentials"},
 	MessageIDRequired:            {"ID kiritilishi shart", "Необходимо указать ID", "ID is required"},

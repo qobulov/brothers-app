@@ -8,6 +8,7 @@ import (
 	db "github.com/qobulov/brothers-app/internal/db"
 	group "github.com/qobulov/brothers-app/internal/group"
 	notification "github.com/qobulov/brothers-app/internal/notification"
+	order "github.com/qobulov/brothers-app/internal/order"
 	userHandler "github.com/qobulov/brothers-app/internal/user/handler/rest"
 	userRepository "github.com/qobulov/brothers-app/internal/user/repository"
 	userUseCase "github.com/qobulov/brothers-app/internal/user/usecase"
@@ -47,4 +48,12 @@ func RegisterPrivateRoutes(app fiber.Router, pool *pgxpool.Pool, otpCache *otp.C
 	groups.Post("/:groupID/locations", groupHandler.CreateLocation)
 	groups.Delete("/:groupID/locations/:locationID", groupHandler.DeleteLocation)
 	groups.Get("/:groupID/customers", groupHandler.ListCustomers)
+
+	orderHandler := order.NewHandler(order.NewService(pool))
+	groups.Post("/:groupID/orders", orderHandler.Create)
+	groups.Get("/:groupID/orders", orderHandler.List)
+	groups.Get("/:groupID/orders/:orderID", orderHandler.Get)
+	groups.Patch("/:groupID/orders/:orderID", orderHandler.Edit)
+	groups.Post("/:groupID/orders/:orderID/confirmations", orderHandler.Confirm)
+	groups.Get("/:groupID/orders/:orderID/events", orderHandler.Events)
 }

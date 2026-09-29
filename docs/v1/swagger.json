@@ -858,6 +858,436 @@
                 }
             }
         },
+        "/groups/{groupID}/orders": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Newest first. Employees only see orders they take part in.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "List group orders",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group UUID",
+                        "name": "groupID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "pending",
+                            "completed",
+                            "cancelled"
+                        ],
+                        "type": "string",
+                        "description": "Status filter",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer",
+                        "default": 50,
+                        "description": "Page size",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 10000,
+                        "minimum": 0,
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Number of orders to skip",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/order.OrdersResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Managers create orders for any two employees; an employee only for an order they take part in.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Create an order between two employees",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group UUID",
+                        "name": "groupID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Order payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/order.CreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/order.OrderResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/groups/{groupID}/orders/{orderID}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "The other party's confirmed amount is hidden until you confirm; their fee is never shown to a party.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Get an order",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group UUID",
+                        "name": "groupID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Order UUID",
+                        "name": "orderID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/order.OrderResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Any change clears both confirmations. Completed orders cannot be edited.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Edit a pending order",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group UUID",
+                        "name": "groupID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Order UUID",
+                        "name": "orderID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to change",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/order.EditRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/order.OrderResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/groups/{groupID}/orders/{orderID}/confirmations": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Only the giver or receiver. When both amounts match the order completes and balances and profits update.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Confirm or correct your amount for an order",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group UUID",
+                        "name": "groupID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Order UUID",
+                        "name": "orderID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Amount you received or paid, and the fee you collected",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/order.ConfirmRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/order.OrderResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/groups/{groupID}/orders/{orderID}/events": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Order history",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group UUID",
+                        "name": "groupID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Order UUID",
+                        "name": "orderID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/order.OrderEventsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/responses.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/invitations/{invitationID}/action": {
             "post": {
                 "security": [
@@ -2072,9 +2502,9 @@
                     "enum": [
                         "GROUP_INVITATION",
                         "ORDER_CREATED",
-                        "ORDER_CONFIRMED",
-                        "MEMBER_JOINED",
-                        "ORDER_CANCELLED"
+                        "ORDER_UPDATED",
+                        "ORDER_AMOUNT_MISMATCH",
+                        "ORDER_COMPLETED"
                     ]
                 },
                 "expires_at": {
@@ -2127,6 +2557,376 @@
                 },
                 "success": {
                     "type": "boolean"
+                }
+            }
+        },
+        "order.Actor": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "order.ConfirmRequest": {
+            "type": "object",
+            "properties": {
+                "amount_usd": {
+                    "type": "integer",
+                    "example": 7000
+                },
+                "fee_uzs": {
+                    "type": "integer",
+                    "example": 50000
+                }
+            }
+        },
+        "order.Confirmation": {
+            "type": "object",
+            "properties": {
+                "amount_usd": {
+                    "type": "integer"
+                },
+                "confirmed_at": {
+                    "type": "string"
+                },
+                "fee_uzs": {
+                    "type": "integer"
+                },
+                "role": {
+                    "type": "string",
+                    "enum": [
+                        "giver",
+                        "receiver"
+                    ]
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "pending",
+                        "confirmed"
+                    ]
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "order.CreateRequest": {
+            "type": "object",
+            "properties": {
+                "amount_usd": {
+                    "type": "integer",
+                    "example": 7000
+                },
+                "fee_uzs": {
+                    "type": "integer",
+                    "example": 50000
+                },
+                "giver_customer_phone": {
+                    "type": "string",
+                    "example": "+998901234567"
+                },
+                "giver_user_id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "receiver_customer_phone": {
+                    "type": "string",
+                    "example": "+998907654321"
+                },
+                "receiver_user_id": {
+                    "type": "string",
+                    "format": "uuid"
+                }
+            }
+        },
+        "order.EditRequest": {
+            "type": "object",
+            "properties": {
+                "amount_usd": {
+                    "type": "integer",
+                    "example": 6800
+                },
+                "fee_uzs": {
+                    "type": "integer",
+                    "example": 40000
+                },
+                "giver_customer_phone": {
+                    "type": "string",
+                    "example": "+998901234567"
+                },
+                "giver_user_id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "receiver_customer_phone": {
+                    "type": "string",
+                    "example": "+998907654321"
+                },
+                "receiver_user_id": {
+                    "type": "string",
+                    "format": "uuid"
+                }
+            }
+        },
+        "order.Event": {
+            "type": "object",
+            "properties": {
+                "actor": {
+                    "$ref": "#/definitions/order.Actor"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "event_type": {
+                    "type": "string",
+                    "enum": [
+                        "created",
+                        "updated",
+                        "confirmed",
+                        "confirmation_corrected",
+                        "amount_mismatch",
+                        "completed"
+                    ]
+                },
+                "id": {
+                    "type": "string"
+                },
+                "payload": {
+                    "type": "object"
+                }
+            }
+        },
+        "order.ListItem": {
+            "type": "object",
+            "properties": {
+                "amount_usd": {
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "giver": {
+                    "$ref": "#/definitions/order.PartySummary"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "receiver": {
+                    "$ref": "#/definitions/order.PartySummary"
+                },
+                "state": {
+                    "type": "string",
+                    "enum": [
+                        "waiting_for_you",
+                        "waiting_for_confirmation",
+                        "amount_mismatch",
+                        "completed",
+                        "cancelled"
+                    ]
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "pending",
+                        "completed",
+                        "cancelled"
+                    ]
+                }
+            }
+        },
+        "order.Location": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "order.Order": {
+            "type": "object",
+            "properties": {
+                "amount_usd": {
+                    "type": "integer"
+                },
+                "completed_at": {
+                    "type": "string"
+                },
+                "confirmations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/order.Confirmation"
+                    }
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by": {
+                    "$ref": "#/definitions/order.Actor"
+                },
+                "fee_uzs": {
+                    "type": "integer"
+                },
+                "giver": {
+                    "$ref": "#/definitions/order.Party"
+                },
+                "group_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "receiver": {
+                    "$ref": "#/definitions/order.Party"
+                },
+                "state": {
+                    "type": "string",
+                    "enum": [
+                        "waiting_for_you",
+                        "waiting_for_confirmation",
+                        "amount_mismatch",
+                        "completed",
+                        "cancelled"
+                    ]
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "pending",
+                        "completed",
+                        "cancelled"
+                    ]
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "order.OrderEventsResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/order.Event"
+                    }
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Request processed successfully"
+                },
+                "meta": {
+                    "$ref": "#/definitions/responses.Meta"
+                },
+                "slug": {
+                    "type": "string",
+                    "example": "ok"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "order.OrderResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "data": {
+                    "$ref": "#/definitions/order.Order"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Order created"
+                },
+                "meta": {
+                    "$ref": "#/definitions/responses.Meta"
+                },
+                "slug": {
+                    "type": "string",
+                    "example": "ok"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "order.OrdersResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/order.ListItem"
+                    }
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Orders returned"
+                },
+                "meta": {
+                    "$ref": "#/definitions/responses.Meta"
+                },
+                "slug": {
+                    "type": "string",
+                    "example": "ok"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "order.Party": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "type": "string"
+                },
+                "customer_phone": {
+                    "type": "string"
+                },
+                "location": {
+                    "$ref": "#/definitions/order.Location"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "order.PartySummary": {
+            "type": "object",
+            "properties": {
+                "location_name": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
                 }
             }
         },

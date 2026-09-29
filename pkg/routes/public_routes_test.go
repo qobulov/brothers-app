@@ -3,6 +3,7 @@ package routes_test
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"net/http/httptest"
 	"testing"
 
@@ -491,4 +492,101 @@ func (s *PublicRoutesTestSuite) TestLegacyOrderRoutesNotRegistered() {
 			s.T().Errorf("legacy order route %s is still registered", route)
 		}
 	}
+}
+
+func (s *PublicRoutesTestSuite) TestGroupOrderRoutesRequireAuthentication() {
+	request := httptest.NewRequest("GET", "/api/v1/groups/"+uuid.NewString()+"/orders", nil)
+	response, err := s.app.Test(request, -1)
+	s.Require().NoError(err)
+	defer response.Body.Close()
+	s.Equal(fiber.StatusUnauthorized, response.StatusCode)
+}
+
+func (s *PublicRoutesTestSuite) TestGroupOrderFlow() {
+	groupID := s.createGroup("Order Flow")
+	giverID := s.addEmployee(groupID, "flow-giver")
+	receiverID := s.addEmployee(groupID, "flow-receiver")
+
+	status, body := s.sendJSON("POST", "/api/v1/groups/"+groupID+"/orders", map[string]any{
+		"giver_user_id": giverID, "giver_customer_phone": "+998901111111",
+		"receiver_user_id": receiverID, "receiver_customer_phone": "+998902222222",
+		"amount_usd": 7000, "fee_uzs": 50000,
+	})
+	s.Require().Equal(fiber.StatusCreated, status, string(body))
+	var created struct {
+		Data struct {
+			ID    uuid.UUID `json:"id"`
+			State string    `json:"state"`
+		} `json:"data"`
+	}
+	s.Require().NoError(json.Unmarshal(body, &created))
+	s.Equal("waiting_for_confirmation", created.Data.State)
+	orderPath := "/api/v1/groups/" + groupID + "/orders/" + created.Data.ID.String()
+
+	status, body = s.sendJSON("GET", "/api/v1/groups/"+groupID+"/orders", nil)
+	s.Require().Equal(fiber.StatusOK, status, string(body))
+	var list struct {
+		Data []json.RawMessage `json:"data"`
+	}
+	s.Require().NoError(json.Unmarshal(body, &list))
+	s.Len(list.Data, 1)
+
+	status, _ = s.sendJSON("GET", "/api/v1/groups/"+groupID+"/orders?limit=101", nil)
+	s.Equal(fiber.StatusBadRequest, status)
+	status, _ = s.sendJSON("GET", orderPath, nil)
+	s.Equal(fiber.StatusOK, status)
+	status, _ = s.sendJSON("GET", orderPath+"/events", nil)
+	s.Equal(fiber.StatusOK, status)
+	status, _ = s.sendJSON("PATCH", orderPath, map[string]any{"amount_usd": 6800})
+	s.Equal(fiber.StatusOK, status)
+	status, _ = s.sendJSON("POST", orderPath+"/confirmations", map[string]any{"amount_usd": 6800})
+	s.Equal(fiber.StatusForbidden, status, "a manager is not a party and cannot confirm")
+}
+
+func (s *PublicRoutesTestSuite) createGroup(name string) string {
+	s.T().Helper()
+	status, body := s.sendJSON("POST", "/api/v1/groups", map[string]any{"name": name})
+	s.Require().Equal(fiber.StatusCreated, status, string(body))
+	var envelope struct {
+		Data struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	s.Require().NoError(json.Unmarshal(body, &envelope))
+	return envelope.Data.ID
+}
+
+func (s *PublicRoutesTestSuite) addEmployee(groupID, username string) string {
+	s.T().Helper()
+	userID := uuid.NewString()
+	_, err := s.db.Exec(s.T().Context(), `
+		INSERT INTO users (id, email, username, language, is_active) VALUES ($1, $2, $3, 'uz', true)
+	`, userID, username+"@example.com", username)
+	s.Require().NoError(err)
+	_, err = s.db.Exec(s.T().Context(), `
+		INSERT INTO group_members (group_id, user_id, username, role) VALUES ($1, $2, $3, 'employee')
+	`, groupID, userID, username)
+	s.Require().NoError(err)
+	return userID
+}
+
+func (s *PublicRoutesTestSuite) sendJSON(method, path string, payload any) (int, []byte) {
+	s.T().Helper()
+	var reader *bytes.Reader
+	if payload != nil {
+		encoded, err := json.Marshal(payload)
+		s.Require().NoError(err)
+		reader = bytes.NewReader(encoded)
+	} else {
+		reader = bytes.NewReader(nil)
+	}
+	request := httptest.NewRequest(method, path, reader)
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Authorization", s.accessToken)
+	response, err := s.app.Test(request, -1)
+	s.Require().NoError(err)
+	defer response.Body.Close()
+	body, err := io.ReadAll(response.Body)
+	s.Require().NoError(err)
+	return response.StatusCode, body
 }
