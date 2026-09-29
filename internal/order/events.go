@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/qobulov/brothers-app/pkg/apperror"
 )
 
 const (
@@ -45,3 +46,47 @@ func writeEvent(ctx context.Context, q querier, event orderEvent) error {
 	}
 	return nil
 }
+
+// ListEvents returns an order's history, oldest first.
+func (s *Service) ListEvents(ctx context.Context, actorID, groupID, orderID uuid.UUID) ([]Event, error) {
+	v, err := loadViewer(ctx, s.pool, groupID, actorID)
+	if err != nil {
+		return nil, err
+	}
+	_, p, err := loadOrder(ctx, s.pool, groupID, orderID)
+	if err != nil {
+		return nil, err
+	}
+	if !v.canSee(p) {
+		return nil, apperror.ErrRecordNotFound
+	}
+	rows, err := s.pool.Query(ctx, orderEventsQuery, orderID)
+	if err != nil {
+		return nil, fmt.Errorf("listing order events: %w", err)
+	}
+	defer rows.Close()
+	events := make([]Event, 0)
+	for rows.Next() {
+		var event Event
+		var payload []byte
+		if err := rows.Scan(&event.ID, &event.EventType, &event.Actor.UserID, &event.Actor.Name, &payload, &event.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scanning order event: %w", err)
+		}
+		if err := json.Unmarshal(payload, &event.Payload); err != nil {
+			return nil, fmt.Errorf("decoding order event payload: %w", err)
+		}
+		events = append(events, event)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating order events: %w", err)
+	}
+	return events, nil
+}
+
+var orderEventsQuery = fmt.Sprintf(`
+	SELECT events.id, events.event_type, events.actor_user_id, %s, events.payload, events.created_at
+	FROM order_events events
+	JOIN users ON users.id = events.actor_user_id
+	WHERE events.order_id = $1 AND events.deleted_at IS NULL
+	ORDER BY events.created_at, events.id
+`, displayName("users"))
