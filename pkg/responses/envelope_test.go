@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -62,7 +63,7 @@ func TestFailureReporterOmitsInvalidJSONBody(t *testing.T) {
 	app := fiber.New()
 	Middleware(app, "test", func(value FailureReport) { report = value })
 	app.Post("/items", func(c *fiber.Ctx) error {
-		return Failure(c, fiber.StatusBadRequest, 1400, "invalid_data", "invalid data", nil)
+		return Failure(c, fiber.StatusInternalServerError, 1500, "internal_error", "internal error", nil)
 	})
 	request := httptest.NewRequest("POST", "/items", strings.NewReader(`{"password":"secret"`))
 	response, err := app.Test(request)
@@ -76,7 +77,7 @@ func TestFailureReporterKeepsFullRequestBodyInDevelopment(t *testing.T) {
 	app := fiber.New()
 	Middleware(app, "development", func(value FailureReport) { report = value })
 	app.Post("/items", func(c *fiber.Ctx) error {
-		return Failure(c, fiber.StatusBadRequest, 1400, "invalid_data", "invalid data", nil)
+		return Failure(c, fiber.StatusInternalServerError, 1500, "internal_error", "internal error", nil)
 	})
 	const requestBody = `{"email":"ali@example.com","username":"qobulov","purpose":"registration","password":"secret"}`
 	request := httptest.NewRequest("POST", "/items", strings.NewReader(requestBody))
@@ -84,4 +85,23 @@ func TestFailureReporterKeepsFullRequestBodyInDevelopment(t *testing.T) {
 	require.NoError(t, err)
 	defer response.Body.Close()
 	require.JSONEq(t, requestBody, report.RequestBody)
+}
+
+func TestFailureReporterIgnoresClientErrors(t *testing.T) {
+	var reports []FailureReport
+	app := fiber.New()
+	Middleware(app, "development", func(report FailureReport) { reports = append(reports, report) })
+	for _, status := range []int{
+		fiber.StatusBadRequest, fiber.StatusUnauthorized, fiber.StatusForbidden,
+		fiber.StatusNotFound, fiber.StatusConflict, fiber.StatusTooManyRequests,
+	} {
+		app.Get("/status/"+strconv.Itoa(status), func(c *fiber.Ctx) error {
+			return Failure(c, status, 1000+status, "client_error", "client error", nil)
+		})
+		response, err := app.Test(httptest.NewRequest("GET", "/status/"+strconv.Itoa(status), nil))
+		require.NoError(t, err)
+		response.Body.Close()
+		require.Equal(t, status, response.StatusCode)
+	}
+	require.Empty(t, reports, "client errors must not be reported")
 }

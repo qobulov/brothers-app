@@ -154,7 +154,9 @@ func Failure(c *fiber.Ctx, status, code int, slug, message string, data any) err
 		Data:    data,
 		Meta:    metadata,
 	}
-	if report, ok := c.Locals("error_reporter").(func(FailureReport)); ok {
+	// Only server-side failures (database, timeouts, internal errors) are
+	// reported; bad input, auth and not-found responses are expected traffic.
+	if report, ok := c.Locals("error_reporter").(func(FailureReport)); ok && status >= fiber.StatusInternalServerError {
 		reason := message
 		if details, ok := data.(ErrorDetails); ok {
 			reason = details.Reason
