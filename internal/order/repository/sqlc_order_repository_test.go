@@ -1,6 +1,7 @@
 package repository_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/google/uuid"
@@ -40,7 +41,7 @@ func (s *OrderRepositoryTestSuite) TestSave() {
 		Total: 100.50,
 	}
 
-	err := s.repo.Save(order)
+	err := s.repo.Save(s.T().Context(), order)
 	s.NoError(err)
 	s.NotZero(order.ID)
 }
@@ -50,11 +51,11 @@ func (s *OrderRepositoryTestSuite) TestFindByID() {
 	order := &entities.Order{
 		Total: 200.75,
 	}
-	err := s.repo.Save(order)
+	err := s.repo.Save(s.T().Context(), order)
 	s.NoError(err)
 
 	// Find by ID
-	found, err := s.repo.FindByID(order.ID)
+	found, err := s.repo.FindByID(s.T().Context(), order.ID)
 	s.NoError(err)
 	s.NotNil(found)
 	s.Equal(order.ID, found.ID)
@@ -62,7 +63,7 @@ func (s *OrderRepositoryTestSuite) TestFindByID() {
 }
 
 func (s *OrderRepositoryTestSuite) TestFindByID_NotFound() {
-	_, err := s.repo.FindByID(uuid.New())
+	_, err := s.repo.FindByID(s.T().Context(), uuid.New())
 	s.Error(err)
 }
 
@@ -75,20 +76,27 @@ func (s *OrderRepositoryTestSuite) TestFindAll() {
 	}
 
 	for _, order := range orders {
-		err := s.repo.Save(order)
+		err := s.repo.Save(s.T().Context(), order)
 		s.NoError(err)
 	}
 
 	// Find all
-	allOrders, err := s.repo.FindAll()
+	allOrders, err := s.repo.FindAll(s.T().Context())
 	s.NoError(err)
 	s.Len(allOrders, 3)
 }
 
 func (s *OrderRepositoryTestSuite) TestFindAll_Empty() {
-	allOrders, err := s.repo.FindAll()
+	allOrders, err := s.repo.FindAll(s.T().Context())
 	s.NoError(err)
 	s.Empty(allOrders)
+}
+
+func (s *OrderRepositoryTestSuite) TestFindAll_CancelledContext() {
+	ctx, cancel := context.WithCancel(s.T().Context())
+	cancel()
+	_, err := s.repo.FindAll(ctx)
+	s.ErrorIs(err, context.Canceled)
 }
 
 func (s *OrderRepositoryTestSuite) TestPatch() {
@@ -96,18 +104,20 @@ func (s *OrderRepositoryTestSuite) TestPatch() {
 	order := &entities.Order{
 		Total: 150.0,
 	}
-	err := s.repo.Save(order)
+	err := s.repo.Save(s.T().Context(), order)
 	s.NoError(err)
 
 	// Update order
 	updateData := &entities.Order{
 		Total: 250.0,
 	}
-	err = s.repo.Patch(order.ID, updateData)
+	patched, err := s.repo.Patch(s.T().Context(), order.ID, updateData)
 	s.NoError(err)
+	s.Equal(order.ID, patched.ID)
+	s.Equal(250.0, patched.Total)
 
 	// Verify update
-	updated, err := s.repo.FindByID(order.ID)
+	updated, err := s.repo.FindByID(s.T().Context(), order.ID)
 	s.NoError(err)
 	s.Equal(250.0, updated.Total)
 }
@@ -116,7 +126,7 @@ func (s *OrderRepositoryTestSuite) TestPatch_NotFound() {
 	updateData := &entities.Order{
 		Total: 999.0,
 	}
-	err := s.repo.Patch(uuid.New(), updateData)
+	_, err := s.repo.Patch(s.T().Context(), uuid.New(), updateData)
 	s.Error(err)
 	s.ErrorIs(err, apperror.ErrRecordNotFound)
 }
@@ -126,22 +136,22 @@ func (s *OrderRepositoryTestSuite) TestDelete() {
 	order := &entities.Order{
 		Total: 500.0,
 	}
-	err := s.repo.Save(order)
+	err := s.repo.Save(s.T().Context(), order)
 	s.NoError(err)
 
 	orderID := order.ID
 
 	// Delete order
-	err = s.repo.Delete(orderID)
+	err = s.repo.Delete(s.T().Context(), orderID)
 	s.NoError(err)
 
 	// Verify deletion
-	_, err = s.repo.FindByID(orderID)
+	_, err = s.repo.FindByID(s.T().Context(), orderID)
 	s.Error(err)
 }
 
 func (s *OrderRepositoryTestSuite) TestDelete_NotFound() {
-	err := s.repo.Delete(uuid.New())
+	err := s.repo.Delete(s.T().Context(), uuid.New())
 	s.Error(err)
 	s.ErrorIs(err, apperror.ErrRecordNotFound)
 }
@@ -152,11 +162,11 @@ func (s *OrderRepositoryTestSuite) TestSave_MultipleOrders() {
 	order2 := &entities.Order{Total: 200.0}
 	order3 := &entities.Order{Total: 300.0}
 
-	err := s.repo.Save(order1)
+	err := s.repo.Save(s.T().Context(), order1)
 	s.NoError(err)
-	err = s.repo.Save(order2)
+	err = s.repo.Save(s.T().Context(), order2)
 	s.NoError(err)
-	err = s.repo.Save(order3)
+	err = s.repo.Save(s.T().Context(), order3)
 	s.NoError(err)
 
 	s.NotEqual(order1.ID, order2.ID)

@@ -1,6 +1,7 @@
 package repository_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/google/uuid"
@@ -50,7 +51,7 @@ func (s *UserRepositoryTestSuite) createUser(name string) *entities.User {
 
 func (s *UserRepositoryTestSuite) TestFindByID() {
 	user := s.createUser("Find By ID User")
-	found, err := s.repo.FindByID(user.ID.String())
+	found, err := s.repo.FindByID(s.T().Context(), user.ID.String())
 	s.NoError(err)
 	s.Equal(user.ID, found.ID)
 	s.Equal(user.Name, found.Name)
@@ -58,7 +59,7 @@ func (s *UserRepositoryTestSuite) TestFindByID() {
 }
 
 func (s *UserRepositoryTestSuite) TestFindByID_NotFound() {
-	found, err := s.repo.FindByID(uuid.NewString())
+	found, err := s.repo.FindByID(s.T().Context(), uuid.NewString())
 	s.ErrorIs(err, apperror.ErrRecordNotFound)
 	s.Nil(found)
 }
@@ -68,43 +69,52 @@ func (s *UserRepositoryTestSuite) TestFindAll() {
 	s.createUser("User 2")
 	s.createUser("User 3")
 
-	users, err := s.repo.FindAll()
+	users, err := s.repo.FindAll(s.T().Context())
 	s.NoError(err)
 	s.Len(users, 3)
 }
 
 func (s *UserRepositoryTestSuite) TestFindAll_Empty() {
-	users, err := s.repo.FindAll()
+	users, err := s.repo.FindAll(s.T().Context())
 	s.NoError(err)
 	s.Empty(users)
 }
 
+func (s *UserRepositoryTestSuite) TestFindAll_CancelledContext() {
+	ctx, cancel := context.WithCancel(s.T().Context())
+	cancel()
+	_, err := s.repo.FindAll(ctx)
+	s.ErrorIs(err, context.Canceled)
+}
+
 func (s *UserRepositoryTestSuite) TestPatch() {
 	user := s.createUser("Original Name")
-	err := s.repo.Patch(user.ID.String(), &entities.User{Name: "Updated Name"})
+	patched, err := s.repo.Patch(s.T().Context(), user.ID.String(), &entities.User{Name: "Updated Name"})
 	s.NoError(err)
+	s.Equal(user.ID, patched.ID)
+	s.Equal("Updated Name", patched.Name)
 
-	updated, err := s.repo.FindByID(user.ID.String())
+	updated, err := s.repo.FindByID(s.T().Context(), user.ID.String())
 	s.NoError(err)
 	s.Equal("Updated Name", updated.Name)
 	s.Equal(user.Phone, updated.Phone)
 }
 
 func (s *UserRepositoryTestSuite) TestPatch_NotFound() {
-	err := s.repo.Patch(uuid.NewString(), &entities.User{Name: "Updated Name"})
+	_, err := s.repo.Patch(s.T().Context(), uuid.NewString(), &entities.User{Name: "Updated Name"})
 	s.ErrorIs(err, apperror.ErrRecordNotFound)
 }
 
 func (s *UserRepositoryTestSuite) TestDelete() {
 	user := s.createUser("Delete User")
-	s.NoError(s.repo.Delete(user.ID.String()))
+	s.NoError(s.repo.Delete(s.T().Context(), user.ID.String()))
 
-	found, err := s.repo.FindByID(user.ID.String())
+	found, err := s.repo.FindByID(s.T().Context(), user.ID.String())
 	s.ErrorIs(err, apperror.ErrRecordNotFound)
 	s.Nil(found)
 }
 
 func (s *UserRepositoryTestSuite) TestDelete_NotFound() {
-	err := s.repo.Delete(uuid.NewString())
+	err := s.repo.Delete(s.T().Context(), uuid.NewString())
 	s.ErrorIs(err, apperror.ErrRecordNotFound)
 }

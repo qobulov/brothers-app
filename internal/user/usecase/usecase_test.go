@@ -51,7 +51,7 @@ func (s *UserUseCaseTestSuite) createUser(name string) *entities.User {
 
 func (s *UserUseCaseTestSuite) TestFindUserByID() {
 	user := s.createUser("Find By ID User")
-	found, err := s.service.FindUserByID(user.ID.String())
+	found, err := s.service.FindUserByID(s.T().Context(), user.ID.String())
 	s.NoError(err)
 	s.Equal(user.ID, found.ID)
 	s.Equal(user.Name, found.Name)
@@ -62,14 +62,14 @@ func (s *UserUseCaseTestSuite) TestFindAllUsers() {
 	s.createUser("User 2")
 	s.createUser("User 3")
 
-	users, err := s.service.FindAllUsers()
+	users, err := s.service.FindAllUsers(s.T().Context())
 	s.NoError(err)
 	s.Len(users, 3)
 }
 
 func (s *UserUseCaseTestSuite) TestPatchUser() {
 	user := s.createUser("Original Name")
-	updated, err := s.service.PatchUser(user.ID.String(), &entities.User{Name: "Updated Name"})
+	updated, err := s.service.PatchUser(s.T().Context(), user.ID.String(), &entities.User{Name: "Updated Name"})
 	s.NoError(err)
 	s.Equal("Updated Name", updated.Name)
 	s.Equal(user.Phone, updated.Phone)
@@ -77,9 +77,9 @@ func (s *UserUseCaseTestSuite) TestPatchUser() {
 
 func (s *UserUseCaseTestSuite) TestDeleteUser() {
 	user := s.createUser("Delete User")
-	s.NoError(s.service.DeleteUser(user.ID.String()))
+	s.NoError(s.service.DeleteUser(s.T().Context(), user.ID.String()))
 
-	found, err := s.service.FindUserByID(user.ID.String())
+	found, err := s.service.FindUserByID(s.T().Context(), user.ID.String())
 	s.Error(err)
 	s.Nil(found)
 }

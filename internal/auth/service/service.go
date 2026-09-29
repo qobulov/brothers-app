@@ -164,7 +164,7 @@ func (s *Service) Register(ctx context.Context, req dto.RegisterRequest) (dto.Re
 		if findErr == nil {
 			return apperror.ErrRegistrationIdentityExists
 		}
-		if findErr != nil && !errors.Is(findErr, pgx.ErrNoRows) {
+		if !errors.Is(findErr, pgx.ErrNoRows) {
 			return fmt.Errorf("checking registration identity: %w", findErr)
 		}
 		if err := s.consumeOTP(ctx, registrationPurpose, email, req.OTPCode); err != nil {

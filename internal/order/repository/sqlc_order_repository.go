@@ -18,8 +18,8 @@ func NewSQLCOrderRepository(queries *db.Queries) OrderRepository {
 	return &SQLCOrderRepository{queries: queries}
 }
 
-func (r *SQLCOrderRepository) Save(order *entities.Order) error {
-	row, err := r.queries.CreateOrder(context.Background(), db.CreateOrderParams{Total: order.Total})
+func (r *SQLCOrderRepository) Save(ctx context.Context, order *entities.Order) error {
+	row, err := r.queries.CreateOrder(ctx, db.CreateOrderParams{Total: order.Total})
 	if err != nil {
 		return err
 	}
@@ -27,8 +27,8 @@ func (r *SQLCOrderRepository) Save(order *entities.Order) error {
 	return nil
 }
 
-func (r *SQLCOrderRepository) FindAll() ([]*entities.Order, error) {
-	rows, err := r.queries.ListOrders(context.Background())
+func (r *SQLCOrderRepository) FindAll(ctx context.Context) ([]*entities.Order, error) {
+	rows, err := r.queries.ListOrders(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -39,21 +39,24 @@ func (r *SQLCOrderRepository) FindAll() ([]*entities.Order, error) {
 	return orders, nil
 }
 
-func (r *SQLCOrderRepository) FindByID(id uuid.UUID) (*entities.Order, error) {
-	row, err := r.queries.GetOrderByID(context.Background(), db.GetOrderByIDParams{ID: orderUUIDValue(id)})
+func (r *SQLCOrderRepository) FindByID(ctx context.Context, id uuid.UUID) (*entities.Order, error) {
+	row, err := r.queries.GetOrderByID(ctx, db.GetOrderByIDParams{ID: orderUUIDValue(id)})
 	if err != nil {
 		return nil, orderError(err)
 	}
 	return &entities.Order{ID: uuid.UUID(row.ID.Bytes), Total: row.Total}, nil
 }
 
-func (r *SQLCOrderRepository) Patch(id uuid.UUID, order *entities.Order) error {
-	_, err := r.queries.UpdateOrder(context.Background(), db.UpdateOrderParams{ID: orderUUIDValue(id), Total: order.Total})
-	return orderError(err)
+func (r *SQLCOrderRepository) Patch(ctx context.Context, id uuid.UUID, order *entities.Order) (*entities.Order, error) {
+	row, err := r.queries.UpdateOrder(ctx, db.UpdateOrderParams{ID: orderUUIDValue(id), Total: order.Total})
+	if err != nil {
+		return nil, orderError(err)
+	}
+	return &entities.Order{ID: uuid.UUID(row.ID.Bytes), Total: row.Total}, nil
 }
 
-func (r *SQLCOrderRepository) Delete(id uuid.UUID) error {
-	_, err := r.queries.DeleteOrder(context.Background(), db.DeleteOrderParams{ID: orderUUIDValue(id)})
+func (r *SQLCOrderRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	_, err := r.queries.DeleteOrder(ctx, db.DeleteOrderParams{ID: orderUUIDValue(id)})
 	return orderError(err)
 }
 

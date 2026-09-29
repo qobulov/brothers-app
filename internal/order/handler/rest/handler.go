@@ -36,7 +36,7 @@ func (h *HttpOrderHandler) CreateOrder(c *fiber.Ctx) error {
 	}
 
 	order := &entities.Order{Total: req.Total}
-	if err := h.orderUseCase.CreateOrder(order); err != nil {
+	if err := h.orderUseCase.CreateOrder(c.UserContext(), order); err != nil {
 		return responses.Error(c, err)
 	}
 
@@ -50,7 +50,7 @@ func (h *HttpOrderHandler) CreateOrder(c *fiber.Ctx) error {
 // @Success 200 {array} orderdto.OrderResponse
 // @Router /orders [get]
 func (h *HttpOrderHandler) FindAllOrders(c *fiber.Ctx) error {
-	orders, err := h.orderUseCase.FindAllOrders()
+	orders, err := h.orderUseCase.FindAllOrders(c.UserContext())
 	if err != nil {
 		return responses.Error(c, err)
 	}
@@ -71,7 +71,7 @@ func (h *HttpOrderHandler) FindOrderByID(c *fiber.Ctx) error {
 		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidID, err), responses.MessageInvalidID)
 	}
 
-	order, err := h.orderUseCase.FindOrderByID(orderID)
+	order, err := h.orderUseCase.FindOrderByID(c.UserContext(), orderID)
 	if err != nil {
 		return responses.Error(c, err)
 	}
@@ -106,7 +106,7 @@ func (h *HttpOrderHandler) PatchOrder(c *fiber.Ctx) error {
 		return responses.ErrorWithMessage(c, err, msg)
 	}
 
-	updatedOrder, err := h.orderUseCase.PatchOrder(orderID, order)
+	updatedOrder, err := h.orderUseCase.PatchOrder(c.UserContext(), orderID, order)
 	if err != nil {
 		return responses.Error(c, err)
 	}
@@ -127,7 +127,7 @@ func (h *HttpOrderHandler) DeleteOrder(c *fiber.Ctx) error {
 		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidID, err), responses.MessageInvalidID)
 	}
 
-	if err := h.orderUseCase.DeleteOrder(orderID); err != nil {
+	if err := h.orderUseCase.DeleteOrder(c.UserContext(), orderID); err != nil {
 		return responses.Error(c, err)
 	}
 

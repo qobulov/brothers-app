@@ -19,13 +19,13 @@ func NewUserService(repo repository.UserRepository) UserUseCase {
 }
 
 // FindUserByID returns a user by identifier.
-func (s *UserService) FindUserByID(id string) (*entities.User, error) {
-	return s.repo.FindByID(id)
+func (s *UserService) FindUserByID(ctx context.Context, id string) (*entities.User, error) {
+	return s.repo.FindByID(ctx, id)
 }
 
 // FindAllUsers returns all non-deleted users.
-func (s *UserService) FindAllUsers() ([]*entities.User, error) {
-	users, err := s.repo.FindAll()
+func (s *UserService) FindAllUsers(ctx context.Context) ([]*entities.User, error) {
+	users, err := s.repo.FindAll(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -38,18 +38,13 @@ func (s *UserService) SearchUsers(ctx context.Context, query string) ([]*entitie
 }
 
 // PatchUser updates editable profile fields.
-func (s *UserService) PatchUser(id string, user *entities.User) (*entities.User, error) {
-	if err := s.repo.Patch(id, user); err != nil {
-		return nil, err
-	}
-	updatedUser, _ := s.repo.FindByID(id)
-
-	return updatedUser, nil
+func (s *UserService) PatchUser(ctx context.Context, id string, user *entities.User) (*entities.User, error) {
+	return s.repo.Patch(ctx, id, user)
 }
 
 // DeleteUser soft-deletes a user.
-func (s *UserService) DeleteUser(id string) error {
-	if err := s.repo.Delete(id); err != nil {
+func (s *UserService) DeleteUser(ctx context.Context, id string) error {
+	if err := s.repo.Delete(ctx, id); err != nil {
 		return err
 	}
 	return nil

@@ -7,9 +7,9 @@ import (
 )
 
 type UserRepository interface {
-	FindByID(id string) (*entities.User, error)
-	FindAll() ([]*entities.User, error)
+	FindByID(ctx context.Context, id string) (*entities.User, error)
+	FindAll(ctx context.Context) ([]*entities.User, error)
 	Search(ctx context.Context, query string) ([]*entities.User, error)
-	Patch(id string, user *entities.User) error
-	Delete(id string) error
+	Patch(ctx context.Context, id string, user *entities.User) (*entities.User, error)
+	Delete(ctx context.Context, id string) error
 }

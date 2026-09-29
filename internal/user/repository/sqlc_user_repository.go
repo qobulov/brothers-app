@@ -18,20 +18,20 @@ func NewSQLCUserRepository(queries *db.Queries) UserRepository {
 	return &SQLCUserRepository{queries: queries}
 }
 
-func (r *SQLCUserRepository) FindByID(id string) (*entities.User, error) {
+func (r *SQLCUserRepository) FindByID(ctx context.Context, id string) (*entities.User, error) {
 	parsed, err := uuid.Parse(id)
 	if err != nil {
 		return nil, apperror.ErrInvalidID
 	}
-	row, err := r.queries.GetUserByID(context.Background(), db.GetUserByIDParams{ID: uuidValue(parsed)})
+	row, err := r.queries.GetUserByID(ctx, db.GetUserByIDParams{ID: uuidValue(parsed)})
 	if err != nil {
 		return nil, mapNotFound(err)
 	}
 	return userFromModel(row), nil
 }
 
-func (r *SQLCUserRepository) FindAll() ([]*entities.User, error) {
-	rows, err := r.queries.ListUsers(context.Background())
+func (r *SQLCUserRepository) FindAll(ctx context.Context) ([]*entities.User, error) {
+	rows, err := r.queries.ListUsers(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -59,21 +59,24 @@ func (r *SQLCUserRepository) Search(ctx context.Context, query string) ([]*entit
 	return users, nil
 }
 
-func (r *SQLCUserRepository) Patch(id string, user *entities.User) error {
+func (r *SQLCUserRepository) Patch(ctx context.Context, id string, user *entities.User) (*entities.User, error) {
 	parsed, err := uuid.Parse(id)
 	if err != nil {
-		return apperror.ErrInvalidID
+		return nil, apperror.ErrInvalidID
 	}
-	_, err = r.queries.UpdateUserName(context.Background(), db.UpdateUserNameParams{ID: uuidValue(parsed), Name: textValue(user.Name)})
-	return mapNotFound(err)
+	row, err := r.queries.UpdateUserName(ctx, db.UpdateUserNameParams{ID: uuidValue(parsed), Name: textValue(user.Name)})
+	if err != nil {
+		return nil, mapNotFound(err)
+	}
+	return userFromModel(row), nil
 }
 
-func (r *SQLCUserRepository) Delete(id string) error {
+func (r *SQLCUserRepository) Delete(ctx context.Context, id string) error {
 	parsed, err := uuid.Parse(id)
 	if err != nil {
 		return apperror.ErrInvalidID
 	}
-	_, err = r.queries.SoftDeleteUser(context.Background(), db.SoftDeleteUserParams{ID: uuidValue(parsed)})
+	_, err = r.queries.SoftDeleteUser(ctx, db.SoftDeleteUserParams{ID: uuidValue(parsed)})
 	return mapNotFound(err)
 }
 

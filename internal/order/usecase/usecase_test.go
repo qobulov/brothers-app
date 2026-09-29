@@ -43,7 +43,7 @@ func (s *OrderUseCaseTestSuite) TestCreateOrder() {
 		Total: 150.50,
 	}
 
-	err := s.service.CreateOrder(order)
+	err := s.service.CreateOrder(s.T().Context(), order)
 	s.NoError(err)
 	s.NotZero(order.ID)
 }
@@ -57,18 +57,18 @@ func (s *OrderUseCaseTestSuite) TestFindAllOrders() {
 	}
 
 	for _, order := range orders {
-		err := s.service.CreateOrder(order)
+		err := s.service.CreateOrder(s.T().Context(), order)
 		s.NoError(err)
 	}
 
 	// Find all
-	allOrders, err := s.service.FindAllOrders()
+	allOrders, err := s.service.FindAllOrders(s.T().Context())
 	s.NoError(err)
 	s.Len(allOrders, 3)
 }
 
 func (s *OrderUseCaseTestSuite) TestFindAllOrders_Empty() {
-	allOrders, err := s.service.FindAllOrders()
+	allOrders, err := s.service.FindAllOrders(s.T().Context())
 	s.NoError(err)
 	s.Empty(allOrders)
 }
@@ -78,11 +78,11 @@ func (s *OrderUseCaseTestSuite) TestFindOrderByID() {
 	order := &entities.Order{
 		Total: 250.75,
 	}
-	err := s.service.CreateOrder(order)
+	err := s.service.CreateOrder(s.T().Context(), order)
 	s.NoError(err)
 
 	// Find by ID
-	found, err := s.service.FindOrderByID(order.ID)
+	found, err := s.service.FindOrderByID(s.T().Context(), order.ID)
 	s.NoError(err)
 	s.NotNil(found)
 	s.Equal(order.ID, found.ID)
@@ -90,7 +90,7 @@ func (s *OrderUseCaseTestSuite) TestFindOrderByID() {
 }
 
 func (s *OrderUseCaseTestSuite) TestFindOrderByID_NotFound() {
-	_, err := s.service.FindOrderByID(uuid.New())
+	_, err := s.service.FindOrderByID(s.T().Context(), uuid.New())
 	s.Error(err)
 }
 
@@ -99,7 +99,7 @@ func (s *OrderUseCaseTestSuite) TestPatchOrder() {
 	order := &entities.Order{
 		Total: 100.0,
 	}
-	err := s.service.CreateOrder(order)
+	err := s.service.CreateOrder(s.T().Context(), order)
 	s.NoError(err)
 
 	orderID := order.ID
@@ -108,7 +108,7 @@ func (s *OrderUseCaseTestSuite) TestPatchOrder() {
 	updateData := &entities.Order{
 		Total: 500.0,
 	}
-	updated, err := s.service.PatchOrder(orderID, updateData)
+	updated, err := s.service.PatchOrder(s.T().Context(), orderID, updateData)
 	s.NoError(err)
 	s.NotNil(updated)
 	s.Equal(500.0, updated.Total)
@@ -119,7 +119,7 @@ func (s *OrderUseCaseTestSuite) TestPatchOrder_NotFound() {
 	updateData := &entities.Order{
 		Total: 999.0,
 	}
-	updated, err := s.service.PatchOrder(uuid.New(), updateData)
+	updated, err := s.service.PatchOrder(s.T().Context(), uuid.New(), updateData)
 	s.Error(err)
 	s.Nil(updated)
 	s.ErrorIs(err, apperror.ErrRecordNotFound)
@@ -130,22 +130,22 @@ func (s *OrderUseCaseTestSuite) TestDeleteOrder() {
 	order := &entities.Order{
 		Total: 600.0,
 	}
-	err := s.service.CreateOrder(order)
+	err := s.service.CreateOrder(s.T().Context(), order)
 	s.NoError(err)
 
 	orderID := order.ID
 
 	// Delete order
-	err = s.service.DeleteOrder(orderID)
+	err = s.service.DeleteOrder(s.T().Context(), orderID)
 	s.NoError(err)
 
 	// Verify deletion
-	_, err = s.service.FindOrderByID(orderID)
+	_, err = s.service.FindOrderByID(s.T().Context(), orderID)
 	s.Error(err)
 }
 
 func (s *OrderUseCaseTestSuite) TestDeleteOrder_NotFound() {
-	err := s.service.DeleteOrder(uuid.New())
+	err := s.service.DeleteOrder(s.T().Context(), uuid.New())
 	s.Error(err)
 	s.ErrorIs(err, apperror.ErrRecordNotFound)
 }
@@ -155,7 +155,7 @@ func (s *OrderUseCaseTestSuite) TestCreateOrder_ZeroTotal() {
 		Total: 0.0,
 	}
 
-	err := s.service.CreateOrder(order)
+	err := s.service.CreateOrder(s.T().Context(), order)
 	s.NoError(err)
 	s.NotZero(order.ID)
 	s.Equal(0.0, order.Total)
@@ -166,7 +166,7 @@ func (s *OrderUseCaseTestSuite) TestCreateOrder_LargeTotal() {
 		Total: 999999.99,
 	}
 
-	err := s.service.CreateOrder(order)
+	err := s.service.CreateOrder(s.T().Context(), order)
 	s.NoError(err)
 	s.NotZero(order.ID)
 	s.Equal(999999.99, order.Total)
