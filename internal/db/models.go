@@ -136,12 +136,46 @@ type NotificationRecipient struct {
 }
 
 type Order struct {
-	ID        pgtype.UUID        `json:"id"`
-	GroupID   pgtype.UUID        `json:"group_id"`
-	Total     pgtype.Numeric     `json:"total"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt pgtype.Timestamptz `json:"deleted_at"`
+	ID                 pgtype.UUID        `json:"id"`
+	GroupID            pgtype.UUID        `json:"group_id"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt          pgtype.Timestamptz `json:"deleted_at"`
+	CreatedBy          pgtype.UUID        `json:"created_by"`
+	GiverMemberID      pgtype.UUID        `json:"giver_member_id"`
+	ReceiverMemberID   pgtype.UUID        `json:"receiver_member_id"`
+	GiverLocationID    pgtype.UUID        `json:"giver_location_id"`
+	ReceiverLocationID pgtype.UUID        `json:"receiver_location_id"`
+	GiverCustomerID    pgtype.UUID        `json:"giver_customer_id"`
+	ReceiverCustomerID pgtype.UUID        `json:"receiver_customer_id"`
+	AmountUsd          int64              `json:"amount_usd"`
+	FeeUzs             int64              `json:"fee_uzs"`
+	Status             string             `json:"status"`
+	CompletedAt        pgtype.Timestamptz `json:"completed_at"`
+	CancelledAt        pgtype.Timestamptz `json:"cancelled_at"`
+}
+
+type OrderConfirmation struct {
+	ID          pgtype.UUID        `json:"id"`
+	OrderID     pgtype.UUID        `json:"order_id"`
+	MemberID    pgtype.UUID        `json:"member_id"`
+	AmountUsd   int64              `json:"amount_usd"`
+	FeeUzs      int64              `json:"fee_uzs"`
+	ConfirmedAt pgtype.Timestamptz `json:"confirmed_at"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`
+}
+
+type OrderEvent struct {
+	ID          pgtype.UUID        `json:"id"`
+	OrderID     pgtype.UUID        `json:"order_id"`
+	ActorUserID pgtype.UUID        `json:"actor_user_id"`
+	EventType   string             `json:"event_type"`
+	Payload     []byte             `json:"payload"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`
 }
 
 type User struct {

@@ -701,20 +701,6 @@ definitions:
       success:
         type: boolean
     type: object
-  orderdto.CreateOrderRequest:
-    properties:
-      total:
-        type: number
-    required:
-    - total
-    type: object
-  orderdto.OrderResponse:
-    properties:
-      id:
-        type: string
-      total:
-        type: number
-    type: object
   responses.ErrorDetails:
     properties:
       reason:
@@ -1441,100 +1427,6 @@ paths:
       summary: List my notifications
       tags:
       - notifications
-  /orders:
-    get:
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/orderdto.OrderResponse'
-            type: array
-      summary: Get all orders
-      tags:
-      - orders
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: Order payload
-        in: body
-        name: order
-        required: true
-        schema:
-          $ref: '#/definitions/orderdto.CreateOrderRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/orderdto.OrderResponse'
-      summary: Create a new order
-      tags:
-      - orders
-  /orders/{id}:
-    delete:
-      parameters:
-      - description: Order UUID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/responses.MessageResponse'
-      summary: Delete an order by ID
-      tags:
-      - orders
-    get:
-      parameters:
-      - description: Order UUID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/orderdto.OrderResponse'
-      summary: Get order by ID
-      tags:
-      - orders
-    patch:
-      consumes:
-      - application/json
-      parameters:
-      - description: Order UUID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Order update payload
-        in: body
-        name: order
-        required: true
-        schema:
-          $ref: '#/definitions/orderdto.CreateOrderRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/orderdto.OrderResponse'
-      summary: Update an order partially
-      tags:
-      - orders
   /users:
     get:
       description: Searches active users by username or email and returns only invitation-safe

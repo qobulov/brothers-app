@@ -163,7 +163,6 @@ func TestSwaggerWriteRequestsExcludeDatabaseManagedFields(t *testing.T) {
 		{name: "password verify", operation: spec.Paths["/auth/password/verify"].Post, wantFields: []string{"email", "otp"}},
 		{name: "password reset", operation: spec.Paths["/auth/password/reset"].Post, wantFields: []string{"reset_token", "password"}, forbiddenFields: []string{"confirm_password"}},
 		{name: "current profile patch", operation: spec.Paths["/me"].Patch, wantFields: []string{"first_name", "last_name", "avatar_url", "language"}},
-		{name: "order create", operation: spec.Paths["/orders"].Post, wantFields: []string{"total"}},
 	}
 	managedFields := []string{"id", "created_at", "updated_at", "deleted_at", "is_active", "last_login_at"}
 

@@ -81,12 +81,10 @@ func TestLocalizeMessageCoversHandlerMessages(t *testing.T) {
 		{MessageUsersReturned, "Foydalanuvchilar olindi", "Пользователи получены", "Users returned"},
 		{MessageNotificationsReturned, "Bildirishnomalar olindi", "Уведомления получены", "Notifications returned"},
 		{MessageUserDeleted, "Foydalanuvchi o'chirildi", "Пользователь удалён", "User deleted"},
-		{MessageOrderDeleted, "Buyurtma o'chirildi", "Заказ удалён", "Order deleted"},
 		{MessageResourceNotFound, "Resurs topilmadi", "Ресурс не найден", "Resource not found"},
 		{MessageInvalidCredentials, "Hisob ma'lumotlari noto'g'ri", "Неверные учетные данные", "Invalid credentials"},
 		{MessageInvalidRequest, "So'rov ma'lumotlari noto'g'ri", "Некорректный запрос", "Invalid request"},
 		{MessageInvalidID, "ID noto'g'ri", "Некорректный ID", "Invalid ID"},
-		{MessageTotalMustBePositive, "Umumiy summa musbat bo'lishi kerak", "Сумма должна быть положительной", "Total must be positive"},
 	}
 
 	for _, tt := range tests {

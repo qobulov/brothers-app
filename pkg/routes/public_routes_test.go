@@ -472,106 +472,23 @@ func (s *PublicRoutesTestSuite) loginAccessToken(login, password string) string 
 
 // === ORDER ROUTES ===
 
-func (s *PublicRoutesTestSuite) TestGetOrders() {
-	req := httptest.NewRequest("GET", "/api/v1/orders", nil)
-	req.Header.Set("Authorization", s.accessToken)
-	resp, err := s.app.Test(req, -1)
-	s.NoError(err)
-	s.Equal(fiber.StatusOK, resp.StatusCode)
-}
-
-func (s *PublicRoutesTestSuite) TestGetOrderByID_NotFound() {
-	req := httptest.NewRequest("GET", "/api/v1/orders/"+uuid.NewString(), nil)
-	req.Header.Set("Authorization", s.accessToken)
-	resp, err := s.app.Test(req, -1)
-	s.NoError(err)
-	s.NotEqual(fiber.StatusInternalServerError, resp.StatusCode)
-}
-
-func (s *PublicRoutesTestSuite) TestCreateOrder() {
-	body := map[string]interface{}{
-		"total": 300,
+func (s *PublicRoutesTestSuite) TestLegacyOrderRoutesNotRegistered() {
+	legacyRoutes := map[string]bool{
+		"GET /api/v1/orders":        false,
+		"POST /api/v1/orders":       false,
+		"GET /api/v1/orders/:id":    false,
+		"PATCH /api/v1/orders/:id":  false,
+		"DELETE /api/v1/orders/:id": false,
 	}
-	jsonBody, _ := json.Marshal(body)
-
-	req := httptest.NewRequest("POST", "/api/v1/orders", bytes.NewBuffer(jsonBody))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", s.accessToken)
-
-	resp, err := s.app.Test(req, -1)
-	s.NoError(err)
-	s.True(resp.StatusCode == fiber.StatusOK || resp.StatusCode == fiber.StatusCreated)
-}
-
-func (s *PublicRoutesTestSuite) TestPatchOrder() {
-	// First create an order
-	createBody := map[string]interface{}{
-		"total": 300,
+	for _, route := range s.app.GetRoutes() {
+		key := route.Method + " " + route.Path
+		if _, ok := legacyRoutes[key]; ok {
+			legacyRoutes[key] = true
+		}
 	}
-	createJsonBody, _ := json.Marshal(createBody)
-	createReq := httptest.NewRequest("POST", "/api/v1/orders", bytes.NewBuffer(createJsonBody))
-	createReq.Header.Set("Content-Type", "application/json")
-	createReq.Header.Set("Authorization", s.accessToken)
-	createResp, err := s.app.Test(createReq, -1)
-	s.Require().NoError(err)
-	defer createResp.Body.Close()
-	s.True(createResp.StatusCode == fiber.StatusOK || createResp.StatusCode == fiber.StatusCreated)
-	var createEnvelope struct {
-		Data struct {
-			ID uuid.UUID `json:"id"`
-		} `json:"data"`
+	for route, registered := range legacyRoutes {
+		if registered {
+			s.T().Errorf("legacy order route %s is still registered", route)
+		}
 	}
-	s.Require().NoError(json.NewDecoder(createResp.Body).Decode(&createEnvelope))
-	s.NotEqual(uuid.Nil, createEnvelope.Data.ID)
-
-	// Then try to patch it
-	body := map[string]interface{}{
-		"total": 3001,
-	}
-	jsonBody, _ := json.Marshal(body)
-
-	req := httptest.NewRequest("PATCH", "/api/v1/orders/"+createEnvelope.Data.ID.String(), bytes.NewBuffer(jsonBody))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", s.accessToken)
-
-	resp, err := s.app.Test(req, -1)
-	s.NoError(err)
-	s.True(resp.StatusCode >= 200 && resp.StatusCode < 500)
-}
-
-func (s *PublicRoutesTestSuite) TestDeleteOrder() {
-	// First create an order
-	createBody := map[string]interface{}{
-		"total": 300,
-	}
-	createJsonBody, _ := json.Marshal(createBody)
-	createReq := httptest.NewRequest("POST", "/api/v1/orders", bytes.NewBuffer(createJsonBody))
-	createReq.Header.Set("Content-Type", "application/json")
-	createReq.Header.Set("Authorization", s.accessToken)
-	createResp, err := s.app.Test(createReq, -1)
-	s.Require().NoError(err)
-	defer createResp.Body.Close()
-	s.True(createResp.StatusCode == fiber.StatusOK || createResp.StatusCode == fiber.StatusCreated)
-	var createEnvelope struct {
-		Data struct {
-			ID uuid.UUID `json:"id"`
-		} `json:"data"`
-	}
-	s.Require().NoError(json.NewDecoder(createResp.Body).Decode(&createEnvelope))
-	s.NotEqual(uuid.Nil, createEnvelope.Data.ID)
-
-	// Then try to delete it
-	req := httptest.NewRequest("DELETE", "/api/v1/orders/"+createEnvelope.Data.ID.String(), nil)
-	req.Header.Set("Authorization", s.accessToken)
-	resp, err := s.app.Test(req, -1)
-	s.NoError(err)
-	s.True(resp.StatusCode >= 200 && resp.StatusCode < 500)
-}
-
-func (s *PublicRoutesTestSuite) TestOrdersRequireAuthentication() {
-	request := httptest.NewRequest("GET", "/api/v1/orders", nil)
-	response, err := s.app.Test(request, -1)
-	s.Require().NoError(err)
-	defer response.Body.Close()
-	s.Equal(fiber.StatusUnauthorized, response.StatusCode)
 }

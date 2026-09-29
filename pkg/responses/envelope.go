@@ -45,14 +45,12 @@ const (
 	MessageUsersReturned         = "users_returned"
 	MessageNotificationsReturned = "notifications_returned"
 	MessageUserDeleted           = "user_deleted"
-	MessageOrderDeleted          = "order_deleted"
 	MessageResourceNotFound      = "resource_not_found"
 	MessageInvalidCredentials    = "invalid_credentials"
 	MessageIDRequired            = "id_required"
 	MessageInvalidRequest        = "invalid_request"
 	MessageInvalidID             = "invalid_id"
 	MessageInvalidUsername       = "invalid_username"
-	MessageTotalMustBePositive   = "total_must_be_positive"
 )
 
 type translation struct{ uz, ru, en string }
@@ -68,14 +66,12 @@ var messageTranslations = map[string]translation{
 	MessageUsersReturned:         {"Foydalanuvchilar olindi", "Пользователи получены", "Users returned"},
 	MessageNotificationsReturned: {"Bildirishnomalar olindi", "Уведомления получены", "Notifications returned"},
 	MessageUserDeleted:           {"Foydalanuvchi o'chirildi", "Пользователь удалён", "User deleted"},
-	MessageOrderDeleted:          {"Buyurtma o'chirildi", "Заказ удалён", "Order deleted"},
 	MessageResourceNotFound:      {"Resurs topilmadi", "Ресурс не найден", "Resource not found"},
 	MessageInvalidCredentials:    {"Hisob ma'lumotlari noto'g'ri", "Неверные учетные данные", "Invalid credentials"},
 	MessageIDRequired:            {"ID kiritilishi shart", "Необходимо указать ID", "ID is required"},
 	MessageInvalidRequest:        {"So'rov ma'lumotlari noto'g'ri", "Некорректный запрос", "Invalid request"},
 	MessageInvalidID:             {"ID noto'g'ri", "Некорректный ID", "Invalid ID"},
 	MessageInvalidUsername:       {"Foydalanuvchi nomi noto'g'ri", "Некорректное имя пользователя", "Username is invalid"},
-	MessageTotalMustBePositive:   {"Umumiy summa musbat bo'lishi kerak", "Сумма должна быть положительной", "Total must be positive"},
 }
 
 // FailureReport contains request metadata, the original error, and a bounded
