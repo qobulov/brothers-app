@@ -140,7 +140,7 @@ func (h *Handler) AdjustBalance(c *fiber.Ctx) error {
 	if err := c.BodyParser(&request); err != nil {
 		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
 	}
-	adjustment, err := h.service.AdjustBalance(c.UserContext(), ids.actor, ids.group, ids.user, AdjustBalanceInput{NewBalanceUSD: request.NewBalanceUSD, Reason: request.Reason})
+	adjustment, err := h.service.AdjustBalance(c.UserContext(), ids.actor, ids.group, ids.user, AdjustBalanceInput(request))
 	if err != nil {
 		return responses.Error(c, err)
 	}

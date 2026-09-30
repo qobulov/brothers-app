@@ -201,7 +201,7 @@ func (h *Handler) Confirm(c *fiber.Ctx) error {
 	if err := c.BodyParser(&request); err != nil {
 		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
 	}
-	confirmed, err := h.service.Confirm(c.UserContext(), actorID, groupID, orderID, ConfirmInput{AmountUSD: request.AmountUSD, FeeUZS: request.FeeUZS})
+	confirmed, err := h.service.Confirm(c.UserContext(), actorID, groupID, orderID, ConfirmInput(request))
 	if err != nil {
 		return responses.Error(c, err)
 	}
