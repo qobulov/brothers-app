@@ -1,9 +1,6 @@
 package apperror
 
-import (
-	"errors"
-	"fmt"
-)
+import "fmt"
 
 // Text is a user-facing message in every supported language.
 type Text struct {
@@ -14,29 +11,13 @@ type Text struct {
 // the user should see. The reason becomes the response message in the
 // request's language; errors.Is still matches the kind.
 type Localized struct {
-	kind  error
-	field string
-	text  Text
+	kind error
+	text Text
 }
 
 // New returns kind with a translated, user-facing reason.
 func New(kind error, text Text) error {
 	return &Localized{kind: kind, text: text}
-}
-
-// NewField is New for an error caused by one request field, so the app can
-// show the message next to that input.
-func NewField(kind error, field string, text Text) error {
-	return &Localized{kind: kind, field: field, text: text}
-}
-
-// Field returns the request field an error is about, or "" when there is none.
-func Field(err error) string {
-	var specific *Localized
-	if errors.As(err, &specific) {
-		return specific.field
-	}
-	return ""
 }
 
 func (e *Localized) Error() string { return e.kind.Error() + ": " + e.text.EN }
@@ -67,7 +48,7 @@ func PageOutOfRange(maxLimit, maxOffset int) error {
 }
 
 func NotAnInteger(field string) error {
-	return NewField(ErrInvalidData, field, Text{
+	return New(ErrInvalidData, Text{
 		UZ: fmt.Sprintf("%s butun son bo'lishi kerak", field),
 		RU: fmt.Sprintf("%s должен быть целым числом", field),
 		EN: fmt.Sprintf("%s must be an integer", field),
@@ -75,7 +56,7 @@ func NotAnInteger(field string) error {
 }
 
 func OutOfRange(field string, min, max int) error {
-	return NewField(ErrInvalidData, field, Text{
+	return New(ErrInvalidData, Text{
 		UZ: fmt.Sprintf("%s %d dan %d gacha bo'lishi kerak", field, min, max),
 		RU: fmt.Sprintf("%s должен быть от %d до %d", field, min, max),
 		EN: fmt.Sprintf("%s must be between %d and %d", field, min, max),
@@ -83,7 +64,7 @@ func OutOfRange(field string, min, max int) error {
 }
 
 func ReasonTooLong(max int) error {
-	return NewField(ErrInvalidData, "reason", Text{
+	return New(ErrInvalidData, Text{
 		UZ: fmt.Sprintf("Izoh %d belgidan oshmasligi kerak", max),
 		RU: fmt.Sprintf("Причина должна быть не длиннее %d символов", max),
 		EN: fmt.Sprintf("The reason must be at most %d characters", max),
@@ -91,7 +72,7 @@ func ReasonTooLong(max int) error {
 }
 
 func InvalidEmail() error {
-	return NewField(ErrInvalidData, "email", Text{
+	return New(ErrInvalidData, Text{
 		UZ: "Email manzili noto'g'ri",
 		RU: "Некорректный email",
 		EN: "Enter a valid email address",

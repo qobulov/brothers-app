@@ -15,8 +15,6 @@ type ErrorDetails struct {
 	// Reason is a technical explanation for developers, always in English.
 	// Outside development, server errors report only their slug here.
 	Reason string `json:"reason" example:"invalid data: The amount must be between $1 and $1000000000"`
-	// Field names the request field the error is about, when there is one.
-	Field string `json:"field,omitempty" example:"amount_usd"`
 }
 
 func Error(c *fiber.Ctx, err error) error {
@@ -54,7 +52,7 @@ func ErrorWithMessage(c *fiber.Ctx, err error, message string) error {
 // errorDetails keeps internal causes (SQL, network) out of the response body
 // outside development; the full reason still reaches logs and Telegram.
 func errorDetails(c *fiber.Ctx, status int, err error) ErrorDetails {
-	details := ErrorDetails{Reason: err.Error(), Field: appError.Field(err)}
+	details := ErrorDetails{Reason: err.Error()}
 	environment, _ := c.Locals(appEnvironmentLocal).(string)
 	if status >= fiber.StatusInternalServerError && environment != "development" {
 		details.Reason = appError.Slug(err)

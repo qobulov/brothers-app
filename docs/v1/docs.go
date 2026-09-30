@@ -3842,8 +3842,9 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "reason": {
+                    "description": "Reason is a technical explanation for developers, always in English.\nOutside development, server errors report only their slug here.",
                     "type": "string",
-                    "example": "checking registration email: ERROR: column email does not exist (SQLSTATE 42703)"
+                    "example": "invalid data: The amount must be between $1 and $1000000000"
                 }
             }
         },

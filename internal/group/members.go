@@ -156,7 +156,7 @@ func (s *Service) ListMembers(ctx context.Context, actorID, groupID uuid.UUID, i
 func validMemberFilters(input ListMembersInput) (string, string, string, error) {
 	query := strings.TrimSpace(input.Query)
 	if len(query) > 100 {
-		return "", "", "", apperror.ErrInvalidData
+		return "", "", "", apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Qidiruv matni 100 belgidan oshmasligi kerak", RU: "Поисковый запрос не должен превышать 100 символов", EN: "The search query must be at most 100 characters"})
 	}
 	role := strings.ToLower(strings.TrimSpace(input.Role))
 	if role == "all" {
@@ -165,7 +165,7 @@ func validMemberFilters(input ListMembersInput) (string, string, string, error) 
 	switch role {
 	case "", "manager", "employee", "investor":
 	default:
-		return "", "", "", apperror.ErrInvalidData
+		return "", "", "", apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Rol all, manager, employee yoki investor bo'lishi kerak", RU: "Роль должна быть all, manager, employee или investor", EN: "Role must be all, manager, employee or investor"})
 	}
 	status := strings.ToLower(strings.TrimSpace(input.Status))
 	if status == "all" {
@@ -174,7 +174,7 @@ func validMemberFilters(input ListMembersInput) (string, string, string, error) 
 	switch status {
 	case "", "active", "pending":
 	default:
-		return "", "", "", apperror.ErrInvalidData
+		return "", "", "", apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Holat all, active yoki pending bo'lishi kerak", RU: "Статус должен быть all, active или pending", EN: "Status must be all, active or pending"})
 	}
 	return query, role, status, nil
 }

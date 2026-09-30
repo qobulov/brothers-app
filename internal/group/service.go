@@ -45,7 +45,7 @@ func NewService(pool *pgxpool.Pool) *Service {
 func (s *Service) Create(ctx context.Context, actorID uuid.UUID, name string) (Group, error) {
 	name = strings.TrimSpace(name)
 	if name == "" || len(name) > 255 {
-		return Group{}, apperror.ErrInvalidData
+		return Group{}, apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Guruh nomi 1 dan 255 belgigacha bo'lishi kerak", RU: "Название группы должно содержать от 1 до 255 символов", EN: "The group name must be 1-255 characters"})
 	}
 
 	tx, err := s.pool.Begin(ctx)
@@ -182,7 +182,7 @@ func (s *Service) List(ctx context.Context, actorID uuid.UUID) ([]GroupListItem,
 // preserving its financial and audit history.
 func (s *Service) Delete(ctx context.Context, actorID, groupID uuid.UUID, confirmed bool) error {
 	if !confirmed {
-		return apperror.ErrInvalidData
+		return apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Guruhni o'chirishni tasdiqlang (confirm: true)", RU: "Подтвердите удаление группы (confirm: true)", EN: "Confirm the deletion with confirm: true"})
 	}
 
 	tx, err := s.pool.Begin(ctx)

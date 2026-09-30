@@ -621,6 +621,8 @@ GET /api/v1/groups/:groupID/members/:userID/balance-adjustments?limit=50&offset=
 
 - `message` — foydalanuvchiga ko‘rsatiladigan matn, so‘rov tilida (`Application-Language`). Aniq sabab bo‘lsa, shu sabab qaytadi, masalan: `"Yangi balans hozirgi balansga teng"`. Aniq sabab bo‘lmasa, umumiy matn qaytadi (`"Ma'lumotlar noto'g'ri"`).
 - `data.reason` — dasturchilar uchun texnik izoh, doim English. Foydalanuvchiga ko‘rsatilmaydi.
+- `data` xatoda hech qachon `null` bo‘lmaydi. Server xatolarida (5xx) production'da `reason` faqat slug'ni qaytaradi.
+- To‘liq qo‘llanma: `ERRORS.md`.
 - `slug` va `code` tilga bog‘liq emas, ilova mantiqi uchun shulardan foydalaning.
 
 Asosiy status kodlari:

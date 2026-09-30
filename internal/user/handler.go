@@ -31,7 +31,7 @@ func NewHandler(service *Service) *Handler {
 func (h *Handler) Lookup(c *fiber.Ctx) error {
 	query := strings.TrimSpace(c.Query("query"))
 	if utf8.RuneCountInString(query) < 2 || utf8.RuneCountInString(query) > 100 {
-		return responses.Error(c, apperror.ErrInvalidData)
+		return responses.Error(c, apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Qidiruv matni 2 dan 100 belgigacha bo'lishi kerak", RU: "Поисковый запрос должен содержать от 2 до 100 символов", EN: "The search query must be 2-100 characters"}))
 	}
 	users, err := h.service.Search(c.UserContext(), query)
 	if err != nil {

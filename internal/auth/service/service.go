@@ -68,7 +68,7 @@ func (s *Service) SendOTP(ctx context.Context, req dto.SendOTPRequest) (dto.Star
 		}
 		email, err = helpers.NormalizeEmail(req.Email)
 		if err != nil {
-			return dto.StartData{}, invalidEmail()
+			return dto.StartData{}, apperror.InvalidEmail()
 		}
 		_, err = s.queries.GetUserByEmail(ctx, db.GetUserByEmailParams{Email: text(email)})
 		if err == nil {
@@ -123,7 +123,7 @@ func passwordResetIdentifier(req dto.SendOTPRequest) (email, username string, er
 	}
 	email, err = helpers.NormalizeEmail(emailInput)
 	if err != nil {
-		return "", "", invalidEmail()
+		return "", "", apperror.InvalidEmail()
 	}
 	return email, "", nil
 }
@@ -131,21 +131,21 @@ func passwordResetIdentifier(req dto.SendOTPRequest) (email, username string, er
 func (s *Service) Register(ctx context.Context, req dto.RegisterRequest) (dto.RegisterData, error) {
 	email, err := helpers.NormalizeEmail(req.Email)
 	if err != nil {
-		return dto.RegisterData{}, apperror.ErrInvalidData
+		return dto.RegisterData{}, apperror.InvalidEmail()
 	}
 	phone := pgtype.Text{}
 	if strings.TrimSpace(req.Phone) != "" {
 		normalizedPhone, normalizeErr := helpers.NormalizePhone(req.Phone)
 		if normalizeErr != nil {
-			return dto.RegisterData{}, apperror.ErrInvalidData
+			return dto.RegisterData{}, apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Telefon raqami noto'g'ri", RU: "Некорректный номер телефона", EN: "The phone number is invalid"})
 		}
 		phone = text(normalizedPhone)
 	}
 	username := strings.TrimSpace(req.Username)
 	firstName := strings.TrimSpace(req.FirstName)
 	lastName := strings.TrimSpace(req.LastName)
-	if req.Password == "" || username == "" || firstName == "" || len(req.Password) < 8 || len(username) > 50 {
-		return dto.RegisterData{}, apperror.ErrInvalidData
+	if err := validRegistration(req.Password, username, firstName); err != nil {
+		return dto.RegisterData{}, err
 	}
 	if !helpers.ValidOTP(req.OTPCode) {
 		return dto.RegisterData{}, apperror.ErrInvalidOTP
@@ -155,7 +155,7 @@ func (s *Service) Register(ctx context.Context, req dto.RegisterRequest) (dto.Re
 	}
 	req.Language = strings.ToLower(strings.TrimSpace(req.Language))
 	if req.Language != "uz" && req.Language != "ru" && req.Language != "en" {
-		return dto.RegisterData{}, apperror.ErrInvalidData
+		return dto.RegisterData{}, invalidLanguage()
 	}
 	if req.AvatarURL != "" {
 		if _, err := optionalAvatarURL(&req.AvatarURL); err != nil {
@@ -324,14 +324,14 @@ func (s *Service) CurrentUser(ctx context.Context, userID uuid.UUID) (dto.UserDa
 
 func (s *Service) UpdateCurrentUser(ctx context.Context, userID uuid.UUID, req dto.UpdateProfileRequest) (dto.UserData, error) {
 	if req.FirstName == nil && req.LastName == nil && req.AvatarURL == nil && req.Language == nil {
-		return dto.UserData{}, apperror.ErrInvalidData
+		return dto.UserData{}, apperror.NothingToUpdate()
 	}
 
-	firstName, err := optionalName(req.FirstName)
+	firstName, err := optionalName(req.FirstName, "first_name")
 	if err != nil {
 		return dto.UserData{}, err
 	}
-	lastName, err := optionalName(req.LastName)
+	lastName, err := optionalName(req.LastName, "last_name")
 	if err != nil {
 		return dto.UserData{}, err
 	}
@@ -402,8 +402,8 @@ func (s *Service) VerifyPasswordOTP(ctx context.Context, email, code string) (dt
 }
 
 func (s *Service) ResetPassword(ctx context.Context, req dto.ResetPasswordRequest) error {
-	if req.Password == "" || len(req.Password) < 8 {
-		return apperror.ErrInvalidData
+	if err := validPassword(req.Password); err != nil {
+		return err
 	}
 	value, err := s.otp.Take(ctx, "reset:"+helpers.HashSecret(req.ResetToken))
 	if errors.Is(err, otp.ErrNotFound) {
@@ -667,13 +667,13 @@ func SafeUser(user entities.User) dto.UserData {
 	}
 }
 
-func optionalName(value *string) (pgtype.Text, error) {
+func optionalName(value *string, field string) (pgtype.Text, error) {
 	if value == nil {
 		return pgtype.Text{}, nil
 	}
 	trimmed := strings.TrimSpace(*value)
 	if trimmed == "" || len([]rune(trimmed)) > 100 {
-		return pgtype.Text{}, apperror.ErrInvalidData
+		return pgtype.Text{}, invalidName(field)
 	}
 	return text(trimmed), nil
 }
@@ -684,7 +684,7 @@ func optionalLanguage(value *string) (pgtype.Text, error) {
 	}
 	language := strings.ToLower(strings.TrimSpace(*value))
 	if language != "uz" && language != "ru" && language != "en" {
-		return pgtype.Text{}, apperror.ErrInvalidData
+		return pgtype.Text{}, invalidLanguage()
 	}
 	return text(language), nil
 }
@@ -698,11 +698,11 @@ func optionalAvatarURL(value *string) (pgtype.Text, error) {
 		return text(""), nil
 	}
 	if len(avatar) > 2048 {
-		return pgtype.Text{}, apperror.ErrInvalidData
+		return pgtype.Text{}, invalidAvatarURL()
 	}
 	parsed, err := url.ParseRequestURI(avatar)
 	if err != nil || parsed.Host == "" || (parsed.Scheme != "https" && parsed.Scheme != "http") {
-		return pgtype.Text{}, apperror.ErrInvalidData
+		return pgtype.Text{}, invalidAvatarURL()
 	}
 	return text(avatar), nil
 }
@@ -723,10 +723,45 @@ func ParseRefreshExpiry(value string) (time.Time, error) {
 	return time.Unix(seconds, 0), nil
 }
 
-func invalidEmail() error {
+func validRegistration(password, username, firstName string) error {
+	if err := validPassword(password); err != nil {
+		return err
+	}
+	switch {
+	case username == "":
+		return apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Username kiritilishi shart", RU: "Укажите username", EN: "Username is required"})
+	case len(username) > 50:
+		return apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Username 50 belgidan oshmasligi kerak", RU: "Username не должен превышать 50 символов", EN: "The username must be at most 50 characters"})
+	case firstName == "":
+		return apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Ism kiritilishi shart", RU: "Укажите имя", EN: "First name is required"})
+	}
+	return nil
+}
+
+func validPassword(password string) error {
+	if len(password) < 8 {
+		return apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Parol kamida 8 belgidan iborat bo'lishi kerak", RU: "Пароль должен содержать не менее 8 символов", EN: "The password must be at least 8 characters"})
+	}
+	return nil
+}
+
+func invalidLanguage() error {
+	return apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Til uz, ru yoki en bo'lishi kerak", RU: "Язык должен быть uz, ru или en", EN: "Language must be uz, ru or en"})
+}
+
+func invalidAvatarURL() error {
+	return apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Rasm havolasi noto'g'ri", RU: "Некорректная ссылка на изображение", EN: "The avatar URL must be an http(s) link up to 2048 characters"})
+}
+
+// invalidName reports a first or last name that is empty or longer than 100 characters.
+func invalidName(field string) error {
+	label := apperror.Text{UZ: "Ism", RU: "Имя", EN: "First name"}
+	if field == "last_name" {
+		label = apperror.Text{UZ: "Familiya", RU: "Фамилия", EN: "Last name"}
+	}
 	return apperror.New(apperror.ErrInvalidData, apperror.Text{
-		UZ: "Email manzili noto'g'ri",
-		RU: "Некорректный email",
-		EN: "Enter a valid email address",
+		UZ: label.UZ + " 1 dan 100 belgigacha bo'lishi kerak",
+		RU: "Поле «" + label.RU + "» должно содержать от 1 до 100 символов",
+		EN: label.EN + " must be 1-100 characters",
 	})
 }

@@ -1,6 +1,7 @@
 package group
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -65,7 +66,7 @@ func (h *Handler) CreateLocation(c *fiber.Ctx) error {
 	}
 	var request CreateLocationRequest
 	if err := c.BodyParser(&request); err != nil {
-		return responses.Error(c, apperror.ErrInvalidData)
+		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
 	}
 	employeeID, err := optionalUUID(request.EmployeeID)
 	if err != nil {

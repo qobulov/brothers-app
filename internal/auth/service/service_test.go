@@ -254,7 +254,7 @@ func TestOptionalProfileFields(t *testing.T) {
 		wantErr bool
 	}{
 		{name: "trim name", run: func() error {
-			value, err := optionalName(&validName)
+			value, err := optionalName(&validName, "first_name")
 			if value.String != "Qobul" {
 				t.Errorf("name = %q", value.String)
 			}
@@ -275,7 +275,7 @@ func TestOptionalProfileFields(t *testing.T) {
 			}
 			return err
 		}},
-		{name: "reject empty name", run: func() error { _, err := optionalName(&invalidName); return err }, wantErr: true},
+		{name: "reject empty name", run: func() error { _, err := optionalName(&invalidName, "first_name"); return err }, wantErr: true},
 		{name: "reject unsupported language", run: func() error { _, err := optionalLanguage(&invalidLanguage); return err }, wantErr: true},
 		{name: "reject unsafe avatar scheme", run: func() error { _, err := optionalAvatarURL(&invalidAvatar); return err }, wantErr: true},
 	}

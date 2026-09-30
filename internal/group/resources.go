@@ -168,7 +168,7 @@ func (s *Service) ListCustomers(ctx context.Context, actorID, groupID uuid.UUID,
 	}
 	query = strings.TrimSpace(query)
 	if len(query) > 20 {
-		return nil, apperror.ErrInvalidData
+		return nil, apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Qidiruv matni 20 belgidan oshmasligi kerak", RU: "Поисковый запрос не должен превышать 20 символов", EN: "The search query must be at most 20 characters"})
 	}
 
 	rows, err := s.pool.Query(ctx, `
@@ -284,7 +284,7 @@ func (s *Service) resolveEmployeeMemberID(ctx context.Context, groupID, employee
 func validLocationName(value string) (string, error) {
 	name := strings.TrimSpace(value)
 	if name == "" || len(name) > 255 {
-		return "", apperror.ErrInvalidData
+		return "", apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Joy nomi 1 dan 255 belgigacha bo'lishi kerak", RU: "Название локации должно содержать от 1 до 255 символов", EN: "The location name must be 1-255 characters"})
 	}
 	return name, nil
 }

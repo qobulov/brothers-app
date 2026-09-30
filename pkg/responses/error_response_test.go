@@ -176,7 +176,7 @@ func TestResponsesUseApplicationLanguageHeader(t *testing.T) {
 	}
 }
 
-func TestErrorDetailsCarryFieldAndHideInternalReasons(t *testing.T) {
+func TestErrorDetailsHideInternalReasons(t *testing.T) {
 	t.Parallel()
 
 	for _, tt := range []struct {
@@ -192,7 +192,7 @@ func TestErrorDetailsCarryFieldAndHideInternalReasons(t *testing.T) {
 			return Error(c, errors.New(`loading order: ERROR: syntax error at or near "FROM"`))
 		})
 		app.Get("/field", func(c *fiber.Ctx) error {
-			return Error(c, apperror.NewField(apperror.ErrInvalidData, "amount_usd", apperror.Text{UZ: "a", RU: "b", EN: "Bad amount"}))
+			return Error(c, apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "a", RU: "b", EN: "Bad amount"}))
 		})
 
 		response, err := app.Test(httptest.NewRequest("GET", "/internal", nil))
@@ -209,7 +209,6 @@ func TestErrorDetailsCarryFieldAndHideInternalReasons(t *testing.T) {
 		var field Envelope[ErrorDetails]
 		require.NoError(t, json.NewDecoder(response.Body).Decode(&field))
 		response.Body.Close()
-		require.Equal(t, "amount_usd", field.Data.Field)
 		require.Equal(t, "invalid data: Bad amount", field.Data.Reason, "client errors keep their reason in every environment")
 	}
 }

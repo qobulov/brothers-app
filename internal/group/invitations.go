@@ -74,7 +74,7 @@ func (s *Service) Invite(ctx context.Context, actorID, groupID uuid.UUID, input 
 	}
 	input.LocationName = strings.TrimSpace(input.LocationName)
 	if len(input.LocationName) > 255 {
-		return Invitation{}, apperror.ErrInvalidData
+		return Invitation{}, apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Joy nomi 255 belgidan oshmasligi kerak", RU: "Название локации не должно превышать 255 символов", EN: "The location name must be at most 255 characters"})
 	}
 
 	recipientID, email, err := s.findRecipient(ctx, input)
@@ -192,7 +192,7 @@ func groupInvitationNotificationTranslations(groupName string) (notificationTran
 
 func (s *Service) RespondInvitation(ctx context.Context, actorID, invitationID uuid.UUID, action string) (Invitation, error) {
 	if action != "accept" && action != "reject" {
-		return Invitation{}, apperror.ErrInvalidData
+		return Invitation{}, apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Amal accept yoki reject bo'lishi kerak", RU: "Действие должно быть accept или reject", EN: "Action must be accept or reject"})
 	}
 	status := "accepted"
 	if action == "reject" {
@@ -303,10 +303,10 @@ func (s *Service) respond(ctx context.Context, actorID, invitationID uuid.UUID, 
 
 func (s *Service) findRecipient(ctx context.Context, input InviteInput) (uuid.UUID, string, error) {
 	if input.UserID == uuid.Nil && strings.TrimSpace(input.Email) == "" {
-		return uuid.Nil, "", apperror.ErrInvalidData
+		return uuid.Nil, "", apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Taklif uchun user_id yoki email kiriting", RU: "Укажите user_id или email для приглашения", EN: "Provide a user_id or an email to invite"})
 	}
 	if input.UserID != uuid.Nil && strings.TrimSpace(input.Email) != "" {
-		return uuid.Nil, "", apperror.ErrInvalidData
+		return uuid.Nil, "", apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "user_id yoki email'dan faqat bittasini kiriting", RU: "Укажите только user_id или только email", EN: "Provide either a user_id or an email, not both"})
 	}
 
 	var recipientID uuid.UUID
@@ -317,7 +317,7 @@ func (s *Service) findRecipient(ctx context.Context, input InviteInput) (uuid.UU
 	} else {
 		email, err = helpers.NormalizeEmail(input.Email)
 		if err != nil {
-			return uuid.Nil, "", apperror.ErrInvalidData
+			return uuid.Nil, "", apperror.InvalidEmail()
 		}
 		// Stored emails are normalized to lowercase, so plain equality can use users_email_unique_idx.
 		err = s.pool.QueryRow(ctx, `SELECT id, email FROM users WHERE email = $1 AND deleted_at IS NULL AND is_active`, email).Scan(&recipientID, &email)
@@ -337,6 +337,6 @@ func invitationRole(value string) (string, error) {
 	case "employee", "manager", "investor":
 		return role, nil
 	default:
-		return "", apperror.ErrInvalidData
+		return "", apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Rol employee, manager yoki investor bo'lishi kerak", RU: "Роль должна быть employee, manager или investor", EN: "Role must be employee, manager or investor"})
 	}
 }

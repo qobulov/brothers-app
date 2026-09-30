@@ -1217,8 +1217,10 @@ definitions:
   responses.ErrorDetails:
     properties:
       reason:
-        example: 'checking registration email: ERROR: column email does not exist
-          (SQLSTATE 42703)'
+        description: |-
+          Reason is a technical explanation for developers, always in English.
+          Outside development, server errors report only their slug here.
+        example: 'invalid data: The amount must be between $1 and $1000000000'
         type: string
     type: object
   responses.ErrorResponse:
