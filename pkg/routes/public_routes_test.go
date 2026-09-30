@@ -34,6 +34,8 @@ func (s *PublicRoutesTestSuite) SetupTest() {
 
 	// Load config for dev environment
 	s.cfg = config.LoadConfig("dev")
+	// Tests must never post failures to the real Telegram error topic.
+	s.cfg.TelegramBotToken = ""
 
 	// Setup REST server with test database (For registering routes and middleware)
 	var err error

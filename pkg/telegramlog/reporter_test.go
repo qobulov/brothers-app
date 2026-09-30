@@ -34,6 +34,7 @@ func TestReporterDeliversEscapedAndRedactedError(t *testing.T) {
 		Slug: "internal_error", Reason: `ERROR: column <email> missing; password="smtp-secret" otp=123456 Authorization: Bearer abc.def.xyz postgres://user:dbsecret@db/app`,
 		RequestBody:  `{"email":"ali@example.com","username":"qobulov","purpose":"registration","password":"body-secret"}`,
 		ResponseBody: `{"success":false,"code":1500,"data":{"email":"ali@example.com"}}`,
+		Query:        `{"status":"pending"}`,
 		Meta:         responses.Meta{RequestID: "test-request-123", Timestamp: "2026-09-27T12:00:00Z"}})
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -48,7 +49,7 @@ func TestReporterDeliversEscapedAndRedactedError(t *testing.T) {
 	if _, ok := payload["message_thread_id"]; ok {
 		t.Fatalf("unexpected General topic thread ID: %v", payload)
 	}
-	for _, expected := range []string{"test-request-123", "&lt;email&gt;", "POST /api/v1/auth/otp/send", "Request body", "Response body", "registration", "[REDACTED]", "\n  &#34;purpose&#34;"} {
+	for _, expected := range []string{"test-request-123", "&lt;email&gt;", "POST /api/v1/auth/otp/send", "Query", "pending", "Request body", "Response data", "registration", "[REDACTED]", "\n  &#34;purpose&#34;"} {
 		if !strings.Contains(message, expected) {
 			t.Errorf("missing %q", expected)
 		}

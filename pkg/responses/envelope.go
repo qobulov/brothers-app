@@ -93,6 +93,7 @@ type FailureReport struct {
 	Method, Path, Environment string
 	Status, Code              int
 	Slug, Reason              string
+	Query                     string
 	RequestBody, ResponseBody string
 	Meta                      Meta
 }
@@ -161,7 +162,7 @@ func Failure(c *fiber.Ctx, status, code int, slug, message string, data any) err
 		if details, ok := data.(ErrorDetails); ok {
 			reason = details.Reason
 		}
-		// Route templates exclude query parameters and user-supplied path values.
+		// Route templates exclude user-supplied path values; the query is reported separately.
 		path := c.Route().Path
 		if path == "" || path == "/" {
 			path = "<unmatched route>"
@@ -170,7 +171,7 @@ func Failure(c *fiber.Ctx, status, code int, slug, message string, data any) err
 		report(FailureReport{
 			Method: strings.Clone(c.Method()), Path: strings.Clone(path), Environment: environment,
 			Status: status, Code: code, Slug: slug, Reason: reason,
-			RequestBody: safeRequestBody(c.Body(), environment), ResponseBody: safeResponseBody(response, environment), Meta: metadata,
+			RequestBody: safeRequestBody(c.Body(), environment), ResponseBody: safeResponseData(data, environment), Query: safeQuery(c, environment), Meta: metadata,
 		})
 	}
 	return c.Status(status).JSON(response)
@@ -200,10 +201,35 @@ func safeRequestBody(body []byte, environment string) string {
 	return string(encoded)
 }
 
-func safeResponseBody(response any, environment string) string {
-	body, err := json.Marshal(response)
+// safeQuery reports the query parameters as a JSON object, redacted like the
+// request body outside development. A repeated key keeps its last value.
+func safeQuery(c *fiber.Ctx, environment string) string {
+	values := map[string]any{}
+	c.Request().URI().QueryArgs().VisitAll(func(key, value []byte) {
+		values[string(key)] = string(value)
+	})
+	if len(values) == 0 {
+		return ""
+	}
+	if environment != "development" {
+		redactRequestValue(values)
+	}
+	encoded, err := json.Marshal(values)
 	if err != nil {
-		return "<response body omitted: cannot encode>"
+		return "<query omitted: cannot encode>"
+	}
+	return string(encoded)
+}
+
+// safeResponseData reports only the response's data object; the envelope
+// fields are already in the report header.
+func safeResponseData(data any, environment string) string {
+	if data == nil {
+		return ""
+	}
+	body, err := json.Marshal(data)
+	if err != nil {
+		return "<response data omitted: cannot encode>"
 	}
 	return safeRequestBody(body, environment)
 }

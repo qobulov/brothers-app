@@ -231,11 +231,12 @@ func (r *Reporter) format(event responses.FailureReport) string {
 	}
 	// Bound every variable section so the rendered text stays below Telegram's
 	// 4096 UTF-16 code unit limit, including non-BMP Unicode.
+	query := bodySection("Query", event.Query, 400)
 	requestBody := bodySection("Request body", event.RequestBody, 800)
-	responseBody := bodySection("Response body", event.ResponseBody, 800)
+	responseBody := bodySection("Response data", event.ResponseBody, 800)
 	return fmt.Sprintf("<b>Brothers API error</b>\nEnvironment: <code>%s</code>\nTime (UTC): <code>%s</code>\nEndpoint: <code>%s %s</code>\nHTTP: <code>%d</code> · Code: <code>%d</code>\nSlug: <code>%s</code>\nRequest ID: <code>%s</code>\nDuration: <code>%s</code>\n\n<b>Reason</b>\n<pre>%s</pre>%s",
 		field(event.Environment, 32), field(event.Meta.Timestamp, 40), field(event.Method, 10), field(event.Path, 200),
-		event.Status, event.Code, field(event.Slug, 80), field(event.Meta.RequestID, 128), field(event.Meta.Duration, 32), field(event.Reason, 700), requestBody+responseBody)
+		event.Status, event.Code, field(event.Slug, 80), field(event.Meta.RequestID, 128), field(event.Meta.Duration, 32), field(event.Reason, 700), query+requestBody+responseBody)
 }
 
 func prettyJSON(value string) string {

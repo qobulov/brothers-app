@@ -46,6 +46,7 @@ func TestFailureReporterGetsOriginalErrorAndRedactedRequestBody(t *testing.T) {
 	defer response.Body.Close()
 	require.Len(t, reports, 1)
 	require.Equal(t, "/items/:id", reports[0].Path)
+	require.JSONEq(t, `{"token":"[REDACTED]"}`, reports[0].Query)
 	require.Equal(t, "database connection refused", reports[0].Reason)
 	require.JSONEq(t, `{"email":"[REDACTED]","username":"[REDACTED]","purpose":"registration","password":"[REDACTED]","nested":{"refresh_token":"[REDACTED]"}}`, reports[0].RequestBody)
 	require.Equal(t, "test-request-123", reports[0].Meta.RequestID)
@@ -53,9 +54,9 @@ func TestFailureReporterGetsOriginalErrorAndRedactedRequestBody(t *testing.T) {
 	var body Envelope[ErrorDetails]
 	require.NoError(t, json.NewDecoder(response.Body).Decode(&body))
 	require.Equal(t, reports[0].Meta, body.Meta)
-	encodedBody, err := json.Marshal(body)
+	encodedData, err := json.Marshal(body.Data)
 	require.NoError(t, err)
-	require.JSONEq(t, string(encodedBody), reports[0].ResponseBody)
+	require.JSONEq(t, string(encodedData), reports[0].ResponseBody, "only the response data is reported, not the envelope")
 }
 
 func TestFailureReporterOmitsInvalidJSONBody(t *testing.T) {
@@ -104,4 +105,35 @@ func TestFailureReporterIgnoresClientErrors(t *testing.T) {
 		require.Equal(t, status, response.StatusCode)
 	}
 	require.Empty(t, reports, "client errors must not be reported")
+}
+
+func TestFailureReporterOmitsEmptyResponseData(t *testing.T) {
+	var report FailureReport
+	app := fiber.New()
+	Middleware(app, "development", func(value FailureReport) { report = value })
+	app.Get("/items", func(c *fiber.Ctx) error {
+		return Failure(c, fiber.StatusInternalServerError, 1500, "internal_error", "internal error", nil)
+	})
+	response, err := app.Test(httptest.NewRequest("GET", "/items", nil))
+	require.NoError(t, err)
+	defer response.Body.Close()
+	require.Empty(t, report.ResponseBody)
+}
+
+func TestFailureReporterIncludesQueryParameters(t *testing.T) {
+	var report FailureReport
+	app := fiber.New()
+	Middleware(app, "development", func(value FailureReport) { report = value })
+	app.Get("/items", func(c *fiber.Ctx) error {
+		return Failure(c, fiber.StatusInternalServerError, 1500, "internal_error", "internal error", nil)
+	})
+	response, err := app.Test(httptest.NewRequest("GET", "/items?status=pending&limit=101", nil))
+	require.NoError(t, err)
+	defer response.Body.Close()
+	require.JSONEq(t, `{"status":"pending","limit":"101"}`, report.Query)
+
+	response, err = app.Test(httptest.NewRequest("GET", "/items", nil))
+	require.NoError(t, err)
+	defer response.Body.Close()
+	require.Empty(t, report.Query, "requests without a query string report no query section")
 }
