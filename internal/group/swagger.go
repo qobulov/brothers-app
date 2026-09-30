@@ -96,3 +96,33 @@ type ErrorResponse struct {
 	Data    *responses.ErrorDetails `json:"data"`
 	Meta    responses.Meta          `json:"meta"`
 }
+
+// MemberDetailResponse documents the standard success envelope for one member.
+type MemberDetailResponse struct {
+	Success bool           `json:"success" example:"true"`
+	Code    int            `json:"code" example:"0"`
+	Slug    string         `json:"slug" example:"ok"`
+	Message string         `json:"message" example:"Request processed successfully"`
+	Data    MemberDetail   `json:"data"`
+	Meta    responses.Meta `json:"meta"`
+}
+
+// BalanceAdjustmentResponse documents the standard success envelope for one balance adjustment.
+type BalanceAdjustmentResponse struct {
+	Success bool              `json:"success" example:"true"`
+	Code    int               `json:"code" example:"0"`
+	Slug    string            `json:"slug" example:"ok"`
+	Message string            `json:"message" example:"Balance updated"`
+	Data    BalanceAdjustment `json:"data"`
+	Meta    responses.Meta    `json:"meta"`
+}
+
+// BalanceHistoryResponse documents the standard success envelope for a member's balance history.
+type BalanceHistoryResponse struct {
+	Success bool           `json:"success" example:"true"`
+	Code    int            `json:"code" example:"0"`
+	Slug    string         `json:"slug" example:"ok"`
+	Message string         `json:"message" example:"Request processed successfully"`
+	Data    BalanceHistory `json:"data"`
+	Meta    responses.Meta `json:"meta"`
+}

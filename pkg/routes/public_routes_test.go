@@ -550,6 +550,39 @@ func (s *PublicRoutesTestSuite) TestGroupOrderFlow() {
 	s.Equal(fiber.StatusForbidden, status, "a manager is not a party and cannot answer a cancellation")
 }
 
+func (s *PublicRoutesTestSuite) TestGroupMemberFlow() {
+	groupID := s.createGroup("Member Flow")
+	employeeID := s.addEmployee(groupID, "flow-employee")
+	memberPath := "/api/v1/groups/" + groupID + "/members/" + employeeID
+
+	status, body := s.sendJSON("GET", memberPath, nil)
+	s.Require().Equal(fiber.StatusOK, status, string(body))
+	s.Contains(string(body), `"can_remove":true`)
+	s.NotContains(string(body), `"phone"`, "users have no phone number")
+
+	status, body = s.sendJSON("POST", memberPath+"/balance-adjustments", map[string]any{"new_balance_usd": 7500, "reason": "Cash correction"})
+	s.Require().Equal(fiber.StatusCreated, status, string(body))
+	s.Contains(string(body), `"direction":"increase"`)
+
+	status, body = s.sendJSON("GET", memberPath+"/balance-adjustments?limit=10", nil)
+	s.Require().Equal(fiber.StatusOK, status, string(body))
+	s.Contains(string(body), `"current_balance_usd":7500`)
+	status, _ = s.sendJSON("GET", memberPath+"/balance-adjustments?limit=abc", nil)
+	s.Equal(fiber.StatusBadRequest, status)
+
+	status, _ = s.sendJSON("DELETE", memberPath, nil)
+	s.Equal(fiber.StatusConflict, status, "a member with a balance cannot be removed")
+	status, _ = s.sendJSON("POST", memberPath+"/balance-adjustments", map[string]any{"new_balance_usd": 0})
+	s.Require().Equal(fiber.StatusCreated, status)
+	status, body = s.sendJSON("PATCH", memberPath, map[string]any{"role": "investor"})
+	s.Require().Equal(fiber.StatusOK, status, string(body))
+	s.Contains(string(body), `"role":"investor"`)
+	status, _ = s.sendJSON("DELETE", memberPath, nil)
+	s.Equal(fiber.StatusOK, status)
+	status, _ = s.sendJSON("GET", memberPath, nil)
+	s.Equal(fiber.StatusNotFound, status)
+}
+
 func (s *PublicRoutesTestSuite) createGroup(name string) string {
 	s.T().Helper()
 	status, body := s.sendJSON("POST", "/api/v1/groups", map[string]any{"name": name})

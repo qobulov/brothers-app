@@ -333,6 +333,99 @@ definitions:
         example: true
         type: boolean
     type: object
+  group.AdjustBalanceRequest:
+    properties:
+      new_balance_usd:
+        example: 7500
+        type: integer
+      reason:
+        example: Cash correction
+        type: string
+    type: object
+  group.BalanceAdjustment:
+    properties:
+      amount_usd:
+        type: integer
+      changed_by:
+        $ref: '#/definitions/group.PersonRef'
+      created_at:
+        type: string
+      direction:
+        enum:
+        - increase
+        - decrease
+        type: string
+      id:
+        type: string
+      new_balance_usd:
+        type: integer
+      old_balance_usd:
+        type: integer
+      reason:
+        type: string
+    type: object
+  group.BalanceAdjustmentResponse:
+    properties:
+      code:
+        example: 0
+        type: integer
+      data:
+        $ref: '#/definitions/group.BalanceAdjustment'
+      message:
+        example: Balance updated
+        type: string
+      meta:
+        $ref: '#/definitions/responses.Meta'
+      slug:
+        example: ok
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  group.BalanceHistory:
+    properties:
+      adjustments:
+        items:
+          $ref: '#/definitions/group.BalanceAdjustment'
+        type: array
+      current_balance_usd:
+        type: integer
+      member:
+        $ref: '#/definitions/group.BalanceMember'
+    type: object
+  group.BalanceHistoryResponse:
+    properties:
+      code:
+        example: 0
+        type: integer
+      data:
+        $ref: '#/definitions/group.BalanceHistory'
+      message:
+        example: Request processed successfully
+        type: string
+      meta:
+        $ref: '#/definitions/responses.Meta'
+      slug:
+        example: ok
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  group.BalanceMember:
+    properties:
+      avatar_url:
+        type: string
+      full_name:
+        type: string
+      location_name:
+        type: string
+      role:
+        type: string
+      user_id:
+        type: string
+    type: object
   group.CreateLocationRequest:
     properties:
       employee_id:
@@ -379,6 +472,19 @@ definitions:
     properties:
       confirm:
         type: boolean
+    type: object
+  group.EditMemberRequest:
+    properties:
+      location_id:
+        format: uuid
+        type: string
+      role:
+        enum:
+        - employee
+        - manager
+        - investor
+        example: manager
+        type: string
     type: object
   group.ErrorResponse:
     properties:
@@ -633,6 +739,78 @@ definitions:
       username:
         type: string
     type: object
+  group.MemberDetail:
+    properties:
+      avatar_url:
+        type: string
+      balance_usd:
+        type: integer
+      email:
+        type: string
+      full_name:
+        type: string
+      is_owner:
+        type: boolean
+      joined_at:
+        type: string
+      location:
+        $ref: '#/definitions/group.MemberLocation'
+      member_id:
+        type: string
+      permissions:
+        $ref: '#/definitions/group.MemberPermissions'
+      profit_uzs:
+        type: integer
+      removal:
+        $ref: '#/definitions/group.RemovalState'
+      role:
+        enum:
+        - employee
+        - manager
+        - investor
+        type: string
+      user_id:
+        type: string
+      username:
+        type: string
+    type: object
+  group.MemberDetailResponse:
+    properties:
+      code:
+        example: 0
+        type: integer
+      data:
+        $ref: '#/definitions/group.MemberDetail'
+      message:
+        example: Request processed successfully
+        type: string
+      meta:
+        $ref: '#/definitions/responses.Meta'
+      slug:
+        example: ok
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  group.MemberLocation:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+  group.MemberPermissions:
+    properties:
+      can_adjust_balance:
+        type: boolean
+      can_edit_location:
+        type: boolean
+      can_edit_role:
+        type: boolean
+      can_remove:
+        type: boolean
+    type: object
   group.MembersResponse:
     properties:
       code:
@@ -652,6 +830,22 @@ definitions:
         type: string
       success:
         example: true
+        type: boolean
+    type: object
+  group.PersonRef:
+    properties:
+      name:
+        type: string
+      user_id:
+        type: string
+    type: object
+  group.RemovalState:
+    properties:
+      allowed:
+        type: boolean
+      balance_is_zero:
+        type: boolean
+      no_active_orders:
         type: boolean
     type: object
   notification.Notification:
@@ -1620,6 +1814,250 @@ paths:
       summary: List active and pending group members
       tags:
       - groups
+  /groups/{groupID}/members/{userID}:
+    delete:
+      description: Any manager removes an employee; only the owner removes a manager
+        or investor. Requires a $0 balance and no active orders. The member's old
+        orders can no longer be cancelled.
+      parameters:
+      - description: Group UUID
+        in: path
+        name: groupID
+        required: true
+        type: string
+      - description: Member's user UUID
+        in: path
+        name: userID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/responses.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Remove a member from the group
+      tags:
+      - group members
+    get:
+      description: Owner, managers and investors can open any member; an employee
+        only themselves. balance_usd and profit_uzs are returned for employees only.
+      parameters:
+      - description: Group UUID
+        in: path
+        name: groupID
+        required: true
+        type: string
+      - description: Member's user UUID
+        in: path
+        name: userID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/group.MemberDetailResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get one group member
+      tags:
+      - group members
+    patch:
+      consumes:
+      - application/json
+      description: 'Role: owner only; leaving the employee role needs a $0 balance
+        and no active orders. Location: any manager, employees only; an empty location_id
+        unassigns it.'
+      parameters:
+      - description: Group UUID
+        in: path
+        name: groupID
+        required: true
+        type: string
+      - description: Member's user UUID
+        in: path
+        name: userID
+        required: true
+        type: string
+      - description: Fields to change
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/group.EditMemberRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/group.MemberDetailResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Change a member's role or location
+      tags:
+      - group members
+  /groups/{groupID}/members/{userID}/balance-adjustments:
+    get:
+      description: Manual adjustments only, newest first, with the member and their
+        current balance.
+      parameters:
+      - description: Group UUID
+        in: path
+        name: groupID
+        required: true
+        type: string
+      - description: Member's user UUID
+        in: path
+        name: userID
+        required: true
+        type: string
+      - default: 50
+        description: Page size
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - default: 0
+        description: Number of adjustments to skip
+        in: query
+        maximum: 10000
+        minimum: 0
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/group.BalanceHistoryResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Balance history of a member
+      tags:
+      - group members
+    post:
+      consumes:
+      - application/json
+      description: Any manager. Records the old and new balance permanently; a wrong
+        adjustment is corrected with another one.
+      parameters:
+      - description: Group UUID
+        in: path
+        name: groupID
+        required: true
+        type: string
+      - description: Employee's user UUID
+        in: path
+        name: userID
+        required: true
+        type: string
+      - description: New balance and optional reason
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/group.AdjustBalanceRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/group.BalanceAdjustmentResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/group.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Set an employee's balance
+      tags:
+      - group members
   /groups/{groupID}/orders:
     get:
       description: Newest first. Employees only see orders they take part in.

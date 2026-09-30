@@ -858,6 +858,367 @@
                 }
             }
         },
+        "/groups/{groupID}/members/{userID}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Owner, managers and investors can open any member; an employee only themselves. balance_usd and profit_uzs are returned for employees only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "group members"
+                ],
+                "summary": "Get one group member",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group UUID",
+                        "name": "groupID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Member's user UUID",
+                        "name": "userID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/group.MemberDetailResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Any manager removes an employee; only the owner removes a manager or investor. Requires a $0 balance and no active orders. The member's old orders can no longer be cancelled.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "group members"
+                ],
+                "summary": "Remove a member from the group",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group UUID",
+                        "name": "groupID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Member's user UUID",
+                        "name": "userID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/responses.MessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Role: owner only; leaving the employee role needs a $0 balance and no active orders. Location: any manager, employees only; an empty location_id unassigns it.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "group members"
+                ],
+                "summary": "Change a member's role or location",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group UUID",
+                        "name": "groupID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Member's user UUID",
+                        "name": "userID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to change",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/group.EditMemberRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/group.MemberDetailResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/groups/{groupID}/members/{userID}/balance-adjustments": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Manual adjustments only, newest first, with the member and their current balance.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "group members"
+                ],
+                "summary": "Balance history of a member",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group UUID",
+                        "name": "groupID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Member's user UUID",
+                        "name": "userID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer",
+                        "default": 50,
+                        "description": "Page size",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 10000,
+                        "minimum": 0,
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Number of adjustments to skip",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/group.BalanceHistoryResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Any manager. Records the old and new balance permanently; a wrong adjustment is corrected with another one.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "group members"
+                ],
+                "summary": "Set an employee's balance",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group UUID",
+                        "name": "groupID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Employee's user UUID",
+                        "name": "userID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "New balance and optional reason",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/group.AdjustBalanceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/group.BalanceAdjustmentResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/group.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/groups/{groupID}/orders": {
             "get": {
                 "security": [
@@ -2183,6 +2544,143 @@
                 }
             }
         },
+        "group.AdjustBalanceRequest": {
+            "type": "object",
+            "properties": {
+                "new_balance_usd": {
+                    "type": "integer",
+                    "example": 7500
+                },
+                "reason": {
+                    "type": "string",
+                    "example": "Cash correction"
+                }
+            }
+        },
+        "group.BalanceAdjustment": {
+            "type": "object",
+            "properties": {
+                "amount_usd": {
+                    "type": "integer"
+                },
+                "changed_by": {
+                    "$ref": "#/definitions/group.PersonRef"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "direction": {
+                    "type": "string",
+                    "enum": [
+                        "increase",
+                        "decrease"
+                    ]
+                },
+                "id": {
+                    "type": "string"
+                },
+                "new_balance_usd": {
+                    "type": "integer"
+                },
+                "old_balance_usd": {
+                    "type": "integer"
+                },
+                "reason": {
+                    "type": "string"
+                }
+            }
+        },
+        "group.BalanceAdjustmentResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "data": {
+                    "$ref": "#/definitions/group.BalanceAdjustment"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Balance updated"
+                },
+                "meta": {
+                    "$ref": "#/definitions/responses.Meta"
+                },
+                "slug": {
+                    "type": "string",
+                    "example": "ok"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "group.BalanceHistory": {
+            "type": "object",
+            "properties": {
+                "adjustments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/group.BalanceAdjustment"
+                    }
+                },
+                "current_balance_usd": {
+                    "type": "integer"
+                },
+                "member": {
+                    "$ref": "#/definitions/group.BalanceMember"
+                }
+            }
+        },
+        "group.BalanceHistoryResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "data": {
+                    "$ref": "#/definitions/group.BalanceHistory"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Request processed successfully"
+                },
+                "meta": {
+                    "$ref": "#/definitions/responses.Meta"
+                },
+                "slug": {
+                    "type": "string",
+                    "example": "ok"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "group.BalanceMember": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "type": "string"
+                },
+                "full_name": {
+                    "type": "string"
+                },
+                "location_name": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
         "group.CreateLocationRequest": {
             "type": "object",
             "properties": {
@@ -2250,6 +2748,24 @@
             "properties": {
                 "confirm": {
                     "type": "boolean"
+                }
+            }
+        },
+        "group.EditMemberRequest": {
+            "type": "object",
+            "properties": {
+                "location_id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "role": {
+                    "type": "string",
+                    "enum": [
+                        "employee",
+                        "manager",
+                        "investor"
+                    ],
+                    "example": "manager"
                 }
             }
         },
@@ -2626,6 +3142,113 @@
                 }
             }
         },
+        "group.MemberDetail": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "type": "string"
+                },
+                "balance_usd": {
+                    "type": "integer"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "full_name": {
+                    "type": "string"
+                },
+                "is_owner": {
+                    "type": "boolean"
+                },
+                "joined_at": {
+                    "type": "string"
+                },
+                "location": {
+                    "$ref": "#/definitions/group.MemberLocation"
+                },
+                "member_id": {
+                    "type": "string"
+                },
+                "permissions": {
+                    "$ref": "#/definitions/group.MemberPermissions"
+                },
+                "profit_uzs": {
+                    "type": "integer"
+                },
+                "removal": {
+                    "$ref": "#/definitions/group.RemovalState"
+                },
+                "role": {
+                    "type": "string",
+                    "enum": [
+                        "employee",
+                        "manager",
+                        "investor"
+                    ]
+                },
+                "user_id": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "group.MemberDetailResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "data": {
+                    "$ref": "#/definitions/group.MemberDetail"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Request processed successfully"
+                },
+                "meta": {
+                    "$ref": "#/definitions/responses.Meta"
+                },
+                "slug": {
+                    "type": "string",
+                    "example": "ok"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "group.MemberLocation": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "group.MemberPermissions": {
+            "type": "object",
+            "properties": {
+                "can_adjust_balance": {
+                    "type": "boolean"
+                },
+                "can_edit_location": {
+                    "type": "boolean"
+                },
+                "can_edit_role": {
+                    "type": "boolean"
+                },
+                "can_remove": {
+                    "type": "boolean"
+                }
+            }
+        },
         "group.MembersResponse": {
             "type": "object",
             "properties": {
@@ -2653,6 +3276,31 @@
                 "success": {
                     "type": "boolean",
                     "example": true
+                }
+            }
+        },
+        "group.PersonRef": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "group.RemovalState": {
+            "type": "object",
+            "properties": {
+                "allowed": {
+                    "type": "boolean"
+                },
+                "balance_is_zero": {
+                    "type": "boolean"
+                },
+                "no_active_orders": {
+                    "type": "boolean"
                 }
             }
         },

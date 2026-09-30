@@ -41,6 +41,9 @@ const (
 	MessageGroupDeleted          = "group_deleted"
 	MessageInvitationCreated     = "invitation_created"
 	MessageMembersReturned       = "members_returned"
+	MessageMemberUpdated         = "member_updated"
+	MessageMemberRemoved         = "member_removed"
+	MessageBalanceAdjusted       = "balance_adjusted"
 	MessageInvitationAction      = "invitation_action_processed"
 	MessageUsersReturned         = "users_returned"
 	MessageNotificationsReturned = "notifications_returned"
@@ -68,6 +71,9 @@ var messageTranslations = map[string]translation{
 	MessageGroupDeleted:          {"Guruh o'chirildi", "Группа удалена", "Group deleted"},
 	MessageInvitationCreated:     {"Taklif yaratildi", "Приглашение создано", "Invitation created"},
 	MessageMembersReturned:       {"A'zolar olindi", "Участники получены", "Members returned"},
+	MessageMemberUpdated:         {"A'zo ma'lumotlari yangilandi", "Данные участника обновлены", "Member updated"},
+	MessageMemberRemoved:         {"A'zo guruhdan chiqarildi", "Участник удалён из группы", "Member removed from group"},
+	MessageBalanceAdjusted:       {"Balans yangilandi", "Баланс обновлён", "Balance updated"},
 	MessageInvitationAction:      {"Taklif javobi qayta ishlandi", "Ответ на приглашение обработан", "Invitation action processed"},
 	MessageUsersReturned:         {"Foydalanuvchilar olindi", "Пользователи получены", "Users returned"},
 	MessageNotificationsReturned: {"Bildirishnomalar olindi", "Уведомления получены", "Notifications returned"},

@@ -41,6 +41,11 @@ Accept-Language: uz | ru | en
 | `POST` | `/api/v1/groups/:groupID/invitations` | Owner/manager |
 | `POST` | `/api/v1/invitations/:invitationID/action` | Taklif qilingan user |
 | `GET` | `/api/v1/groups/:groupID/members` | Owner/manager |
+| `GET` | `/api/v1/groups/:groupID/members/:userID` | Owner, manager, investor; employee faqat o‘zini |
+| `PATCH` | `/api/v1/groups/:groupID/members/:userID` | Role: faqat owner. Location: owner/manager |
+| `DELETE` | `/api/v1/groups/:groupID/members/:userID` | Employee'ni: owner/manager. Manager/investorni: faqat owner |
+| `POST` | `/api/v1/groups/:groupID/members/:userID/balance-adjustments` | Owner/manager |
+| `GET` | `/api/v1/groups/:groupID/members/:userID/balance-adjustments` | Member detail bilan bir xil |
 | `GET` | `/api/v1/groups/:groupID/locations` | Group member |
 | `POST` | `/api/v1/groups/:groupID/locations` | Owner/manager |
 | `DELETE` | `/api/v1/groups/:groupID/locations/:locationID` | Owner/manager |
@@ -455,6 +460,145 @@ Response — `200 OK`:
 
 Bu hozircha read-only API. Customer create, update va delete endpointlari mavjud emas.
 
+## 11. Member detail
+
+```http
+GET /api/v1/groups/:groupID/members/:userID
+```
+
+`:userID` — a'zoning user ID'si. Owner, manager va investor istalgan a'zoni ko‘radi; employee faqat o‘zini (boshqasini ochsa — `404`).
+
+```json
+{
+  "data": {
+    "member_id": "member-uuid",
+    "user_id": "user-uuid",
+    "full_name": "Aziz Karimov",
+    "username": "aziz",
+    "email": "aziz@example.com",
+    "avatar_url": "",
+    "role": "employee",
+    "is_owner": false,
+    "location": {"id": "location-uuid", "name": "Kokand"},
+    "balance_usd": 7200,
+    "profit_uzs": 940000,
+    "joined_at": "2026-09-01T09:00:00Z",
+    "removal": {"allowed": false, "balance_is_zero": false, "no_active_orders": true},
+    "permissions": {
+      "can_edit_role": true,
+      "can_edit_location": true,
+      "can_adjust_balance": true,
+      "can_remove": true
+    }
+  }
+}
+```
+
+- Userlarda telefon raqami yo‘q, faqat `email`. Telefon faqat customerlarda bo‘ladi.
+- `location` biriktirilmagan bo‘lsa `null`.
+- `balance_usd` va `profit_uzs` faqat employee uchun qaytadi. `profit_uzs` — butun davr bo‘yicha jami.
+- `removal` — a'zoning holati ("Removal requirements" bloki): balans 0 bo‘lishi va active order bo‘lmasligi kerak. Active order — a'zo giver yoki receiver bo‘lgan `pending` order yoki ochiq bekor qilish so‘rovi bor order.
+- `permissions` — so‘rov yuborgan user shu a'zo ustida nima qila olishi (tugmalarni ko‘rsatish uchun). U `removal` shartlarini hisobga olmaydi.
+
+## 12. Member'ni tahrirlash
+
+```http
+PATCH /api/v1/groups/:groupID/members/:userID
+```
+
+```json
+{
+  "role": "manager",
+  "location_id": "location-uuid"
+}
+```
+
+Ikkala maydon ixtiyoriy, kamida bittasi kerak. Response — yangilangan member detail.
+
+Role:
+
+- `employee`, `manager` yoki `investor`. Faqat owner o‘zgartira oladi; owner'ning o‘z roli o‘zgarmaydi.
+- Employee'dan boshqa rolga o‘tkazish uchun balans 0 va active order yo‘q bo‘lishi kerak (`409`). Location avtomatik olib tashlanadi.
+- Employee'ga o‘tkazilgan a'zo 0 balans bilan boshlaydi.
+
+Location:
+
+- Owner yoki manager o‘zgartiradi. Faqat employee'da location bo‘ladi (`400`).
+- `"location_id": ""` — location'ni olib tashlaydi.
+- Location boshqa employee'ga biriktirilgan bo‘lsa — `409`. Avval o‘sha employee'ni ko‘chirish kerak.
+- Location o‘zgarishi balans va profitga ta'sir qilmaydi.
+
+## 13. Member'ni guruhdan chiqarish
+
+```http
+DELETE /api/v1/groups/:groupID/members/:userID
+```
+
+- Employee'ni owner yoki manager chiqaradi. Manager yoki investorni faqat owner chiqaradi.
+- Owner'ni chiqarib bo‘lmaydi, o‘zingizni ham chiqara olmaysiz (`409`).
+- Balans 0 va active order yo‘q bo‘lishi shart, aks holda `409`.
+- A'zoning location'i bo‘shatiladi. Eski orderlari tarixda qoladi, lekin ularni endi **bekor qilib bo‘lmaydi**.
+- Chiqarilgan userni keyin qayta taklif qilish mumkin.
+
+## 14. Balansni o‘zgartirish
+
+```http
+POST /api/v1/groups/:groupID/members/:userID/balance-adjustments
+```
+
+```json
+{
+  "new_balance_usd": 7500,
+  "reason": "Cash correction"
+}
+```
+
+- Faqat employee balansini, owner yoki manager o‘zgartiradi.
+- `new_balance_usd` — **yangi balans** (farq emas). Manfiy bo‘lishi mumkin. Hozirgi balansga teng bo‘lsa — `400`.
+- `reason` ixtiyoriy, 500 belgigacha.
+- Har bir o‘zgarish doimiy yozuv bo‘lib qoladi. Xato o‘zgarish yangi o‘zgarish bilan tuzatiladi.
+
+Response `201` — yaratilgan yozuv (15-bo‘limdagi `adjustments` elementi bilan bir xil).
+
+## 15. Balans tarixi
+
+```http
+GET /api/v1/groups/:groupID/members/:userID/balance-adjustments?limit=50&offset=0
+```
+
+`limit`: 1–100, default 50. Eng yangisi birinchi.
+
+```json
+{
+  "data": {
+    "member": {
+      "user_id": "user-uuid",
+      "full_name": "Aziz Karimov",
+      "avatar_url": "",
+      "role": "employee",
+      "location_name": "Kokand"
+    },
+    "current_balance_usd": 7500,
+    "adjustments": [
+      {
+        "id": "adjustment-uuid",
+        "direction": "increase",
+        "amount_usd": 300,
+        "old_balance_usd": 7200,
+        "new_balance_usd": 7500,
+        "reason": "Cash correction",
+        "changed_by": {"user_id": "user-uuid", "name": "Abror"},
+        "created_at": "2026-09-30T14:32:00Z"
+      }
+    ]
+  }
+}
+```
+
+- `direction`: `increase` yoki `decrease`. `amount_usd` kamayishda manfiy.
+- `reason` kiritilmagan bo‘lsa, maydon qaytmaydi.
+- Bu yerda faqat qo‘lda kiritilgan o‘zgarishlar bor. Order tufayli bo‘lgan balans o‘zgarishlari order tarixida.
+
 ## Error response
 
 ```json
@@ -489,9 +633,7 @@ Asosiy status kodlari:
 
 - `GET /api/v1/groups/:groupID`
 - Group update yoki rename
-- Member update yoki delete
-- Employee balance boshqarish
-- Profit boshqarish
+- Profit settlement (keyingi bosqich)
 - Investor boshqaruvi
 - Customer create, update yoki delete
 - Subscription API
