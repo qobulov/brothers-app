@@ -33,3 +33,23 @@ func TestInvalidOTPCodeMatchesStatus(t *testing.T) {
 		t.Fatalf("invalid OTP code/status = %d/%d, want 1400/400", Code(ErrInvalidOTP), StatusCode(ErrInvalidOTP))
 	}
 }
+
+func TestFormatNumber(t *testing.T) {
+	tests := []struct {
+		value  int64
+		uz, en string
+	}{
+		{value: 0, uz: "0", en: "0"},
+		{value: 999, uz: "999", en: "999"},
+		{value: 1000, uz: "1 000", en: "1,000"},
+		{value: 7200, uz: "7 200", en: "7,200"},
+		{value: 1_000_000_000, uz: "1 000 000 000", en: "1,000,000,000"},
+		{value: -7200, uz: "-7 200", en: "-7,200"},
+	}
+	for _, tt := range tests {
+		got := FormatNumber(tt.value)
+		if got.UZ != tt.uz || got.RU != tt.uz || got.EN != tt.en {
+			t.Fatalf("FormatNumber(%d) = %+v, want uz/ru %q and en %q", tt.value, got, tt.uz, tt.en)
+		}
+	}
+}

@@ -123,17 +123,19 @@ func validCreateInput(input CreateInput) (CreateInput, error) {
 
 func validAmounts(amountUSD, feeUZS int64) error {
 	if amountUSD < 1 || amountUSD > maxAmountUSD {
+		max := apperror.FormatNumber(maxAmountUSD)
 		return apperror.New(apperror.ErrInvalidData, apperror.Text{
-			UZ: fmt.Sprintf("Summa 1 dan %d dollargacha bo'lishi kerak", maxAmountUSD),
-			RU: fmt.Sprintf("Сумма должна быть от 1 до %d долларов", maxAmountUSD),
-			EN: fmt.Sprintf("The amount must be between $1 and $%d", maxAmountUSD),
+			UZ: fmt.Sprintf("Summa 1 dan %s dollargacha bo'lishi kerak", max.UZ),
+			RU: fmt.Sprintf("Сумма должна быть от 1 до %s долларов", max.RU),
+			EN: fmt.Sprintf("The amount must be between $1 and $%s", max.EN),
 		})
 	}
 	if feeUZS < 0 || feeUZS > maxFeeUZS {
+		max := apperror.FormatNumber(maxFeeUZS)
 		return apperror.New(apperror.ErrInvalidData, apperror.Text{
-			UZ: fmt.Sprintf("Xizmat haqi 0 dan %d so'mgacha bo'lishi kerak", maxFeeUZS),
-			RU: fmt.Sprintf("Комиссия должна быть от 0 до %d сумов", maxFeeUZS),
-			EN: fmt.Sprintf("The fee must be between 0 and %d UZS", maxFeeUZS),
+			UZ: fmt.Sprintf("Xizmat haqi 0 dan %s so'mgacha bo'lishi kerak", max.UZ),
+			RU: fmt.Sprintf("Комиссия должна быть от 0 до %s сумов", max.RU),
+			EN: fmt.Sprintf("The fee must be between 0 and %s UZS", max.EN),
 		})
 	}
 	return nil

@@ -19,9 +19,9 @@ Har qanday xatoda javob bir xil shaklda keladi:
   "success": false,
   "code": 1400,
   "slug": "invalid_data",
-  "message": "Summa 1 dan 1000000000 dollargacha bo'lishi kerak",
+  "message": "Summa 1 dan 1 000 000 000 dollargacha bo'lishi kerak",
   "data": {
-    "reason": "invalid data: The amount must be between $1 and $1000000000"
+    "reason": "invalid data: The amount must be between $1 and $1,000,000,000"
   },
   "meta": {
     "timestamp": "2026-09-30T18:00:00Z",

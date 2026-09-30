@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/qobulov/brothers-app/pkg/apperror"
 )
 
 func TestPresent_StateAndVisibility(t *testing.T) {
@@ -81,5 +82,18 @@ func assertPtr(t *testing.T, name string, got, want *int64) {
 		t.Fatalf("%s = %v, want %v", name, got, want)
 	case *got != *want:
 		t.Fatalf("%s = %d, want %d", name, *got, *want)
+	}
+}
+
+func TestAmountLimitMessageGroupsDigits(t *testing.T) {
+	err := validAmounts(0, 0)
+	for language, want := range map[string]string{
+		"uz": "Summa 1 dan 1 000 000 000 dollargacha bo'lishi kerak",
+		"ru": "Сумма должна быть от 1 до 1 000 000 000 долларов",
+		"en": "The amount must be between $1 and $1,000,000,000",
+	} {
+		if got := apperror.MessageForLanguage(err, language); got != want {
+			t.Fatalf("%s message = %q, want %q", language, got, want)
+		}
 	}
 }

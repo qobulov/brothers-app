@@ -1,6 +1,9 @@
 package apperror
 
-import "fmt"
+import (
+	"fmt"
+	"strconv"
+)
 
 // Text is a user-facing message in every supported language.
 type Text struct {
@@ -40,10 +43,11 @@ func NothingToUpdate() error {
 }
 
 func PageOutOfRange(maxLimit, maxOffset int) error {
+	limit, offset := FormatNumber(int64(maxLimit)), FormatNumber(int64(maxOffset))
 	return New(ErrInvalidData, Text{
-		UZ: fmt.Sprintf("limit 1 dan %d gacha, offset 0 dan %d gacha bo'lishi kerak", maxLimit, maxOffset),
-		RU: fmt.Sprintf("limit должен быть от 1 до %d, offset от 0 до %d", maxLimit, maxOffset),
-		EN: fmt.Sprintf("limit must be 1-%d and offset 0-%d", maxLimit, maxOffset),
+		UZ: fmt.Sprintf("limit 1 dan %s gacha, offset 0 dan %s gacha bo'lishi kerak", limit.UZ, offset.UZ),
+		RU: fmt.Sprintf("limit должен быть от 1 до %s, offset от 0 до %s", limit.RU, offset.RU),
+		EN: fmt.Sprintf("limit must be 1-%s and offset 0-%s", limit.EN, offset.EN),
 	})
 }
 
@@ -56,10 +60,11 @@ func NotAnInteger(field string) error {
 }
 
 func OutOfRange(field string, min, max int) error {
+	low, high := FormatNumber(int64(min)), FormatNumber(int64(max))
 	return New(ErrInvalidData, Text{
-		UZ: fmt.Sprintf("%s %d dan %d gacha bo'lishi kerak", field, min, max),
-		RU: fmt.Sprintf("%s должен быть от %d до %d", field, min, max),
-		EN: fmt.Sprintf("%s must be between %d and %d", field, min, max),
+		UZ: fmt.Sprintf("%s %s dan %s gacha bo'lishi kerak", field, low.UZ, high.UZ),
+		RU: fmt.Sprintf("%s должен быть от %s до %s", field, low.RU, high.RU),
+		EN: fmt.Sprintf("%s must be between %s and %s", field, low.EN, high.EN),
 	})
 }
 
@@ -77,4 +82,23 @@ func InvalidEmail() error {
 		RU: "Некорректный email",
 		EN: "Enter a valid email address",
 	})
+}
+
+// FormatNumber groups digits for reading: "1 000 000" in Uzbek and Russian,
+// "1,000,000" in English.
+func FormatNumber(n int64) Text {
+	spaced := groupDigits(n, " ")
+	return Text{UZ: spaced, RU: spaced, EN: groupDigits(n, ",")}
+}
+
+func groupDigits(n int64, separator string) string {
+	digits := strconv.FormatInt(n, 10)
+	sign := ""
+	if n < 0 {
+		sign, digits = "-", digits[1:]
+	}
+	for i := len(digits) - 3; i > 0; i -= 3 {
+		digits = digits[:i] + separator + digits[i:]
+	}
+	return sign + digits
 }

@@ -123,10 +123,11 @@ func newMemberChange(ctx context.Context, q querier, lookup memberLookup, actorI
 // member still holds money or takes part in an unfinished order.
 func (m memberRow) requireSettled() error {
 	if m.balanceUSD != 0 {
+		balance := apperror.FormatNumber(m.balanceUSD)
 		return apperror.New(apperror.ErrConflict, apperror.Text{
-			UZ: fmt.Sprintf("A'zoning balansi 0 bo'lishi kerak, hozir $%d", m.balanceUSD),
-			RU: fmt.Sprintf("Баланс участника должен быть 0, сейчас $%d", m.balanceUSD),
-			EN: fmt.Sprintf("The member's balance must be 0; it is $%d", m.balanceUSD),
+			UZ: fmt.Sprintf("A'zoning balansi 0 bo'lishi kerak, hozir $%s", balance.UZ),
+			RU: fmt.Sprintf("Баланс участника должен быть 0, сейчас $%s", balance.RU),
+			EN: fmt.Sprintf("The member's balance must be 0; it is $%s", balance.EN),
 		})
 	}
 	if m.activeOrders != 0 {
