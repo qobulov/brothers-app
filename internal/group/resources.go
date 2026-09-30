@@ -281,29 +281,6 @@ func (s *Service) resolveEmployeeMemberID(ctx context.Context, groupID, employee
 	return &memberID, nil
 }
 
-func (s *Service) requireMember(ctx context.Context, actorID, groupID uuid.UUID) error {
-	var exists bool
-	err := s.pool.QueryRow(ctx, `
-		SELECT EXISTS (
-			SELECT 1
-			FROM group_members members
-			JOIN groups ON groups.id = members.group_id
-			WHERE members.group_id = $1
-			  AND members.user_id = $2
-			  AND members.deleted_at IS NULL
-			  AND groups.deleted_at IS NULL
-			  AND groups.is_active
-		)
-	`, groupID, actorID).Scan(&exists)
-	if err != nil {
-		return fmt.Errorf("checking group membership: %w", err)
-	}
-	if !exists {
-		return apperror.ErrRecordNotFound
-	}
-	return nil
-}
-
 func validLocationName(value string) (string, error) {
 	name := strings.TrimSpace(value)
 	if name == "" || len(name) > 255 {
