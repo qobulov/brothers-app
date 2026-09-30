@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/qobulov/brothers-app/pkg/apperror"
 )
 
 // tashkentZone decides which month a profit belongs to. It is a fixed UTC+5
@@ -27,7 +26,7 @@ func completeOrder(ctx context.Context, q querier, st settlement, amountUSD int6
 		return fmt.Errorf("completing order: %w", err)
 	}
 	if result.RowsAffected() != 1 {
-		return fmt.Errorf("%w: order is no longer pending", apperror.ErrConflict)
+		return notPending(StatusCompleted)
 	}
 	giver := balanceChange{groupID: st.groupID, memberID: st.parties.giverMemberID, amountUSD: amountUSD, at: st.at}
 	if err := addBalance(ctx, q, giver); err != nil {

@@ -583,6 +583,33 @@ func (s *PublicRoutesTestSuite) TestGroupMemberFlow() {
 	s.Equal(fiber.StatusNotFound, status)
 }
 
+// Reproduces the mobile app's request: the specific reason must come back in
+// message, in the language from Application-Language.
+func (s *PublicRoutesTestSuite) TestErrorReasonIsLocalizedInMessage() {
+	for language, want := range map[string]string{
+		"uz": "Ro'yxatdan o'tishda faqat email yuboriladi, username yuborilmasligi kerak",
+		"ru": "При регистрации отправляется только email, username указывать не нужно",
+		"en": "Registration accepts email only; omit the username",
+	} {
+		body, err := json.Marshal(map[string]string{"email": "abror@example.com", "purpose": "registration", "username": "Abrorjon755"})
+		s.Require().NoError(err)
+		request := httptest.NewRequest("POST", "/api/v1/auth/otp/send", bytes.NewReader(body))
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("Application-Language", language)
+		response, err := s.app.Test(request, -1)
+		s.Require().NoError(err)
+		var envelope struct {
+			Slug    string `json:"slug"`
+			Message string `json:"message"`
+		}
+		s.Require().NoError(json.NewDecoder(response.Body).Decode(&envelope))
+		response.Body.Close()
+		s.Equal(fiber.StatusBadRequest, response.StatusCode, language)
+		s.Equal("invalid_data", envelope.Slug, language)
+		s.Equal(want, envelope.Message, language)
+	}
+}
+
 func (s *PublicRoutesTestSuite) createGroup(name string) string {
 	s.T().Helper()
 	status, body := s.sendJSON("POST", "/api/v1/groups", map[string]any{"name": name})

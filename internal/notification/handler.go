@@ -129,7 +129,7 @@ func queryInt(c *fiber.Ctx, name string, fallback, min, max int) (int, error) {
 	}
 	value, err := strconv.Atoi(raw)
 	if err != nil || value < min || value > max {
-		return 0, fmt.Errorf("%w: %s must be between %d and %d", apperror.ErrInvalidData, name, min, max)
+		return 0, apperror.OutOfRange(name, min, max)
 	}
 	return value, nil
 }

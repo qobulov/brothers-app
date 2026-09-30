@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/qobulov/brothers-app/pkg/apperror"
 )
 
 const (
@@ -244,4 +245,20 @@ func (pr presentation) state(status string, p parties) string {
 	default:
 		return StateWaitingForConfirmation
 	}
+}
+
+// notPending explains why a completed or cancelled order cannot change.
+func notPending(status string) error {
+	if status == StatusCancelled {
+		return apperror.New(apperror.ErrConflict, apperror.Text{
+			UZ: "Buyurtma bekor qilingan, uni o'zgartirib bo'lmaydi",
+			RU: "Заказ отменён, его нельзя изменить",
+			EN: "The order is cancelled and cannot change",
+		})
+	}
+	return apperror.New(apperror.ErrConflict, apperror.Text{
+		UZ: "Buyurtma yakunlangan, uni o'zgartirib bo'lmaydi",
+		RU: "Заказ выполнен, его нельзя изменить",
+		EN: "The order is completed and cannot change",
+	})
 }

@@ -13,7 +13,7 @@ import (
 // the parties confirm the new terms again.
 func (s *Service) Edit(ctx context.Context, actorID, groupID, orderID uuid.UUID, input EditInput) (Order, error) {
 	if input.empty() {
-		return Order{}, fmt.Errorf("%w: nothing to update", apperror.ErrInvalidData)
+		return Order{}, apperror.NothingToUpdate()
 	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -33,7 +33,7 @@ func (s *Service) Edit(ctx context.Context, actorID, groupID, orderID uuid.UUID,
 		return Order{}, apperror.ErrRecordNotFound
 	}
 	if current.status != StatusPending {
-		return Order{}, fmt.Errorf("%w: order is %s", apperror.ErrConflict, current.status)
+		return Order{}, notPending(current.status)
 	}
 	if err := requireNoOpenCancellation(ctx, tx, orderID); err != nil {
 		return Order{}, err

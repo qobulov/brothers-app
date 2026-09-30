@@ -288,6 +288,11 @@ func MessageForLanguage(err error, language string) string {
 	err = Normalize(err)
 	language = localization.ResolveAcceptLanguage(language)
 
+	var specific *Localized
+	if errors.As(err, &specific) {
+		return specific.Message(language)
+	}
+
 	switch {
 	case errors.Is(err, ErrUnauthorized):
 		return localized(language, "Hisob ma'lumotlari noto'g'ri", "Неверные учетные данные", "Invalid credentials")

@@ -32,7 +32,7 @@ const (
 func (s *Service) RequestCancellation(ctx context.Context, actorID, groupID, orderID uuid.UUID, reason string) (Order, error) {
 	reason = strings.TrimSpace(reason)
 	if utf8.RuneCountInString(reason) > maxCancellationReason {
-		return Order{}, fmt.Errorf("%w: reason must be at most %d characters", apperror.ErrInvalidData, maxCancellationReason)
+		return Order{}, apperror.ReasonTooLong(maxCancellationReason)
 	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -52,7 +52,7 @@ func (s *Service) RequestCancellation(ctx context.Context, actorID, groupID, ord
 		return Order{}, apperror.ErrRecordNotFound
 	}
 	if locked.status == StatusCancelled {
-		return Order{}, fmt.Errorf("%w: order is already cancelled", apperror.ErrConflict)
+		return Order{}, apperror.New(apperror.ErrConflict, apperror.Text{UZ: "Buyurtma allaqachon bekor qilingan", RU: "Заказ уже отменён", EN: "The order is already cancelled"})
 	}
 	if err := requireNoOpenCancellation(ctx, tx, orderID); err != nil {
 		return Order{}, err
@@ -172,7 +172,7 @@ func markCancelled(ctx context.Context, q querier, orderID uuid.UUID, at time.Ti
 func (s *Service) RespondCancellation(ctx context.Context, actorID, groupID, orderID uuid.UUID, action string) (Order, error) {
 	action = strings.ToLower(strings.TrimSpace(action))
 	if action != CancellationApprove && action != CancellationReject {
-		return Order{}, fmt.Errorf("%w: action must be approve or reject", apperror.ErrInvalidData)
+		return Order{}, apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Amal approve yoki reject bo'lishi kerak", RU: "Действие должно быть approve или reject", EN: "Action must be approve or reject"})
 	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -195,7 +195,7 @@ func (s *Service) RespondCancellation(ctx context.Context, actorID, groupID, ord
 	if action == CancellationReject {
 		err = rejectCancellation(ctx, tx, response)
 	} else if request.requesterID == v.memberID {
-		err = fmt.Errorf("%w: the other employee must approve the cancellation", apperror.ErrForbidden)
+		err = apperror.New(apperror.ErrForbidden, apperror.Text{UZ: "Bekor qilishni ikkinchi xodim tasdiqlashi kerak", RU: "Отмену должен подтвердить другой сотрудник", EN: "The other employee must approve the cancellation"})
 	} else {
 		err = approveCancellation(ctx, tx, response)
 	}
@@ -239,7 +239,7 @@ func requireNoOpenCancellation(ctx context.Context, q querier, orderID uuid.UUID
 		return fmt.Errorf("checking cancellation request: %w", err)
 	}
 	if open {
-		return fmt.Errorf("%w: order has an open cancellation request", apperror.ErrConflict)
+		return apperror.New(apperror.ErrConflict, apperror.Text{UZ: "Buyurtmani bekor qilish so'rovi allaqachon ochiq", RU: "По заказу уже есть открытый запрос на отмену", EN: "The order already has an open cancellation request"})
 	}
 	return nil
 }
@@ -256,7 +256,7 @@ func requireActiveParties(ctx context.Context, q querier, p parties) error {
 		return fmt.Errorf("checking order parties: %w", err)
 	}
 	if active != 2 {
-		return fmt.Errorf("%w: an employee on this order has left the group", apperror.ErrConflict)
+		return apperror.New(apperror.ErrConflict, apperror.Text{UZ: "Buyurtmadagi xodim guruhdan chiqqan, uni bekor qilib bo'lmaydi", RU: "Сотрудник по этому заказу покинул группу, отмена невозможна", EN: "An employee on this order has left the group, so it cannot be cancelled"})
 	}
 	return nil
 }
@@ -275,7 +275,7 @@ func lockOpenCancellation(ctx context.Context, q querier, orderID uuid.UUID) (op
 		FOR UPDATE
 	`, orderID).Scan(&request.id, &request.requesterID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return openCancellation{}, fmt.Errorf("%w: order has no open cancellation request", apperror.ErrConflict)
+		return openCancellation{}, apperror.New(apperror.ErrConflict, apperror.Text{UZ: "Buyurtmani bekor qilish so'rovi yo'q", RU: "Нет открытого запроса на отмену заказа", EN: "The order has no open cancellation request"})
 	}
 	if err != nil {
 		return openCancellation{}, fmt.Errorf("locking cancellation request: %w", err)

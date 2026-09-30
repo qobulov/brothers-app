@@ -165,7 +165,7 @@ func TestSendOTPRejectsUsernameForRegistrationWithReason(t *testing.T) {
 	if !errors.Is(err, apperror.ErrInvalidData) {
 		t.Fatalf("SendOTP() error = %v, want ErrInvalidData", err)
 	}
-	if want := "registration accepts email only; username must be omitted"; !strings.Contains(err.Error(), want) {
+	if want := "Registration accepts email only; omit the username"; !strings.Contains(err.Error(), want) {
 		t.Fatalf("SendOTP() error = %q, want reason %q", err, want)
 	}
 }
@@ -180,9 +180,9 @@ func TestPasswordResetIdentifier(t *testing.T) {
 	}{
 		{name: "email", request: authdto.SendOTPRequest{Email: " Ali@Example.COM "}, wantEmail: "ali@example.com"},
 		{name: "username", request: authdto.SendOTPRequest{Username: " qobulov "}, wantUsername: "qobulov"},
-		{name: "both identifiers", request: authdto.SendOTPRequest{Email: "ali@example.com", Username: "qobulov"}, wantReason: "provide either email or username for password reset, not both"},
-		{name: "missing identifier", request: authdto.SendOTPRequest{}, wantReason: "email or username is required for password reset"},
-		{name: "invalid email", request: authdto.SendOTPRequest{Email: "invalid"}, wantReason: "password reset email must be valid"},
+		{name: "both identifiers", request: authdto.SendOTPRequest{Email: "ali@example.com", Username: "qobulov"}, wantReason: "Provide either an email or a username, not both"},
+		{name: "missing identifier", request: authdto.SendOTPRequest{}, wantReason: "Enter an email or a username to reset the password"},
+		{name: "invalid email", request: authdto.SendOTPRequest{Email: "invalid"}, wantReason: "Enter a valid email address"},
 	}
 
 	for _, test := range tests {

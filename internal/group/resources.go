@@ -144,7 +144,7 @@ func (s *Service) DeleteLocation(ctx context.Context, actorID, groupID, location
 		return fmt.Errorf("locking group location: %w", err)
 	}
 	if employeeMemberID != nil {
-		return fmt.Errorf("%w: location has an assigned employee", apperror.ErrConflict)
+		return apperror.New(apperror.ErrConflict, apperror.Text{UZ: "Joyga xodim biriktirilgan, avval uni boshqa joyga o'tkazing", RU: "К локации привязан сотрудник, сначала переведите его", EN: "The location has an assigned employee; move them first"})
 	}
 
 	now := s.now().UTC()

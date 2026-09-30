@@ -49,13 +49,13 @@ func validListInput(input ListInput) (ListInput, error) {
 	switch input.Status {
 	case "", StatusPending, StatusCompleted, StatusCancelled:
 	default:
-		return ListInput{}, fmt.Errorf("%w: status must be pending, completed or cancelled", apperror.ErrInvalidData)
+		return ListInput{}, apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Status pending, completed yoki cancelled bo'lishi kerak", RU: "Статус должен быть pending, completed или cancelled", EN: "Status must be pending, completed or cancelled"})
 	}
 	if input.Limit == 0 {
 		input.Limit = defaultPageSize
 	}
 	if input.Limit < 1 || input.Limit > maxPageSize || input.Offset < 0 || input.Offset > maxOffset {
-		return ListInput{}, fmt.Errorf("%w: limit must be 1-%d and offset 0-%d", apperror.ErrInvalidData, maxPageSize, maxOffset)
+		return ListInput{}, apperror.PageOutOfRange(maxPageSize, maxOffset)
 	}
 	return input, nil
 }

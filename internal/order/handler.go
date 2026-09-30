@@ -318,7 +318,7 @@ func optionalInt(c *fiber.Ctx, name string) (int, error) {
 	}
 	value, err := strconv.Atoi(raw)
 	if err != nil {
-		return 0, fmt.Errorf("%w: %s must be an integer", apperror.ErrInvalidData, name)
+		return 0, apperror.NotAnInteger(name)
 	}
 	return value, nil
 }

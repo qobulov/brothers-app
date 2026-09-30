@@ -39,7 +39,7 @@ func (s *Service) Confirm(ctx context.Context, actorID, groupID, orderID uuid.UU
 		return Order{}, apperror.ErrForbidden
 	}
 	if locked.status != StatusPending {
-		return Order{}, fmt.Errorf("%w: order is %s", apperror.ErrConflict, locked.status)
+		return Order{}, notPending(locked.status)
 	}
 	if err := requireNoOpenCancellation(ctx, tx, orderID); err != nil {
 		return Order{}, err

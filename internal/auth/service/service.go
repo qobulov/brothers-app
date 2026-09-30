@@ -61,14 +61,14 @@ func (s *Service) SendOTP(ctx context.Context, req dto.SendOTPRequest) (dto.Star
 	switch purpose {
 	case registrationPurpose:
 		if strings.TrimSpace(req.Username) != "" {
-			return dto.StartData{}, fmt.Errorf("%w: registration accepts email only; username must be omitted", apperror.ErrInvalidData)
+			return dto.StartData{}, apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Ro'yxatdan o'tishda faqat email yuboriladi, username yuborilmasligi kerak", RU: "При регистрации отправляется только email, username указывать не нужно", EN: "Registration accepts email only; omit the username"})
 		}
 		if strings.TrimSpace(req.Email) == "" {
-			return dto.StartData{}, fmt.Errorf("%w: email is required for registration", apperror.ErrInvalidData)
+			return dto.StartData{}, apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Ro'yxatdan o'tish uchun email kiritilishi shart", RU: "Для регистрации необходим email", EN: "Email is required for registration"})
 		}
 		email, err = helpers.NormalizeEmail(req.Email)
 		if err != nil {
-			return dto.StartData{}, fmt.Errorf("%w: registration email must be valid", apperror.ErrInvalidData)
+			return dto.StartData{}, invalidEmail()
 		}
 		_, err = s.queries.GetUserByEmail(ctx, db.GetUserByEmailParams{Email: text(email)})
 		if err == nil {
@@ -113,17 +113,17 @@ func passwordResetIdentifier(req dto.SendOTPRequest) (email, username string, er
 	emailInput := strings.TrimSpace(req.Email)
 	username = strings.TrimSpace(req.Username)
 	if emailInput == "" && username == "" {
-		return "", "", fmt.Errorf("%w: email or username is required for password reset", apperror.ErrInvalidData)
+		return "", "", apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Parolni tiklash uchun email yoki username kiriting", RU: "Для сброса пароля укажите email или username", EN: "Enter an email or a username to reset the password"})
 	}
 	if emailInput != "" && username != "" {
-		return "", "", fmt.Errorf("%w: provide either email or username for password reset, not both", apperror.ErrInvalidData)
+		return "", "", apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Email yoki username'dan faqat bittasini kiriting", RU: "Укажите только email или только username", EN: "Provide either an email or a username, not both"})
 	}
 	if username != "" {
 		return "", username, nil
 	}
 	email, err = helpers.NormalizeEmail(emailInput)
 	if err != nil {
-		return "", "", fmt.Errorf("%w: password reset email must be valid", apperror.ErrInvalidData)
+		return "", "", invalidEmail()
 	}
 	return email, "", nil
 }
@@ -601,7 +601,7 @@ func normalizeOTPPurpose(value string) (string, error) {
 		purpose = registrationPurpose
 	}
 	if purpose != registrationPurpose && purpose != passwordResetPurpose {
-		return "", fmt.Errorf("%w: purpose must be registration or password_reset", apperror.ErrInvalidData)
+		return "", apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "OTP maqsadi registration yoki password_reset bo'lishi kerak", RU: "Цель OTP должна быть registration или password_reset", EN: "Purpose must be registration or password_reset"})
 	}
 	return purpose, nil
 }
@@ -721,4 +721,12 @@ func ParseRefreshExpiry(value string) (time.Time, error) {
 		return time.Time{}, err
 	}
 	return time.Unix(seconds, 0), nil
+}
+
+func invalidEmail() error {
+	return apperror.New(apperror.ErrInvalidData, apperror.Text{
+		UZ: "Email manzili noto'g'ri",
+		RU: "Некорректный email",
+		EN: "Enter a valid email address",
+	})
 }

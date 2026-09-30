@@ -80,7 +80,7 @@ func resolveEmployee(ctx context.Context, q querier, groupID, userID uuid.UUID) 
 		  AND members.deleted_at IS NULL
 	`, groupID, userID).Scan(&ref.memberID, &ref.locationID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return partyRef{}, fmt.Errorf("%w: order party must be an active employee of the group", apperror.ErrRecordNotFound)
+		return partyRef{}, apperror.New(apperror.ErrRecordNotFound, apperror.Text{UZ: "Buyurtma ishtirokchisi guruhning faol xodimi bo'lishi kerak", RU: "Участник заказа должен быть активным сотрудником группы", EN: "Order parties must be active employees of the group"})
 	}
 	if err != nil {
 		return partyRef{}, fmt.Errorf("resolving order party: %w", err)
@@ -106,7 +106,7 @@ func upsertCustomer(ctx context.Context, q querier, groupID uuid.UUID, phone str
 
 func validCreateInput(input CreateInput) (CreateInput, error) {
 	if input.GiverUserID == uuid.Nil || input.ReceiverUserID == uuid.Nil || input.GiverUserID == input.ReceiverUserID {
-		return CreateInput{}, fmt.Errorf("%w: giver and receiver must be two different users", apperror.ErrInvalidData)
+		return CreateInput{}, apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Beruvchi va oluvchi turli xodimlar bo'lishi kerak", RU: "Отправитель и получатель должны быть разными сотрудниками", EN: "The giver and receiver must be two different employees"})
 	}
 	if err := validAmounts(input.AmountUSD, input.FeeUZS); err != nil {
 		return CreateInput{}, err
@@ -123,10 +123,18 @@ func validCreateInput(input CreateInput) (CreateInput, error) {
 
 func validAmounts(amountUSD, feeUZS int64) error {
 	if amountUSD < 1 || amountUSD > maxAmountUSD {
-		return fmt.Errorf("%w: amount_usd must be between 1 and %d", apperror.ErrInvalidData, maxAmountUSD)
+		return apperror.New(apperror.ErrInvalidData, apperror.Text{
+			UZ: fmt.Sprintf("Summa 1 dan %d dollargacha bo'lishi kerak", maxAmountUSD),
+			RU: fmt.Sprintf("Сумма должна быть от 1 до %d долларов", maxAmountUSD),
+			EN: fmt.Sprintf("The amount must be between $1 and $%d", maxAmountUSD),
+		})
 	}
 	if feeUZS < 0 || feeUZS > maxFeeUZS {
-		return fmt.Errorf("%w: fee_uzs must be between 0 and %d", apperror.ErrInvalidData, maxFeeUZS)
+		return apperror.New(apperror.ErrInvalidData, apperror.Text{
+			UZ: fmt.Sprintf("Xizmat haqi 0 dan %d so'mgacha bo'lishi kerak", maxFeeUZS),
+			RU: fmt.Sprintf("Комиссия должна быть от 0 до %d сумов", maxFeeUZS),
+			EN: fmt.Sprintf("The fee must be between 0 and %d UZS", maxFeeUZS),
+		})
 	}
 	return nil
 }
@@ -134,7 +142,7 @@ func validAmounts(amountUSD, feeUZS int64) error {
 func validPhone(value string) (string, error) {
 	phone, err := helpers.NormalizePhone(value)
 	if err != nil {
-		return "", fmt.Errorf("%w: customer phone is invalid", apperror.ErrInvalidData)
+		return "", apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Mijoz telefon raqami noto'g'ri", RU: "Некорректный номер телефона клиента", EN: "The customer phone number is invalid"})
 	}
 	return phone, nil
 }

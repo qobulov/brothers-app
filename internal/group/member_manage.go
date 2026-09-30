@@ -21,7 +21,7 @@ type EditMemberInput struct {
 // EditMember changes a member's role (owner only) and location (any manager).
 func (s *Service) EditMember(ctx context.Context, actorID, groupID, userID uuid.UUID, input EditMemberInput) (MemberDetail, error) {
 	if input.Role == nil && input.LocationID == nil {
-		return MemberDetail{}, fmt.Errorf("%w: nothing to update", apperror.ErrInvalidData)
+		return MemberDetail{}, apperror.NothingToUpdate()
 	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -69,9 +69,9 @@ func (s *Service) RemoveMember(ctx context.Context, actorID, groupID, userID uui
 	target := removal.target
 	switch {
 	case target.isOwner:
-		return fmt.Errorf("%w: the group owner cannot be removed", apperror.ErrConflict)
+		return apperror.New(apperror.ErrConflict, apperror.Text{UZ: "Guruh egasini chiqarib bo'lmaydi", RU: "Владельца группы нельзя удалить", EN: "The group owner cannot be removed"})
 	case target.memberID == removal.actor.memberID:
-		return fmt.Errorf("%w: you cannot remove yourself", apperror.ErrConflict)
+		return apperror.New(apperror.ErrConflict, apperror.Text{UZ: "O'zingizni guruhdan chiqara olmaysiz", RU: "Нельзя удалить себя из группы", EN: "You cannot remove yourself"})
 	case !removal.actor.canRemove(target):
 		return apperror.ErrForbidden
 	}
@@ -123,10 +123,18 @@ func newMemberChange(ctx context.Context, q querier, lookup memberLookup, actorI
 // member still holds money or takes part in an unfinished order.
 func (m memberRow) requireSettled() error {
 	if m.balanceUSD != 0 {
-		return fmt.Errorf("%w: member balance must be 0, it is %d", apperror.ErrConflict, m.balanceUSD)
+		return apperror.New(apperror.ErrConflict, apperror.Text{
+			UZ: fmt.Sprintf("A'zoning balansi 0 bo'lishi kerak, hozir $%d", m.balanceUSD),
+			RU: fmt.Sprintf("Баланс участника должен быть 0, сейчас $%d", m.balanceUSD),
+			EN: fmt.Sprintf("The member's balance must be 0; it is $%d", m.balanceUSD),
+		})
 	}
 	if m.activeOrders != 0 {
-		return fmt.Errorf("%w: member has %d active orders", apperror.ErrConflict, m.activeOrders)
+		return apperror.New(apperror.ErrConflict, apperror.Text{
+			UZ: fmt.Sprintf("A'zoda %d ta faol buyurtma bor", m.activeOrders),
+			RU: fmt.Sprintf("У участника активных заказов: %d", m.activeOrders),
+			EN: fmt.Sprintf("The member has %d active orders", m.activeOrders),
+		})
 	}
 	return nil
 }
@@ -143,7 +151,7 @@ func (c *memberChange) changeRole(ctx context.Context, q querier, value string) 
 		return apperror.ErrForbidden
 	}
 	if c.target.isOwner {
-		return fmt.Errorf("%w: the group owner's role cannot change", apperror.ErrConflict)
+		return apperror.New(apperror.ErrConflict, apperror.Text{UZ: "Guruh egasining rolini o'zgartirib bo'lmaydi", RU: "Роль владельца группы нельзя изменить", EN: "The group owner's role cannot change"})
 	}
 	if c.target.role == roleEmployee {
 		if err := c.target.requireSettled(); err != nil {
@@ -171,7 +179,7 @@ func (c *memberChange) changeRole(ctx context.Context, q querier, value string) 
 
 func (c *memberChange) changeLocation(ctx context.Context, q querier, locationID uuid.UUID) error {
 	if c.target.role != roleEmployee {
-		return fmt.Errorf("%w: only employees have a location", apperror.ErrInvalidData)
+		return apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Joy faqat xodimlarga biriktiriladi", RU: "Локация назначается только сотрудникам", EN: "Only employees have a location"})
 	}
 	if locationID == uuid.Nil {
 		return c.unassignLocation(ctx, q)
@@ -186,13 +194,13 @@ func (c *memberChange) changeLocation(ctx context.Context, q querier, locationID
 		FOR UPDATE
 	`, locationID, c.groupID).Scan(&holder)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return fmt.Errorf("%w: location not found", apperror.ErrRecordNotFound)
+		return apperror.New(apperror.ErrRecordNotFound, apperror.Text{UZ: "Joy topilmadi", RU: "Локация не найдена", EN: "Location not found"})
 	}
 	if err != nil {
 		return fmt.Errorf("locking location: %w", err)
 	}
 	if holder != nil {
-		return fmt.Errorf("%w: location is assigned to another employee", apperror.ErrConflict)
+		return apperror.New(apperror.ErrConflict, apperror.Text{UZ: "Bu joy boshqa xodimga biriktirilgan", RU: "Эта локация закреплена за другим сотрудником", EN: "This location is assigned to another employee"})
 	}
 	// An employee holds one location, so the old one is released first.
 	if err := c.unassignLocation(ctx, q); err != nil {

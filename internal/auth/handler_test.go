@@ -57,7 +57,7 @@ func TestSendOTPReturnsRegistrationValidationReason(t *testing.T) {
 	if response.StatusCode != fiber.StatusBadRequest || body.Code != 1400 || body.Slug != "invalid_data" {
 		t.Fatalf("unexpected validation response: status=%d body=%+v", response.StatusCode, body)
 	}
-	const reason = "invalid data: registration accepts email only; username must be omitted"
+	const reason = "invalid data: Registration accepts email only; omit the username"
 	if body.Data.Reason != reason {
 		t.Fatalf("reason = %q, want %q", body.Data.Reason, reason)
 	}

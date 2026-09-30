@@ -67,10 +67,10 @@ type Page struct {
 func (s *Service) AdjustBalance(ctx context.Context, actorID, groupID, userID uuid.UUID, input AdjustBalanceInput) (BalanceAdjustment, error) {
 	input.Reason = strings.TrimSpace(input.Reason)
 	if input.NewBalanceUSD < -maxBalanceUSD || input.NewBalanceUSD > maxBalanceUSD {
-		return BalanceAdjustment{}, fmt.Errorf("%w: new_balance_usd is out of range", apperror.ErrInvalidData)
+		return BalanceAdjustment{}, apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Balans ruxsat etilgan chegaradan tashqarida", RU: "Баланс вне допустимого диапазона", EN: "The balance is out of range"})
 	}
 	if utf8.RuneCountInString(input.Reason) > maxAdjustmentReason {
-		return BalanceAdjustment{}, fmt.Errorf("%w: reason must be at most %d characters", apperror.ErrInvalidData, maxAdjustmentReason)
+		return BalanceAdjustment{}, apperror.ReasonTooLong(maxAdjustmentReason)
 	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -86,7 +86,7 @@ func (s *Service) AdjustBalance(ctx context.Context, actorID, groupID, userID uu
 		return BalanceAdjustment{}, apperror.ErrForbidden
 	}
 	if change.target.role != roleEmployee {
-		return BalanceAdjustment{}, fmt.Errorf("%w: only employees have a balance", apperror.ErrRecordNotFound)
+		return BalanceAdjustment{}, apperror.New(apperror.ErrRecordNotFound, apperror.Text{UZ: "Balans faqat xodimlarda bo'ladi", RU: "Баланс есть только у сотрудников", EN: "Only employees have a balance"})
 	}
 	memberID := change.target.memberID
 	oldBalance, err := lockBalance(ctx, tx, groupID, memberID)
@@ -94,7 +94,7 @@ func (s *Service) AdjustBalance(ctx context.Context, actorID, groupID, userID uu
 		return BalanceAdjustment{}, err
 	}
 	if input.NewBalanceUSD == oldBalance {
-		return BalanceAdjustment{}, fmt.Errorf("%w: new balance equals the current balance", apperror.ErrInvalidData)
+		return BalanceAdjustment{}, apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Yangi balans hozirgi balansga teng", RU: "Новый баланс равен текущему", EN: "The new balance equals the current balance"})
 	}
 	now := s.now().UTC()
 	_, err = tx.Exec(ctx, `
@@ -180,7 +180,7 @@ func validPage(page Page) (Page, error) {
 		page.Limit = defaultPageSize
 	}
 	if page.Limit < 1 || page.Limit > maxPageSize || page.Offset < 0 || page.Offset > maxOffset {
-		return Page{}, fmt.Errorf("%w: limit must be 1-%d and offset 0-%d", apperror.ErrInvalidData, maxPageSize, maxOffset)
+		return Page{}, apperror.PageOutOfRange(maxPageSize, maxOffset)
 	}
 	return page, nil
 }
