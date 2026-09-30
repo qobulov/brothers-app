@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestErrorShowsTechnicalMessageOnlyInDevelopment(t *testing.T) {
+func TestErrorShowsTechnicalReasonOnlyInDevelopment(t *testing.T) {
 	t.Parallel()
 
 	technicalError := errors.New("ERROR: column email does not exist")
@@ -23,12 +23,14 @@ func TestErrorShowsTechnicalMessageOnlyInDevelopment(t *testing.T) {
 		environment string
 		language    string
 		wantMessage string
+		wantReason  string
 	}{
-		{name: "development Uzbek", environment: "development", language: "uz", wantMessage: "Serverda ichki xatolik yuz berdi"},
+		{name: "development Uzbek", environment: "development", language: "uz", wantMessage: "Serverda ichki xatolik yuz berdi", wantReason: technicalError.Error()},
 		{
 			name:        "production",
 			environment: "production",
 			wantMessage: "Internal server error",
+			wantReason:  "internal_error",
 		},
 	}
 
@@ -51,7 +53,7 @@ func TestErrorShowsTechnicalMessageOnlyInDevelopment(t *testing.T) {
 			var body Envelope[ErrorDetails]
 			require.NoError(t, json.NewDecoder(response.Body).Decode(&body))
 			require.Equal(t, tt.wantMessage, body.Message)
-			require.Equal(t, technicalError.Error(), body.Data.Reason)
+			require.Equal(t, tt.wantReason, body.Data.Reason)
 		})
 	}
 }
@@ -130,7 +132,12 @@ func TestErrorPreservesCauseAndClassification(t *testing.T) {
 			require.Equal(t, tt.code, body.Code)
 			require.Equal(t, tt.slug, body.Slug)
 			require.Equal(t, tt.message, body.Message)
-			require.Equal(t, tt.err.Error(), body.Data.Reason)
+			wantReason := tt.err.Error()
+			if tt.status >= fiber.StatusInternalServerError {
+				// Production hides internal causes; they go to logs and Telegram only.
+				wantReason = tt.slug
+			}
+			require.Equal(t, wantReason, body.Data.Reason)
 			require.NotEmpty(t, body.Meta.RequestID)
 		})
 	}
@@ -166,5 +173,43 @@ func TestResponsesUseApplicationLanguageHeader(t *testing.T) {
 		require.NoError(t, json.NewDecoder(response.Body).Decode(&body))
 		response.Body.Close()
 		require.Equal(t, want, body.Message, path)
+	}
+}
+
+func TestErrorDetailsCarryFieldAndHideInternalReasons(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range []struct {
+		environment, wantReason string
+	}{
+		{environment: "production", wantReason: "internal_error"},
+		{environment: "development", wantReason: "loading order: ERROR: syntax error at or near \"FROM\""},
+	} {
+		var reports []FailureReport
+		app := fiber.New()
+		Middleware(app, tt.environment, func(report FailureReport) { reports = append(reports, report) })
+		app.Get("/internal", func(c *fiber.Ctx) error {
+			return Error(c, errors.New(`loading order: ERROR: syntax error at or near "FROM"`))
+		})
+		app.Get("/field", func(c *fiber.Ctx) error {
+			return Error(c, apperror.NewField(apperror.ErrInvalidData, "amount_usd", apperror.Text{UZ: "a", RU: "b", EN: "Bad amount"}))
+		})
+
+		response, err := app.Test(httptest.NewRequest("GET", "/internal", nil))
+		require.NoError(t, err)
+		var internal Envelope[ErrorDetails]
+		require.NoError(t, json.NewDecoder(response.Body).Decode(&internal))
+		response.Body.Close()
+		require.Equal(t, tt.wantReason, internal.Data.Reason, tt.environment)
+		require.Len(t, reports, 1)
+		require.Equal(t, `loading order: ERROR: syntax error at or near "FROM"`, reports[0].Reason, "Telegram always gets the full reason")
+
+		response, err = app.Test(httptest.NewRequest("GET", "/field", nil))
+		require.NoError(t, err)
+		var field Envelope[ErrorDetails]
+		require.NoError(t, json.NewDecoder(response.Body).Decode(&field))
+		response.Body.Close()
+		require.Equal(t, "amount_usd", field.Data.Field)
+		require.Equal(t, "invalid data: Bad amount", field.Data.Reason, "client errors keep their reason in every environment")
 	}
 }

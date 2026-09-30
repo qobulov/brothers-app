@@ -9,6 +9,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/qobulov/brothers-app/internal/auth/session"
+	"github.com/qobulov/brothers-app/pkg/apperror"
 	"github.com/qobulov/brothers-app/pkg/config"
 	"github.com/qobulov/brothers-app/pkg/responses"
 )
@@ -72,5 +73,5 @@ func authorizationToken(header string) (string, bool) {
 }
 
 func unauthorized(c *fiber.Ctx) error {
-	return responses.Failure(c, fiber.StatusUnauthorized, 1401, "unauthorized", responses.MessageInvalidCredentials, nil)
+	return responses.ErrorWithMessage(c, apperror.ErrUnauthorized, responses.MessageInvalidCredentials)
 }

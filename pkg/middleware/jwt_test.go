@@ -53,8 +53,9 @@ func TestSessionJWTReportsRedisFailure(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			var reports []responses.FailureReport
 			app := fiber.New()
-			responses.Middleware(app, "production")
+			responses.Middleware(app, "production", func(report responses.FailureReport) { reports = append(reports, report) })
 			app.Get("/me", SessionJWTMiddleware(sessionStoreFailure{err: tt.cause}, cfg), func(c *fiber.Ctx) error { return c.SendStatus(200) })
 			request := httptest.NewRequest("GET", "/me", nil)
 			request.Header.Set("Authorization", "Bearer "+token)
@@ -70,8 +71,13 @@ func TestSessionJWTReportsRedisFailure(t *testing.T) {
 			if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
 				t.Fatal(err)
 			}
-			if tt.status == 500 && !strings.Contains(body.Data.Reason, tt.cause.Error()) {
-				t.Fatalf("DB cause lost: %+v", body)
+			if tt.status == 500 {
+				if len(reports) != 1 || !strings.Contains(reports[0].Reason, tt.cause.Error()) {
+					t.Fatalf("cause lost from the error report: %+v", reports)
+				}
+				if body.Data.Reason != "internal_error" {
+					t.Fatalf("production body reason = %q, want the cause hidden", body.Data.Reason)
+				}
 			}
 		})
 	}

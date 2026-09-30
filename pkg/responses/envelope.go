@@ -158,6 +158,23 @@ func localized(language, uz, ru, en string) string {
 }
 
 func Failure(c *fiber.Ctx, status, code int, slug, message string, data any) error {
+	reason := message
+	if details, ok := data.(ErrorDetails); ok {
+		reason = details.Reason
+	}
+	return writeFailure(c, failure{status: status, code: code, slug: slug, message: message, data: data, reason: reason})
+}
+
+// failure is one error response. reason is what the error report records,
+// which may be more detailed than what the response shows.
+type failure struct {
+	status, code          int
+	slug, message, reason string
+	data                  any
+}
+
+func writeFailure(c *fiber.Ctx, f failure) error {
+	status, code, slug, message, data := f.status, f.code, f.slug, f.message, f.data
 	metadata := meta(c)
 	response := Envelope[any]{
 		Success: false,
@@ -170,10 +187,7 @@ func Failure(c *fiber.Ctx, status, code int, slug, message string, data any) err
 	// Only server-side failures (database, timeouts, internal errors) are
 	// reported; bad input, auth and not-found responses are expected traffic.
 	if report, ok := c.Locals("error_reporter").(func(FailureReport)); ok && status >= fiber.StatusInternalServerError {
-		reason := message
-		if details, ok := data.(ErrorDetails); ok {
-			reason = details.Reason
-		}
+		reason := f.reason
 		// Route templates exclude user-supplied path values; the query is reported separately.
 		path := c.Route().Path
 		if path == "" || path == "/" {

@@ -27,3 +27,19 @@ func TestLocalizedErrorMessage(t *testing.T) {
 		t.Fatalf("plain kind message = %q, want the generic message", got)
 	}
 }
+
+func TestLocalizedErrorField(t *testing.T) {
+	err := fmt.Errorf("validating: %w", NewField(ErrInvalidData, "amount_usd", Text{UZ: "a", RU: "b", EN: "c"}))
+	if Field(err) != "amount_usd" {
+		t.Fatalf("Field() = %q, want amount_usd", Field(err))
+	}
+	if Field(New(ErrInvalidData, Text{EN: "x"})) != "" || Field(ErrInvalidData) != "" {
+		t.Fatal("errors without a field must report none")
+	}
+}
+
+func TestInvalidOTPCodeMatchesStatus(t *testing.T) {
+	if Code(ErrInvalidOTP) != 1400 || StatusCode(ErrInvalidOTP) != 400 {
+		t.Fatalf("invalid OTP code/status = %d/%d, want 1400/400", Code(ErrInvalidOTP), StatusCode(ErrInvalidOTP))
+	}
+}

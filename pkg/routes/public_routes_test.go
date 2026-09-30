@@ -610,6 +610,39 @@ func (s *PublicRoutesTestSuite) TestErrorReasonIsLocalizedInMessage() {
 	}
 }
 
+// Every error response carries data.reason, so clients never have to handle null.
+func (s *PublicRoutesTestSuite) TestErrorResponsesAlwaysHaveReason() {
+	for _, tt := range []struct {
+		name, method, path, token, wantSlug string
+		wantStatus, wantCode                int
+	}{
+		{name: "missing token", method: "GET", path: "/api/v1/groups", wantStatus: 401, wantCode: 1401, wantSlug: "unauthorized"},
+		{name: "invalid token", method: "GET", path: "/api/v1/groups", token: "Bearer not-a-jwt", wantStatus: 401, wantCode: 1401, wantSlug: "unauthorized"},
+		{name: "unknown endpoint", method: "GET", path: "/api/v1/does-not-exist", token: s.accessToken, wantStatus: 404, wantCode: 1404, wantSlug: "not_found"},
+	} {
+		request := httptest.NewRequest(tt.method, tt.path, nil)
+		if tt.token != "" {
+			request.Header.Set("Authorization", tt.token)
+		}
+		response, err := s.app.Test(request, -1)
+		s.Require().NoError(err)
+		var envelope struct {
+			Code int    `json:"code"`
+			Slug string `json:"slug"`
+			Data *struct {
+				Reason string `json:"reason"`
+			} `json:"data"`
+		}
+		s.Require().NoError(json.NewDecoder(response.Body).Decode(&envelope))
+		response.Body.Close()
+		s.Equal(tt.wantStatus, response.StatusCode, tt.name)
+		s.Equal(tt.wantCode, envelope.Code, tt.name)
+		s.Equal(tt.wantSlug, envelope.Slug, tt.name)
+		s.Require().NotNil(envelope.Data, tt.name+": data must not be null")
+		s.NotEmpty(envelope.Data.Reason, tt.name)
+	}
+}
+
 func (s *PublicRoutesTestSuite) createGroup(name string) string {
 	s.T().Helper()
 	status, body := s.sendJSON("POST", "/api/v1/groups", map[string]any{"name": name})

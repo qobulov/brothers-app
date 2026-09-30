@@ -12,7 +12,11 @@ type ErrorResponse struct {
 
 // ErrorDetails carries the original cause, independently of the translated message.
 type ErrorDetails struct {
-	Reason string `json:"reason" example:"checking registration email: ERROR: column email does not exist (SQLSTATE 42703)"`
+	// Reason is a technical explanation for developers, always in English.
+	// Outside development, server errors report only their slug here.
+	Reason string `json:"reason" example:"invalid data: The amount must be between $1 and $1000000000"`
+	// Field names the request field the error is about, when there is one.
+	Field string `json:"field,omitempty" example:"amount_usd"`
 }
 
 func Error(c *fiber.Ctx, err error) error {
@@ -29,12 +33,31 @@ func ErrorLocalized(c *fiber.Ctx, err error, language string) error {
 		language = Language(c)
 	}
 
-	return Failure(c, appError.StatusCode(err), appError.Code(err), appError.Slug(err), appError.MessageForLanguage(err, language), ErrorDetails{Reason: err.Error()})
+	status := appError.StatusCode(err)
+	return writeFailure(c, failure{
+		status: status, code: appError.Code(err), slug: appError.Slug(err),
+		message: appError.MessageForLanguage(err, language), data: errorDetails(c, status, err), reason: err.Error(),
+	})
 }
 
 func ErrorWithMessage(c *fiber.Ctx, err error, message string) error {
 	if err == nil {
 		err = appError.ErrInternalServer
 	}
-	return Failure(c, appError.StatusCode(err), appError.Code(err), appError.Slug(err), message, ErrorDetails{Reason: err.Error()})
+	status := appError.StatusCode(err)
+	return writeFailure(c, failure{
+		status: status, code: appError.Code(err), slug: appError.Slug(err),
+		message: message, data: errorDetails(c, status, err), reason: err.Error(),
+	})
+}
+
+// errorDetails keeps internal causes (SQL, network) out of the response body
+// outside development; the full reason still reaches logs and Telegram.
+func errorDetails(c *fiber.Ctx, status int, err error) ErrorDetails {
+	details := ErrorDetails{Reason: err.Error(), Field: appError.Field(err)}
+	environment, _ := c.Locals(appEnvironmentLocal).(string)
+	if status >= fiber.StatusInternalServerError && environment != "development" {
+		details.Reason = appError.Slug(err)
+	}
+	return details
 }

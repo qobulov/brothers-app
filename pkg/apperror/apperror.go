@@ -217,7 +217,7 @@ func Code(err error) int {
 	case errors.Is(err, ErrLimitExceeded):
 		return 1429
 	case errors.Is(err, ErrInvalidOTP):
-		return 1404
+		return 1400
 	case errors.Is(err, ErrEmailUnavailable):
 		return 1503
 	case errors.Is(err, ErrInvalidData), errors.Is(err, ErrRequiredField), errors.Is(err, ErrInvalidFormat):
