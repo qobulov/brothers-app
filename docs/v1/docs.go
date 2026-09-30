@@ -1690,7 +1690,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/userdto.UserResponse"
+                                "$ref": "#/definitions/user.User"
                             }
                         }
                     },
@@ -3234,7 +3234,7 @@ const docTemplate = `{
                 }
             }
         },
-        "userdto.UserResponse": {
+        "user.User": {
             "type": "object",
             "properties": {
                 "avatar_url": {

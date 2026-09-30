@@ -10,7 +10,7 @@
 
 ## Features
 
-- Clear separation of concerns with Clean Architecture (`entities`, `usecase`, `repository`, `handler/rest`, `dto`)
+- Feature packages with two layers: a `Handler` (HTTP) and a `Service` (business rules and SQL in one transaction)
 - High-performance HTTP handling with Fiber v2
 - Explicit, type-safe database integration using sqlc and pgx
 - JWT-based authentication and protected endpoints
@@ -197,19 +197,27 @@ Key environment variables in `.env.dev`:
 │   ├── app/
 │   │   ├── app.go                  # Fiber app & DB dependency setup
 │   │   └── server.go               # Server lifecycle & graceful shutdown
-│   ├── entities/                   # Domain entities (User, Order)
-│   ├── order/                      # Order feature module
-│   │   ├── dto/                    # DTOs & mappers
-│   │   ├── handler/
-│   │   │   └── rest/               # Fiber REST controller
-│   │   ├── repository/             # sqlc repository implementation
-│   │   └── usecase/                # Business logic & tests
-│   └── user/                       # User & Auth feature module
-│       ├── dto/
-│       ├── handler/
-│       │   └── rest/
-│       ├── repository/
-│       └── usecase/
+│   ├── auth/                       # Registration, login, OTP, sessions
+│   ├── db/                         # sqlc generated queries (auth, user search)
+│   ├── entities/                   # Shared domain entities (User, Session)
+│   ├── group/                      # Groups, members, invitations, locations, customers
+│   │   ├── handler.go              # HTTP: parse request, write response
+│   │   ├── service.go              # Groups: create, list, delete
+│   │   ├── members.go              # Member list
+│   │   ├── invitations.go          # Invite and respond
+│   │   ├── access.go               # Membership and manager checks
+│   │   └── resources.go            # Locations and customers
+│   ├── notification/               # In-app notification list
+│   ├── order/                      # Two-employee orders
+│   │   ├── handler.go              # HTTP layer
+│   │   ├── service.go              # Create and detail
+│   │   ├── list.go, edit.go        # List and edit
+│   │   ├── confirm.go, effects.go  # Confirmation, balance and profit effects
+│   │   ├── cancel.go               # Cancellation and reversal
+│   │   └── events.go, notifications.go
+│   └── user/                       # User search for invitations
+│       ├── handler.go
+│       └── service.go
 ├── pkg/
 │   ├── apperror/                   # Standard error handling
 │   ├── config/                     # Environment configuration loader

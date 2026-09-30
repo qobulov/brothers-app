@@ -9,9 +9,7 @@ import (
 	group "github.com/qobulov/brothers-app/internal/group"
 	notification "github.com/qobulov/brothers-app/internal/notification"
 	order "github.com/qobulov/brothers-app/internal/order"
-	userHandler "github.com/qobulov/brothers-app/internal/user/handler/rest"
-	userRepository "github.com/qobulov/brothers-app/internal/user/repository"
-	userUseCase "github.com/qobulov/brothers-app/internal/user/usecase"
+	user "github.com/qobulov/brothers-app/internal/user"
 	"github.com/qobulov/brothers-app/pkg/config"
 	middleware "github.com/qobulov/brothers-app/pkg/middleware"
 
@@ -26,7 +24,7 @@ func RegisterPrivateRoutes(app fiber.Router, pool *pgxpool.Pool, otpCache *otp.C
 	groupService := group.NewService(pool)
 	groupHandler := group.NewHandler(groupService)
 	notificationHandler := notification.NewHandler(pool)
-	userLookupHandler := userHandler.NewHttpUserHandler(userUseCase.NewUserService(userRepository.NewSQLCUserRepository(queries)))
+	userLookupHandler := user.NewHandler(user.NewService(queries))
 
 	service := authService.New(pool, otpCache, sessions, cfg, nil)
 	handler := authHandler.NewHandler(service)
