@@ -224,3 +224,19 @@ func TestCancellation_UntouchedOrderCancelsImmediately(t *testing.T) {
 		t.Fatalf("touched order after request = %s/%s, want pending/cancellation_requested", pending.Status, pending.State)
 	}
 }
+
+func TestCancellation_BlockedWhenOtherPartyLeftGroup(t *testing.T) {
+	f := newFixture(t)
+	created := f.create(f.manager)
+	f.confirm(f.giver, created.ID, 7000, 0)
+	f.confirm(f.receiver, created.ID, 7000, 0)
+	f.exec(`UPDATE group_members SET deleted_at = now() WHERE id = $1`, f.receiverMember)
+
+	_, err := f.service.RequestCancellation(context.Background(), f.giver, f.groupID, created.ID, "")
+	if !errors.Is(err, apperror.ErrConflict) {
+		t.Fatalf("request after the other party left error = %v, want conflict", err)
+	}
+	if n := f.count(`SELECT COUNT(*) FROM order_cancellations WHERE order_id = $1`, created.ID); n != 0 {
+		t.Fatalf("cancellation requests = %d, want none", n)
+	}
+}

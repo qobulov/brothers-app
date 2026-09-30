@@ -124,6 +124,9 @@ func (r cancellationRequest) insert(ctx context.Context, q querier, status strin
 }
 
 func openCancellationRequest(ctx context.Context, q querier, r cancellationRequest) error {
+	if err := requireActiveParties(ctx, q, r.locked.parties); err != nil {
+		return err
+	}
 	if err := r.insert(ctx, q, cancellationPending); err != nil {
 		return err
 	}
@@ -237,6 +240,23 @@ func requireNoOpenCancellation(ctx context.Context, q querier, orderID uuid.UUID
 	}
 	if open {
 		return fmt.Errorf("%w: order has an open cancellation request", apperror.ErrConflict)
+	}
+	return nil
+}
+
+// requireActiveParties refuses a request the other party could never answer:
+// once an employee leaves the group, their old orders cannot be cancelled.
+func requireActiveParties(ctx context.Context, q querier, p parties) error {
+	var active int
+	err := q.QueryRow(ctx, `
+		SELECT COUNT(*) FROM group_members
+		WHERE id IN ($1, $2) AND deleted_at IS NULL
+	`, p.giverMemberID, p.receiverMemberID).Scan(&active)
+	if err != nil {
+		return fmt.Errorf("checking order parties: %w", err)
+	}
+	if active != 2 {
+		return fmt.Errorf("%w: an employee on this order has left the group", apperror.ErrConflict)
 	}
 	return nil
 }
