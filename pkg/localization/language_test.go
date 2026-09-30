@@ -28,3 +28,26 @@ func TestResolveAcceptLanguage(t *testing.T) {
 		})
 	}
 }
+
+func TestRequestLanguage(t *testing.T) {
+	tests := []struct {
+		name                string
+		applicationLanguage string
+		acceptLanguage      string
+		want                string
+	}{
+		{name: "application language wins", applicationLanguage: "uz", acceptLanguage: "ru", want: "uz"},
+		{name: "application language is case-insensitive", applicationLanguage: " RU ", want: "ru"},
+		{name: "application language with region", applicationLanguage: "uz-UZ", want: "uz"},
+		{name: "unsupported application language falls back", applicationLanguage: "de", acceptLanguage: "ru", want: "ru"},
+		{name: "accept language only", acceptLanguage: "ru-RU,en;q=0.5", want: "ru"},
+		{name: "neither header", want: DefaultLanguage},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := RequestLanguage(tt.applicationLanguage, tt.acceptLanguage); got != tt.want {
+				t.Fatalf("RequestLanguage(%q, %q) = %q, want %q", tt.applicationLanguage, tt.acceptLanguage, got, tt.want)
+			}
+		})
+	}
+}

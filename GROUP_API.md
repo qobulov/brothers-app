@@ -8,10 +8,10 @@ Barcha endpointlar authentication talab qiladi:
 
 ```http
 Authorization: Bearer <access_token>
-Accept-Language: uz | ru | en
+Application-Language: uz | ru | en
 ```
 
-`Accept-Language` berilmasa, response xabarlari default English tilida qaytadi.
+Til `Application-Language` headeridan olinadi. U bo‘lmasa yoki noto‘g‘ri bo‘lsa, standart `Accept-Language` ishlatiladi. Ikkalasi ham bo‘lmasa, xabarlar English tilida qaytadi.
 
 ## Umumiy response formati
 

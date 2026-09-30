@@ -135,3 +135,36 @@ func TestErrorPreservesCauseAndClassification(t *testing.T) {
 		})
 	}
 }
+
+// The mobile app sends Application-Language instead of Accept-Language.
+func TestResponsesUseApplicationLanguageHeader(t *testing.T) {
+	t.Parallel()
+
+	app := fiber.New()
+	Middleware(app, "production")
+	app.Get("/error", func(c *fiber.Ctx) error { return Error(c, apperror.ErrInvalidData) })
+	app.Get("/message", func(c *fiber.Ctx) error {
+		return ErrorWithMessage(c, apperror.ErrInvalidData, MessageInvalidRequest)
+	})
+	app.Get("/success", func(c *fiber.Ctx) error {
+		return Success(c, fiber.StatusOK, "ok", MessageRequestProcessed)
+	})
+
+	for path, want := range map[string]string{
+		"/error":   "Ma'lumotlar noto'g'ri",
+		"/message": "So'rov ma'lumotlari noto'g'ri",
+		"/success": "So'rov muvaffaqiyatli bajarildi",
+	} {
+		request := httptest.NewRequest("GET", path, nil)
+		request.Header.Set("Application-Language", "uz")
+		request.Header.Set(fiber.HeaderAcceptLanguage, "en")
+		response, err := app.Test(request)
+		require.NoError(t, err)
+		var body struct {
+			Message string `json:"message"`
+		}
+		require.NoError(t, json.NewDecoder(response.Body).Decode(&body))
+		response.Body.Close()
+		require.Equal(t, want, body.Message, path)
+	}
+}

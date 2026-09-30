@@ -8,8 +8,10 @@ Barcha endpointlar authentication talab qiladi:
 
 ```http
 Authorization: Bearer <access_token>
-Accept-Language: uz | ru | en
+Application-Language: uz | ru | en
 ```
+
+Til `Application-Language` headeridan, u bo‘lmasa `Accept-Language` dan olinadi.
 
 Response formati `GROUP_API.md` dagi umumiy envelope bilan bir xil.
 

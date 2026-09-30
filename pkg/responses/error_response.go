@@ -20,13 +20,13 @@ func Error(c *fiber.Ctx, err error) error {
 }
 
 // ErrorLocalized writes an error using the explicit language when provided,
-// otherwise it falls back to the request's Accept-Language header.
+// otherwise it uses the request's language headers.
 func ErrorLocalized(c *fiber.Ctx, err error, language string) error {
 	if err == nil {
 		err = appError.ErrInternalServer
 	}
 	if language == "" {
-		language = c.Get(fiber.HeaderAcceptLanguage)
+		language = Language(c)
 	}
 
 	return Failure(c, appError.StatusCode(err), appError.Code(err), appError.Slug(err), appError.MessageForLanguage(err, language), ErrorDetails{Reason: err.Error()})

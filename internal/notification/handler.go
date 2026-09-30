@@ -11,7 +11,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/qobulov/brothers-app/pkg/apperror"
-	"github.com/qobulov/brothers-app/pkg/localization"
 	"github.com/qobulov/brothers-app/pkg/responses"
 )
 
@@ -68,7 +67,7 @@ func (h *Handler) List(c *fiber.Ctx) error {
 	if err != nil {
 		return responses.Error(c, err)
 	}
-	language := localization.ResolveAcceptLanguage(c.Get(fiber.HeaderAcceptLanguage))
+	language := responses.Language(c)
 	rows, err := h.pool.Query(c.UserContext(), `
 		SELECT notifications.id,
 		       CASE $2 WHEN 'uz' THEN notifications.title_uz WHEN 'ru' THEN notifications.title_ru ELSE notifications.title_en END,

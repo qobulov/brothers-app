@@ -127,10 +127,16 @@ func Success[T any](c *fiber.Ctx, status int, data T, message string) error {
 		Success: true,
 		Code:    0,
 		Slug:    "ok",
-		Message: localizeMessage(message, c.Get(fiber.HeaderAcceptLanguage)),
+		Message: localizeMessage(message, Language(c)),
 		Data:    data,
 		Meta:    meta(c),
 	})
+}
+
+// Language is the response language for the request, from Application-Language
+// or Accept-Language.
+func Language(c *fiber.Ctx) string {
+	return localization.RequestLanguage(c.Get(localization.HeaderApplicationLanguage), c.Get(fiber.HeaderAcceptLanguage))
 }
 
 func localizeMessage(message, language string) string {
@@ -157,7 +163,7 @@ func Failure(c *fiber.Ctx, status, code int, slug, message string, data any) err
 		Success: false,
 		Code:    code,
 		Slug:    slug,
-		Message: localizeMessage(message, c.Get(fiber.HeaderAcceptLanguage)),
+		Message: localizeMessage(message, Language(c)),
 		Data:    data,
 		Meta:    metadata,
 	}
