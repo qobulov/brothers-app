@@ -177,13 +177,24 @@ func (s *Service) List(ctx context.Context, actorID uuid.UUID) ([]GroupListItem,
 		                 OR group_members.role::text IN ('owner', 'admin', 'manager', 'investor')
 		             )
 		       ), 0)::bigint AS group_balance_usd,
-		       CASE WHEN group_members.role::text = 'employee' THEN COALESCE((
-		           SELECT SUM(profits.profit_uzs)::bigint
-		           FROM member_profit_periods profits
-		           WHERE profits.group_id = groups.id
-		             AND profits.member_id = group_members.id
-		             AND profits.deleted_at IS NULL
-		       ), 0)::bigint END AS my_profit_uzs,
+		       -- Employees see their own all-time profit; owner, manager and
+		       -- investor see the whole group's, including members who left.
+		       CASE
+		           WHEN group_members.role::text = 'employee' THEN COALESCE((
+		               SELECT SUM(profits.profit_uzs)::bigint
+		               FROM member_profit_periods profits
+		               WHERE profits.group_id = groups.id
+		                 AND profits.member_id = group_members.id
+		                 AND profits.deleted_at IS NULL
+		           ), 0)::bigint
+		           WHEN group_members.is_owner
+		             OR group_members.role::text IN ('owner', 'admin', 'manager', 'investor') THEN COALESCE((
+		               SELECT SUM(profits.profit_uzs)::bigint
+		               FROM member_profit_periods profits
+		               WHERE profits.group_id = groups.id
+		                 AND profits.deleted_at IS NULL
+		           ), 0)::bigint
+		       END AS my_profit_uzs,
 		       (
 		           SELECT COUNT(*)::bigint
 		           FROM group_members members

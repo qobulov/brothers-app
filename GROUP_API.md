@@ -119,7 +119,7 @@ Qoidalar:
 
 - Employee `group_balance_usd`da faqat o‘z balansini ko‘radi.
 - Owner, manager va investor umumiy group balansini ko‘radi.
-- `my_profit_uzs` faqat employee uchun qaytadi.
+- `my_profit_uzs`: employee o‘z profitini, owner, manager va investor esa guruhning umumiy profitini ko‘radi (butun davr bo‘yicha jami, guruhdan chiqqan a’zolar profiti ham kiradi).
 - `subscription_active` hozircha doim mock `true`.
 - Pul qiymatlari cent yoki tiyin emas.
 

@@ -260,8 +260,8 @@ func TestService_CreateInviteAndAccept(t *testing.T) {
 	if len(ownerGroups) != 1 || ownerGroups[0].GroupBalanceUSD != 7200 {
 		t.Fatalf("owner groups = %#v, want shared group balance", ownerGroups)
 	}
-	if ownerGroups[0].MyProfitUZS != nil {
-		t.Fatalf("owner profit = %v, want omitted", ownerGroups[0].MyProfitUZS)
+	if ownerGroups[0].MyProfitUZS == nil || *ownerGroups[0].MyProfitUZS != 940000 {
+		t.Fatalf("owner profit = %v, want group total 940000", ownerGroups[0].MyProfitUZS)
 	}
 	encodedOwner, err := json.Marshal(ownerGroups[0])
 	if err != nil {
@@ -271,8 +271,8 @@ func TestService_CreateInviteAndAccept(t *testing.T) {
 	if err := json.Unmarshal(encodedOwner, &ownerJSON); err != nil {
 		t.Fatalf("decode owner group: %v", err)
 	}
-	if _, exists := ownerJSON["my_profit_uzs"]; exists {
-		t.Fatalf("owner response must omit my_profit_uzs: %s", encodedOwner)
+	if ownerJSON["my_profit_uzs"] != float64(940000) {
+		t.Fatalf("owner response my_profit_uzs = %v, want 940000: %s", ownerJSON["my_profit_uzs"], encodedOwner)
 	}
 
 	if ownerGroups[0].MembersCount != 2 || ownerGroups[0].LocationsCount != 2 ||
@@ -531,18 +531,26 @@ func TestService_GroupBalanceVisibility(t *testing.T) {
 	employeeBMemberID := addGroupMember(t, pool, created.ID, employeeBID, "employee")
 	addEmployeeBalance(t, pool, created.ID, employeeAMemberID, 7200)
 	addEmployeeBalance(t, pool, created.ID, employeeBMemberID, 3100)
+	_, err = pool.Exec(context.Background(), `
+		INSERT INTO member_profit_periods (group_id, member_id, year, month, profit_uzs)
+		VALUES ($1, $2, 2026, 9, 500000), ($1, $2, 2026, 10, -100000), ($1, $3, 2026, 10, 250000)
+	`, created.ID, employeeAMemberID, employeeBMemberID)
+	if err != nil {
+		t.Fatalf("create employee profits: %v", err)
+	}
 
 	tests := []struct {
 		name        string
 		actorID     uuid.UUID
 		wantBalance int64
+		wantProfit  *int64
 	}{
-		{name: "owner sees group balance", actorID: ownerID, wantBalance: 10300},
-		{name: "manager sees group balance", actorID: managerID, wantBalance: 10300},
-		{name: "investor sees read-only group balance", actorID: investorID, wantBalance: 10300},
-		{name: "legacy member cannot see group balance", actorID: legacyMemberID, wantBalance: 0},
-		{name: "first employee sees own balance", actorID: employeeAID, wantBalance: 7200},
-		{name: "second employee sees own balance", actorID: employeeBID, wantBalance: 3100},
+		{name: "owner sees group totals", actorID: ownerID, wantBalance: 10300, wantProfit: profitUZS(650000)},
+		{name: "manager sees group totals", actorID: managerID, wantBalance: 10300, wantProfit: profitUZS(650000)},
+		{name: "investor sees read-only group totals", actorID: investorID, wantBalance: 10300, wantProfit: profitUZS(650000)},
+		{name: "legacy member sees no totals", actorID: legacyMemberID, wantBalance: 0},
+		{name: "first employee sees own totals", actorID: employeeAID, wantBalance: 7200, wantProfit: profitUZS(400000)},
+		{name: "second employee sees own totals", actorID: employeeBID, wantBalance: 3100, wantProfit: profitUZS(250000)},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -552,6 +560,10 @@ func TestService_GroupBalanceVisibility(t *testing.T) {
 			}
 			if len(groups) != 1 || groups[0].GroupBalanceUSD != tt.wantBalance {
 				t.Fatalf("list balance = %#v, want %d", groups, tt.wantBalance)
+			}
+			got := groups[0].MyProfitUZS
+			if (got == nil) != (tt.wantProfit == nil) || (got != nil && *got != *tt.wantProfit) {
+				t.Fatalf("list profit = %v, want %v", got, tt.wantProfit)
 			}
 
 		})
@@ -749,3 +761,5 @@ func addGroupOrder(t *testing.T, pool *pgxpool.Pool, groupID, createdBy uuid.UUI
 		t.Fatalf("create group order: %v", err)
 	}
 }
+
+func profitUZS(value int64) *int64 { return &value }
