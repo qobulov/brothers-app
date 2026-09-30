@@ -1161,7 +1161,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Only the giver or receiver, for a pending or completed order. The requester counts as approved; the other party must approve.",
+                "description": "A pending order nobody has confirmed is cancelled immediately; the giver, the receiver or the order's creator may do it. Otherwise only the giver or receiver may ask, the requester counts as approved and the other party must approve.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1171,7 +1171,7 @@ const docTemplate = `{
                 "tags": [
                     "orders"
                 ],
-                "summary": "Request order cancellation",
+                "summary": "Cancel an order or request its cancellation",
                 "parameters": [
                     {
                         "type": "string",

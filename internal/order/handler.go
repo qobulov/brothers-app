@@ -332,8 +332,8 @@ type CancellationActionRequest struct {
 }
 
 // RequestCancellation godoc
-// @Summary Request order cancellation
-// @Description Only the giver or receiver, for a pending or completed order. The requester counts as approved; the other party must approve.
+// @Summary Cancel an order or request its cancellation
+// @Description A pending order nobody has confirmed is cancelled immediately; the giver, the receiver or the order's creator may do it. Otherwise only the giver or receiver may ask, the requester counts as approved and the other party must approve.
 // @Tags orders
 // @Accept json
 // @Produce json

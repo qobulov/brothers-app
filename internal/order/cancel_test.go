@@ -81,10 +81,11 @@ func TestCancellation_ReceiverCancelsCompletedOrderAndReversesEffects(t *testing
 func TestCancellation_RejectKeepsOrderThenApprovalCancelsPendingOrder(t *testing.T) {
 	f := newFixture(t)
 	created := f.create(f.giver)
+	f.confirm(f.receiver, created.ID, 7000, 0)
 	f.requestCancellation(f.giver, created.ID)
 
 	kept := f.respondCancellation(f.receiver, created.ID, CancellationReject)
-	if kept.Status != StatusPending || kept.Cancellation != nil || kept.State != StateWaitingForYou {
+	if kept.Status != StatusPending || kept.Cancellation != nil || kept.State != StateWaitingForConfirmation {
 		t.Fatalf("after rejection = %s/%s cancellation=%#v", kept.Status, kept.State, kept.Cancellation)
 	}
 	if f.notificationCount(f.giver, notifyOrderCancellationRejected) != 1 {
@@ -107,6 +108,7 @@ func TestCancellation_RejectKeepsOrderThenApprovalCancelsPendingOrder(t *testing
 func TestCancellation_RequesterCanWithdraw(t *testing.T) {
 	f := newFixture(t)
 	created := f.create(f.giver)
+	f.confirm(f.giver, created.ID, 7000, 0)
 	f.requestCancellation(f.receiver, created.ID)
 	withdrawn := f.respondCancellation(f.receiver, created.ID, CancellationReject)
 	if withdrawn.Status != StatusPending || withdrawn.Cancellation != nil {
@@ -117,6 +119,7 @@ func TestCancellation_RequesterCanWithdraw(t *testing.T) {
 func TestCancellation_Rules(t *testing.T) {
 	f := newFixture(t)
 	created := f.create(f.giver)
+	f.confirm(f.receiver, created.ID, 7000, 0)
 	ctx := context.Background()
 	amount := int64(6000)
 
@@ -175,5 +178,49 @@ func TestCancellation_Rules(t *testing.T) {
 	f.respondCancellation(f.receiver, created.ID, CancellationApprove)
 	if _, err := f.service.RequestCancellation(ctx, f.giver, f.groupID, created.ID, ""); !errors.Is(err, apperror.ErrConflict) {
 		t.Fatalf("request on cancelled order error = %v, want conflict", err)
+	}
+}
+
+func TestCancellation_UntouchedOrderCancelsImmediately(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+
+	byParty := f.create(f.giver)
+	cancelled := f.requestCancellation(f.giver, byParty.ID)
+	if cancelled.Status != StatusCancelled || cancelled.State != StatusCancelled {
+		t.Fatalf("untouched order after request = %s/%s, want cancelled", cancelled.Status, cancelled.State)
+	}
+	c := cancelled.Cancellation
+	if c == nil || c.Status != cancellationApproved || c.Approvals[0].Status != "approved" || c.Approvals[1].Status != "approved" {
+		t.Fatalf("cancellation = %#v, want approved by both", c)
+	}
+	if f.notificationCount(f.receiver, notifyOrderCancelled) != 1 || f.notificationCount(f.giver, notifyOrderCancelled) != 0 {
+		t.Fatal("only the other party must be notified of an immediate cancellation")
+	}
+	if f.notificationCount(f.receiver, notifyOrderCancellationRequested) != 0 {
+		t.Fatal("an immediate cancellation must not ask for approval")
+	}
+
+	byManager := f.create(f.manager)
+	if got := f.requestCancellation(f.manager, byManager.ID); got.Status != StatusCancelled {
+		t.Fatalf("creator cancel status = %s, want cancelled", got.Status)
+	}
+	if f.notificationCount(f.giver, notifyOrderCancelled) != 1 || f.notificationCount(f.receiver, notifyOrderCancelled) != 2 {
+		t.Fatal("a manager's immediate cancellation must notify both parties")
+	}
+
+	notCreator := f.create(f.manager)
+	if _, err := f.service.RequestCancellation(ctx, f.owner, f.groupID, notCreator.ID, ""); !errors.Is(err, apperror.ErrForbidden) {
+		t.Fatalf("non-creator manager cancel error = %v, want forbidden", err)
+	}
+
+	touched := f.create(f.manager)
+	f.confirm(f.receiver, touched.ID, 7000, 0)
+	if _, err := f.service.RequestCancellation(ctx, f.manager, f.groupID, touched.ID, ""); !errors.Is(err, apperror.ErrForbidden) {
+		t.Fatalf("creator cancel after a confirmation error = %v, want forbidden", err)
+	}
+	pending := f.requestCancellation(f.giver, touched.ID)
+	if pending.Status != StatusPending || pending.State != StateCancellationRequested {
+		t.Fatalf("touched order after request = %s/%s, want pending/cancellation_requested", pending.Status, pending.State)
 	}
 }

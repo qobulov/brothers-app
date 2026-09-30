@@ -73,6 +73,7 @@ func (s *Service) Confirm(ctx context.Context, actorID, groupID, orderID uuid.UU
 // lockedOrder is the order's current state, read under a row lock.
 type lockedOrder struct {
 	status             string
+	createdBy          uuid.UUID
 	amountUSD, feeUZS  int64
 	parties            parties
 	giverLocationID    *uuid.UUID
@@ -84,7 +85,7 @@ type lockedOrder struct {
 func lockOrder(ctx context.Context, q querier, groupID, orderID uuid.UUID) (lockedOrder, error) {
 	var o lockedOrder
 	err := q.QueryRow(ctx, `
-		SELECT orders.status, orders.amount_usd, orders.fee_uzs,
+		SELECT orders.status, orders.created_by, orders.amount_usd, orders.fee_uzs,
 		       orders.giver_member_id, giver_member.user_id, orders.giver_location_id, giver_customer.phone,
 		       orders.receiver_member_id, receiver_member.user_id, orders.receiver_location_id, receiver_customer.phone
 		FROM orders
@@ -95,7 +96,7 @@ func lockOrder(ctx context.Context, q querier, groupID, orderID uuid.UUID) (lock
 		WHERE orders.id = $1 AND orders.group_id = $2 AND orders.deleted_at IS NULL
 		FOR UPDATE OF orders
 	`, orderID, groupID).Scan(
-		&o.status, &o.amountUSD, &o.feeUZS,
+		&o.status, &o.createdBy, &o.amountUSD, &o.feeUZS,
 		&o.parties.giverMemberID, &o.parties.giverUserID, &o.giverLocationID, &o.giverPhone,
 		&o.parties.receiverMemberID, &o.parties.receiverUserID, &o.receiverLocationID, &o.receiverPhone,
 	)

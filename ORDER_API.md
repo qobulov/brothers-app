@@ -34,7 +34,7 @@ Response formati `GROUP_API.md` dagi umumiy envelope bilan bir xil.
 | `PATCH` | `/api/v1/groups/:groupID/orders/:orderID` | Yaratish qoidasi bilan bir xil, faqat `pending` order |
 | `POST` | `/api/v1/groups/:groupID/orders/:orderID/confirmations` | Faqat giver yoki receiver, o‘zi uchun |
 | `GET` | `/api/v1/groups/:groupID/orders/:orderID/events` | Ro‘yxat bilan bir xil |
-| `POST` | `/api/v1/groups/:groupID/orders/:orderID/cancellation` | Faqat giver yoki receiver |
+| `POST` | `/api/v1/groups/:groupID/orders/:orderID/cancellation` | Giver yoki receiver; tasdiqlanmagan orderni yaratuvchi ham |
 | `POST` | `/api/v1/groups/:groupID/orders/:orderID/cancellation/action` | Faqat giver yoki receiver |
 
 Employee boshqa employee'larning orderini ochsa, API `404` qaytaradi.
@@ -210,7 +210,10 @@ Tasdiq event'larida summa va fee saqlanmaydi, shuning uchun tarix orqali qarshi 
 
 ## 7. Orderni bekor qilish
 
-Bekor qilish uchun ikkala employee roziligi kerak. So‘rovni giver ham, receiver ham yuborishi mumkin; so‘rov yuborgan tomon avtomatik rozi hisoblanadi.
+Ikki holat bor:
+
+- **Hech kim tasdiqlamagan `pending` order** darhol bekor qilinadi, rozilik kerak emas. Buni giver, receiver yoki orderni yaratgan odam (masalan, manager) qila oladi. Response'da `status: "cancelled"` qaytadi.
+- **Kamida bitta tasdiq bor yoki order `completed`** — ikkala employee roziligi kerak. So‘rovni giver ham, receiver ham yuborishi mumkin; so‘rov yuborgan tomon avtomatik rozi hisoblanadi.
 
 ### So‘rov yuborish
 

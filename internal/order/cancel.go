@@ -24,8 +24,11 @@ const (
 	maxCancellationReason = 500
 )
 
-// RequestCancellation opens a cancellation request. The requesting party
-// counts as approved; the order is cancelled once the other party approves.
+// RequestCancellation cancels an untouched order immediately, or opens a
+// request the other party must approve. An order is untouched while it is
+// pending and nobody has confirmed it; then the giver, the receiver or the
+// order's creator may cancel it. Otherwise only a party may ask, and the
+// requester counts as approved.
 func (s *Service) RequestCancellation(ctx context.Context, actorID, groupID, orderID uuid.UUID, reason string) (Order, error) {
 	reason = strings.TrimSpace(reason)
 	if utf8.RuneCountInString(reason) > maxCancellationReason {
@@ -37,9 +40,16 @@ func (s *Service) RequestCancellation(ctx context.Context, actorID, groupID, ord
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	v, locked, err := lockForParty(ctx, tx, actorID, groupID, orderID)
+	v, err := loadViewer(ctx, tx, groupID, actorID)
 	if err != nil {
 		return Order{}, err
+	}
+	locked, err := lockOrder(ctx, tx, groupID, orderID)
+	if err != nil {
+		return Order{}, err
+	}
+	if !v.canSee(locked.parties) {
+		return Order{}, apperror.ErrRecordNotFound
 	}
 	if locked.status == StatusCancelled {
 		return Order{}, fmt.Errorf("%w: order is already cancelled", apperror.ErrConflict)
@@ -47,21 +57,22 @@ func (s *Service) RequestCancellation(ctx context.Context, actorID, groupID, ord
 	if err := requireNoOpenCancellation(ctx, tx, orderID); err != nil {
 		return Order{}, err
 	}
-	now := s.now().UTC()
-	_, err = tx.Exec(ctx, `
-		INSERT INTO order_cancellations (order_id, requested_by_member_id, reason, status, created_at, updated_at)
-		VALUES ($1, $2, NULLIF($3, ''), 'pending', $4, $4)
-	`, orderID, v.memberID, reason, now)
+	untouched, err := isUntouched(ctx, tx, orderID, locked)
 	if err != nil {
-		return Order{}, fmt.Errorf("creating cancellation request: %w", err)
-	}
-	if err := writeEvent(ctx, tx, orderEvent{orderID: orderID, actorID: actorID, eventType: eventCancellationRequested}); err != nil {
 		return Order{}, err
 	}
-	err = notify(ctx, tx, orderNotification{
-		eventType: notifyOrderCancellationRequested, groupID: groupID, orderID: orderID, amountUSD: locked.amountUSD,
-		recipients: otherParties(actorID, locked.parties.giverUserID, locked.parties.receiverUserID),
-	}, now)
+	request := cancellationRequest{
+		groupID: groupID, orderID: orderID, actorID: actorID, memberID: v.memberID,
+		reason: reason, locked: locked, at: s.now().UTC(),
+	}
+	switch {
+	case untouched && (v.isParty(locked.parties) || actorID == locked.createdBy):
+		err = cancelImmediately(ctx, tx, request)
+	case !v.isParty(locked.parties):
+		err = apperror.ErrForbidden
+	default:
+		err = openCancellationRequest(ctx, tx, request)
+	}
 	if err != nil {
 		return Order{}, err
 	}
@@ -69,6 +80,87 @@ func (s *Service) RequestCancellation(ctx context.Context, actorID, groupID, ord
 		return Order{}, fmt.Errorf("committing cancellation request: %w", err)
 	}
 	return s.Get(ctx, actorID, groupID, orderID)
+}
+
+type cancellationRequest struct {
+	groupID, orderID, actorID, memberID uuid.UUID
+	reason                              string
+	locked                              lockedOrder
+	at                                  time.Time
+}
+
+// isUntouched reports a pending order that nobody has confirmed yet, so
+// cancelling it has no financial effect.
+func isUntouched(ctx context.Context, q querier, orderID uuid.UUID, locked lockedOrder) (bool, error) {
+	if locked.status != StatusPending {
+		return false, nil
+	}
+	confirmations, err := loadConfirmations(ctx, q, orderID)
+	if err != nil {
+		return false, err
+	}
+	return len(confirmations) == 0, nil
+}
+
+// insert records the request. An immediately approved request is answered
+// by the requester at the same moment.
+func (r cancellationRequest) insert(ctx context.Context, q querier, status string) error {
+	var respondedBy *uuid.UUID
+	var respondedAt *time.Time
+	if status == cancellationApproved {
+		respondedBy, respondedAt = &r.memberID, &r.at
+	}
+	_, err := q.Exec(ctx, `
+		INSERT INTO order_cancellations (
+			order_id, requested_by_member_id, reason, status,
+			responded_by_member_id, responded_at, created_at, updated_at
+		)
+		VALUES ($1, $2, NULLIF($3, ''), $4, $5, $6, $7, $7)
+	`, r.orderID, r.memberID, r.reason, status, respondedBy, respondedAt, r.at)
+	if err != nil {
+		return fmt.Errorf("creating cancellation request: %w", err)
+	}
+	return nil
+}
+
+func openCancellationRequest(ctx context.Context, q querier, r cancellationRequest) error {
+	if err := r.insert(ctx, q, cancellationPending); err != nil {
+		return err
+	}
+	if err := writeEvent(ctx, q, orderEvent{orderID: r.orderID, actorID: r.actorID, eventType: eventCancellationRequested}); err != nil {
+		return err
+	}
+	return notify(ctx, q, orderNotification{
+		eventType: notifyOrderCancellationRequested, groupID: r.groupID, orderID: r.orderID, amountUSD: r.locked.amountUSD,
+		recipients: otherParties(r.actorID, r.locked.parties.giverUserID, r.locked.parties.receiverUserID),
+	}, r.at)
+}
+
+func cancelImmediately(ctx context.Context, q querier, r cancellationRequest) error {
+	if err := r.insert(ctx, q, cancellationApproved); err != nil {
+		return err
+	}
+	if err := markCancelled(ctx, q, r.orderID, r.at); err != nil {
+		return err
+	}
+	cancelled := orderEvent{orderID: r.orderID, actorID: r.actorID, eventType: eventCancelled, payload: map[string]bool{"reversed": false}}
+	if err := writeEvent(ctx, q, cancelled); err != nil {
+		return err
+	}
+	return notify(ctx, q, orderNotification{
+		eventType: notifyOrderCancelled, groupID: r.groupID, orderID: r.orderID, amountUSD: r.locked.amountUSD,
+		recipients: otherParties(r.actorID, r.locked.parties.giverUserID, r.locked.parties.receiverUserID),
+	}, r.at)
+}
+
+func markCancelled(ctx context.Context, q querier, orderID uuid.UUID, at time.Time) error {
+	_, err := q.Exec(ctx, `
+		UPDATE orders SET status = 'cancelled', cancelled_at = $2, updated_at = $2 WHERE id = $1
+	`, orderID, at)
+	if err != nil {
+		return fmt.Errorf("cancelling order: %w", err)
+	}
+	return nil
 }
 
 // RespondCancellation approves or rejects the open request. Only the other
@@ -221,11 +313,8 @@ func approveCancellation(ctx context.Context, q querier, r cancellationResponse)
 			return err
 		}
 	}
-	_, err := q.Exec(ctx, `
-		UPDATE orders SET status = 'cancelled', cancelled_at = $2, updated_at = $2 WHERE id = $1
-	`, r.orderID, r.at)
-	if err != nil {
-		return fmt.Errorf("cancelling order: %w", err)
+	if err := markCancelled(ctx, q, r.orderID, r.at); err != nil {
+		return err
 	}
 	cancelled := orderEvent{orderID: r.orderID, actorID: r.actorID, eventType: eventCancelled, payload: map[string]bool{"reversed": reversed}}
 	if err := writeEvent(ctx, q, cancelled); err != nil {
