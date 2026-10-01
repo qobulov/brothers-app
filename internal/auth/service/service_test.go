@@ -223,7 +223,8 @@ func TestLoginIdentifiers(t *testing.T) {
 		wantEmail    string
 	}{
 		{name: "username", input: "  qobulov  ", wantUsername: "qobulov"},
-		{name: "email", input: " Ali@Example.COM ", wantUsername: "Ali@Example.COM", wantEmail: "ali@example.com"},
+		{name: "username in mixed case", input: " Qobulov ", wantUsername: "qobulov"},
+		{name: "email", input: " Ali@Example.COM ", wantUsername: "ali@example.com", wantEmail: "ali@example.com"},
 	}
 
 	for _, test := range tests {

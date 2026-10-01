@@ -78,6 +78,8 @@ func TestLocalizeMessageCoversHandlerMessages(t *testing.T) {
 		{MessageInvitationCreated, "Taklif yaratildi", "Приглашение создано", "Invitation created"},
 		{MessageMembersReturned, "A'zolar olindi", "Участники получены", "Members returned"},
 		{MessageMemberUpdated, "A'zo ma'lumotlari yangilandi", "Данные участника обновлены", "Member updated"},
+		{MessageUsernameAvailable, "Username bo'sh", "Username свободен", "Username is available"},
+		{MessageUsernameTaken, "Bu username band", "Этот username уже занят", "This username is already taken"},
 		{MessageMemberRemoved, "A'zo guruhdan chiqarildi", "Участник удалён из группы", "Member removed from group"},
 		{MessageBalanceAdjusted, "Balans yangilandi", "Баланс обновлён", "Balance updated"},
 		{MessageInvitationAction, "Taklif javobi qayta ishlandi", "Ответ на приглашение обработан", "Invitation action processed"},

@@ -106,3 +106,10 @@ type UserData struct {
 	IsActive    bool       `json:"is_active"`
 	LastLoginAt *time.Time `json:"last_login_at,omitempty"`
 }
+
+// UsernameAvailability is the result of a username check. Username is the
+// normalized form that registration would store.
+type UsernameAvailability struct {
+	Username  string `json:"username" example:"proniumq"`
+	Available bool   `json:"available" example:"true"`
+}

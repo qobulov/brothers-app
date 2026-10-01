@@ -41,3 +41,8 @@ SELECT * FROM users WHERE email = $1 AND deleted_at IS NULL;
 
 -- name: UpdateUserPassword :execrows
 UPDATE users SET password_hash = $2, updated_at = $3 WHERE id = $1 AND deleted_at IS NULL;
+
+-- name: UsernameTaken :one
+SELECT EXISTS (
+    SELECT 1 FROM users WHERE username = $1 AND deleted_at IS NULL
+);

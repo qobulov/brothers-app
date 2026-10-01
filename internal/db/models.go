@@ -22,6 +22,20 @@ type AuditLog struct {
 	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`
 }
 
+type BalanceAdjustment struct {
+	ID            pgtype.UUID        `json:"id"`
+	GroupID       pgtype.UUID        `json:"group_id"`
+	MemberID      pgtype.UUID        `json:"member_id"`
+	OldBalanceUsd int64              `json:"old_balance_usd"`
+	NewBalanceUsd int64              `json:"new_balance_usd"`
+	AmountUsd     int64              `json:"amount_usd"`
+	Reason        pgtype.Text        `json:"reason"`
+	CreatedBy     pgtype.UUID        `json:"created_by"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt     pgtype.Timestamptz `json:"deleted_at"`
+}
+
 type Customer struct {
 	ID        pgtype.UUID        `json:"id"`
 	GroupID   pgtype.UUID        `json:"group_id"`
@@ -153,6 +167,19 @@ type Order struct {
 	Status             string             `json:"status"`
 	CompletedAt        pgtype.Timestamptz `json:"completed_at"`
 	CancelledAt        pgtype.Timestamptz `json:"cancelled_at"`
+}
+
+type OrderCancellation struct {
+	ID                  pgtype.UUID        `json:"id"`
+	OrderID             pgtype.UUID        `json:"order_id"`
+	RequestedByMemberID pgtype.UUID        `json:"requested_by_member_id"`
+	Reason              pgtype.Text        `json:"reason"`
+	Status              string             `json:"status"`
+	RespondedByMemberID pgtype.UUID        `json:"responded_by_member_id"`
+	RespondedAt         pgtype.Timestamptz `json:"responded_at"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt           pgtype.Timestamptz `json:"deleted_at"`
 }
 
 type OrderConfirmation struct {

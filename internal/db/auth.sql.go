@@ -309,3 +309,20 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 	)
 	return i, err
 }
+
+const usernameTaken = `-- name: UsernameTaken :one
+SELECT EXISTS (
+    SELECT 1 FROM users WHERE username = $1 AND deleted_at IS NULL
+)
+`
+
+type UsernameTakenParams struct {
+	Username pgtype.Text `json:"username"`
+}
+
+func (q *Queries) UsernameTaken(ctx context.Context, arg UsernameTakenParams) (bool, error) {
+	row := q.db.QueryRow(ctx, usernameTaken, arg.Username)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}

@@ -112,7 +112,7 @@ func (s *Service) SendOTP(ctx context.Context, req dto.SendOTPRequest) (dto.Star
 // and as the OTP cache key.
 func passwordResetIdentifier(req dto.SendOTPRequest) (email, username string, err error) {
 	emailInput := strings.TrimSpace(req.Email)
-	username = strings.TrimSpace(req.Username)
+	username = strings.ToLower(strings.TrimSpace(req.Username))
 	if emailInput == "" && username == "" {
 		return "", "", apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Parolni tiklash uchun email yoki username kiriting", RU: "Для сброса пароля укажите email или username", EN: "Enter an email or a username to reset the password"})
 	}
@@ -142,10 +142,13 @@ func (s *Service) Register(ctx context.Context, req dto.RegisterRequest) (dto.Re
 		}
 		phone = text(normalizedPhone)
 	}
-	username := strings.TrimSpace(req.Username)
 	firstName := strings.TrimSpace(req.FirstName)
 	lastName := strings.TrimSpace(req.LastName)
-	if err := validRegistration(req.Password, username, firstName); err != nil {
+	if err := validRegistration(req.Password, firstName); err != nil {
+		return dto.RegisterData{}, err
+	}
+	username, err := NormalizeUsername(req.Username)
+	if err != nil {
 		return dto.RegisterData{}, err
 	}
 	if !helpers.ValidOTP(req.OTPCode) {
@@ -263,7 +266,7 @@ func passwordMatches(user db.User, password string) bool {
 }
 
 func loginIdentifiers(value string) (username, email string) {
-	username = strings.TrimSpace(value)
+	username = strings.ToLower(strings.TrimSpace(value))
 	if normalized, err := helpers.NormalizeEmail(username); err == nil {
 		email = normalized
 	}
@@ -725,16 +728,11 @@ func ParseRefreshExpiry(value string) (time.Time, error) {
 	return time.Unix(seconds, 0), nil
 }
 
-func validRegistration(password, username, firstName string) error {
+func validRegistration(password, firstName string) error {
 	if err := validPassword(password); err != nil {
 		return err
 	}
-	switch {
-	case username == "":
-		return apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Username kiritilishi shart", RU: "Укажите username", EN: "Username is required"})
-	case len(username) > 50:
-		return apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Username 50 belgidan oshmasligi kerak", RU: "Username не должен превышать 50 символов", EN: "The username must be at most 50 characters"})
-	case firstName == "":
+	if firstName == "" {
 		return apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Ism kiritilishi shart", RU: "Укажите имя", EN: "First name is required"})
 	}
 	return nil

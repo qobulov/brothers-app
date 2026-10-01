@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
@@ -262,7 +263,7 @@ func (s *PublicRoutesTestSuite) TestRegisterConflictLocalized() {
 			body, err := json.Marshal(map[string]string{
 				"email":      "existing@example.com",
 				"phone":      "+998901234577",
-				"username":   "new-" + test.language,
+				"username":   "new_user_" + test.language,
 				"first_name": "Azizbek",
 				"last_name":  "Qobulov",
 				"password":   "strong-password",
@@ -641,6 +642,67 @@ func (s *PublicRoutesTestSuite) TestErrorResponsesAlwaysHaveReason() {
 		s.Require().NotNil(envelope.Data, tt.name+": data must not be null")
 		s.NotEmpty(envelope.Data.Reason, tt.name)
 	}
+}
+
+func (s *PublicRoutesTestSuite) checkUsername(username, language string) (int, string, bool, string) {
+	s.T().Helper()
+	request := httptest.NewRequest("GET", "/api/v1/auth/username/check?username="+url.QueryEscape(username), nil)
+	request.Header.Set("Application-Language", language)
+	response, err := s.app.Test(request, -1)
+	s.Require().NoError(err)
+	defer response.Body.Close()
+	var envelope struct {
+		Message string `json:"message"`
+		Data    struct {
+			Username  string `json:"username"`
+			Available bool   `json:"available"`
+		} `json:"data"`
+	}
+	s.Require().NoError(json.NewDecoder(response.Body).Decode(&envelope))
+	return response.StatusCode, envelope.Data.Username, envelope.Data.Available, envelope.Message
+}
+
+func (s *PublicRoutesTestSuite) TestUsernameCheckWithoutToken() {
+	s.createLoginUser("qobulov", "+998901230001", "qobulov@example.com", "securepassword123")
+
+	status, username, available, message := s.checkUsername("proniumq", "uz")
+	s.Equal(fiber.StatusOK, status)
+	s.Equal("proniumq", username)
+	s.True(available)
+	s.Equal("Username bo'sh", message)
+
+	status, username, available, message = s.checkUsername("  QOBULOV ", "uz")
+	s.Equal(fiber.StatusOK, status, "a taken username is not an error")
+	s.Equal("qobulov", username, "the response returns the normalized form")
+	s.False(available, "uniqueness ignores case")
+	s.Equal("Bu username band", message)
+
+	status, _, _, message = s.checkUsername("abc", "uz")
+	s.Equal(fiber.StatusBadRequest, status)
+	s.Equal("Username 5 dan 32 belgigacha bo'lishi kerak", message)
+	status, _, _, message = s.checkUsername("ali-vali", "en")
+	s.Equal(fiber.StatusBadRequest, status)
+	s.Equal("A username can contain only a-z, 0-9 and underscores", message)
+}
+
+func (s *PublicRoutesTestSuite) TestRegisterStoresLowercaseUsername() {
+	status, body := s.sendJSON("POST", "/api/v1/auth/register", map[string]any{
+		"email": "mixedcase@example.com", "username": "Mixed_Case1", "first_name": "Mixed",
+		"password": "securepassword123", "otp_code": "111111",
+	})
+	s.Require().Equal(fiber.StatusOK, status, string(body))
+
+	var stored string
+	s.Require().NoError(s.db.QueryRow(s.T().Context(), `SELECT username FROM users WHERE email = 'mixedcase@example.com'`).Scan(&stored))
+	s.Equal("mixed_case1", stored)
+
+	s.NotEmpty(s.loginAccessToken("MIXED_CASE1", "securepassword123"), "login matches any capitalization")
+
+	status, _ = s.sendJSON("POST", "/api/v1/auth/register", map[string]any{
+		"email": "other@example.com", "username": "mixed_CASE1", "first_name": "Other",
+		"password": "securepassword123", "otp_code": "111111",
+	})
+	s.Equal(fiber.StatusConflict, status, "the same username in another case is taken")
 }
 
 func (s *PublicRoutesTestSuite) createGroup(name string) string {

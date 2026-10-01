@@ -73,3 +73,13 @@ type ErrorResponse struct {
 	Data    *responses.ErrorDetails `json:"data" extensions:"x-nullable"`
 	Meta    ResponseMeta            `json:"meta"`
 }
+
+// UsernameAvailabilityResponse documents the username check response.
+type UsernameAvailabilityResponse struct {
+	Success bool                 `json:"success" example:"true"`
+	Code    int                  `json:"code" example:"0"`
+	Slug    string               `json:"slug" example:"ok"`
+	Message string               `json:"message" example:"Username is available"`
+	Data    UsernameAvailability `json:"data"`
+	Meta    responses.Meta       `json:"meta"`
+}

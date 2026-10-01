@@ -333,6 +333,34 @@ definitions:
         example: true
         type: boolean
     type: object
+  authdto.UsernameAvailability:
+    properties:
+      available:
+        example: true
+        type: boolean
+      username:
+        example: proniumq
+        type: string
+    type: object
+  authdto.UsernameAvailabilityResponse:
+    properties:
+      code:
+        example: 0
+        type: integer
+      data:
+        $ref: '#/definitions/authdto.UsernameAvailability'
+      message:
+        example: Username is available
+        type: string
+      meta:
+        $ref: '#/definitions/responses.Meta'
+      slug:
+        example: ok
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
   group.AdjustBalanceRequest:
     properties:
       new_balance_usd:
@@ -1477,6 +1505,34 @@ paths:
           schema:
             $ref: '#/definitions/authdto.ErrorResponse'
       summary: Register user
+      tags:
+      - auth
+  /auth/username/check:
+    get:
+      description: Public, no token. Usernames are a-z, 0-9 and underscores, 5-32
+        characters, stored in lowercase; the response returns the normalized form.
+        A taken username returns 200 with available=false; a badly formatted one returns
+        400.
+      parameters:
+      - description: Username to check
+        in: query
+        maxLength: 32
+        minLength: 5
+        name: username
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/authdto.UsernameAvailabilityResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+      summary: Check whether a username is available
       tags:
       - auth
   /groups:

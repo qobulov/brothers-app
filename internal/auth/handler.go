@@ -234,3 +234,24 @@ func authLocals(c *fiber.Ctx) (uuid.UUID, uuid.UUID, error) {
 	}
 	return userID, sessionID, nil
 }
+
+// CheckUsername godoc
+// @Summary Check whether a username is available
+// @Description Public, no token. Usernames are a-z, 0-9 and underscores, 5-32 characters, stored in lowercase; the response returns the normalized form. A taken username returns 200 with available=false; a badly formatted one returns 400.
+// @Tags auth
+// @Produce json
+// @Param username query string true "Username to check" minlength(5) maxlength(32)
+// @Success 200 {object} authdto.UsernameAvailabilityResponse
+// @Failure 400 {object} authdto.ErrorResponse
+// @Router /auth/username/check [get]
+func (h *Handler) CheckUsername(c *fiber.Ctx) error {
+	data, err := h.service.CheckUsername(c.UserContext(), c.Query("username"))
+	if err != nil {
+		return responses.Error(c, err)
+	}
+	message := responses.MessageUsernameAvailable
+	if !data.Available {
+		message = responses.MessageUsernameTaken
+	}
+	return responses.Success(c, fiber.StatusOK, data, message)
+}
