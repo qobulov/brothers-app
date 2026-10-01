@@ -361,6 +361,176 @@ definitions:
         example: true
         type: boolean
     type: object
+  debt.CreateRequest:
+    properties:
+      amount:
+        example: 1500
+        type: integer
+      currency:
+        enum:
+        - USD
+        - UZS
+        example: USD
+        type: string
+      direction:
+        enum:
+        - they_owe_me
+        - i_owe
+        example: they_owe_me
+        type: string
+      person_name:
+        example: Akmal
+        type: string
+      person_phone:
+        example: "+998907774422"
+        type: string
+    type: object
+  debt.Debt:
+    properties:
+      completed_at:
+        type: string
+      created_at:
+        type: string
+      currency:
+        enum:
+        - USD
+        - UZS
+        type: string
+      direction:
+        enum:
+        - they_owe_me
+        - i_owe
+        type: string
+      id:
+        type: string
+      original_amount:
+        type: integer
+      person_name:
+        type: string
+      person_phone:
+        type: string
+      remaining_amount:
+        type: integer
+      source:
+        enum:
+        - manual
+        - order
+        type: string
+      status:
+        enum:
+        - active
+        - completed
+        type: string
+    type: object
+  debt.DebtResponse:
+    properties:
+      code:
+        example: 0
+        type: integer
+      data:
+        $ref: '#/definitions/debt.Debt'
+      message:
+        example: Debt created
+        type: string
+      meta:
+        $ref: '#/definitions/responses.Meta'
+      slug:
+        example: ok
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  debt.DebtsResponse:
+    properties:
+      code:
+        example: 0
+        type: integer
+      data:
+        items:
+          $ref: '#/definitions/debt.Debt'
+        type: array
+      message:
+        example: Request processed successfully
+        type: string
+      meta:
+        $ref: '#/definitions/responses.Meta'
+      slug:
+        example: ok
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  debt.Repayment:
+    properties:
+      amount:
+        type: integer
+      created_at:
+        type: string
+      id:
+        type: string
+    type: object
+  debt.RepaymentRequest:
+    properties:
+      amount:
+        example: 600
+        type: integer
+    type: object
+  debt.RepaymentsResponse:
+    properties:
+      code:
+        example: 0
+        type: integer
+      data:
+        items:
+          $ref: '#/definitions/debt.Repayment'
+        type: array
+      message:
+        example: Request processed successfully
+        type: string
+      meta:
+        $ref: '#/definitions/responses.Meta'
+      slug:
+        example: ok
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  debt.Summary:
+    properties:
+      usd:
+        $ref: '#/definitions/debt.Totals'
+      uzs:
+        $ref: '#/definitions/debt.Totals'
+    type: object
+  debt.SummaryResponse:
+    properties:
+      code:
+        example: 0
+        type: integer
+      data:
+        $ref: '#/definitions/debt.Summary'
+      message:
+        example: Request processed successfully
+        type: string
+      meta:
+        $ref: '#/definitions/responses.Meta'
+      slug:
+        example: ok
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  debt.Totals:
+    properties:
+      i_owe:
+        type: integer
+      they_owe_me:
+        type: integer
+    type: object
   group.AdjustBalanceRequest:
     properties:
       new_balance_usd:
@@ -1535,6 +1705,307 @@ paths:
       summary: Check whether a username is available
       tags:
       - auth
+  /debts:
+    get:
+      description: Newest first. Only the caller's own debts.
+      parameters:
+      - description: Direction
+        enum:
+        - they_owe_me
+        - i_owe
+        in: query
+        name: direction
+        type: string
+      - default: active
+        description: Status
+        enum:
+        - active
+        - completed
+        - all
+        in: query
+        name: status
+        type: string
+      - description: Search by name or phone
+        in: query
+        maxLength: 100
+        name: query
+        type: string
+      - default: 50
+        description: Page size
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - default: 0
+        description: Number of debts to skip
+        in: query
+        maximum: 10000
+        minimum: 0
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/debt.DebtsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List my debts
+      tags:
+      - debts
+    post:
+      consumes:
+      - application/json
+      description: A private debt visible only to the caller. It does not affect any
+        group balance.
+      parameters:
+      - description: Debt
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/debt.CreateRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/debt.DebtResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Add a debt
+      tags:
+      - debts
+  /debts/{debtID}:
+    delete:
+      parameters:
+      - description: Debt UUID
+        in: path
+        name: debtID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/responses.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete a debt
+      tags:
+      - debts
+    get:
+      parameters:
+      - description: Debt UUID
+        in: path
+        name: debtID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/debt.DebtResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get a debt
+      tags:
+      - debts
+  /debts/{debtID}/complete:
+    post:
+      description: Closes an active debt; the remaining amount is kept as is.
+      parameters:
+      - description: Debt UUID
+        in: path
+        name: debtID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/debt.DebtResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Mark a debt as completed
+      tags:
+      - debts
+  /debts/{debtID}/repayments:
+    get:
+      parameters:
+      - description: Debt UUID
+        in: path
+        name: debtID
+        required: true
+        type: string
+      - default: 50
+        description: Page size
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - default: 0
+        description: Number of repayments to skip
+        in: query
+        maximum: 10000
+        minimum: 0
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/debt.RepaymentsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Repayment history of a debt
+      tags:
+      - debts
+    post:
+      consumes:
+      - application/json
+      description: Partial repayments are supported. Reaching zero completes the debt.
+      parameters:
+      - description: Debt UUID
+        in: path
+        name: debtID
+        required: true
+        type: string
+      - description: Repayment
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/debt.RepaymentRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/debt.DebtResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Record a repayment
+      tags:
+      - debts
+  /debts/summary:
+    get:
+      description: Remaining amounts of active debts, per currency and direction.
+        Currencies are never converted.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/debt.SummaryResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/responses.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Debt totals
+      tags:
+      - debts
   /groups:
     get:
       produces:

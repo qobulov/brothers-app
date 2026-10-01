@@ -6,6 +6,7 @@ import (
 	authService "github.com/qobulov/brothers-app/internal/auth/service"
 	"github.com/qobulov/brothers-app/internal/auth/session"
 	db "github.com/qobulov/brothers-app/internal/db"
+	debt "github.com/qobulov/brothers-app/internal/debt"
 	group "github.com/qobulov/brothers-app/internal/group"
 	notification "github.com/qobulov/brothers-app/internal/notification"
 	order "github.com/qobulov/brothers-app/internal/order"
@@ -35,6 +36,18 @@ func RegisterPrivateRoutes(app fiber.Router, pool *pgxpool.Pool, otpCache *otp.C
 
 	secureRoute.Get("/notifications", notificationHandler.List)
 	secureRoute.Post("/invitations/:invitationID/action", groupHandler.Action)
+
+	// summary is registered before /:debtID so it is not read as a debt ID.
+	debtHandler := debt.NewHandler(debt.NewService(pool))
+	debts := secureRoute.Group("/debts")
+	debts.Get("/summary", debtHandler.Summary)
+	debts.Get("/", debtHandler.List)
+	debts.Post("/", debtHandler.Create)
+	debts.Get("/:debtID", debtHandler.Get)
+	debts.Delete("/:debtID", debtHandler.Delete)
+	debts.Post("/:debtID/repayments", debtHandler.Repay)
+	debts.Get("/:debtID/repayments", debtHandler.Repayments)
+	debts.Post("/:debtID/complete", debtHandler.Complete)
 
 	groups := secureRoute.Group("/groups")
 	groups.Post("/", groupHandler.Create)

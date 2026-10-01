@@ -43,6 +43,10 @@ const (
 	MessageMembersReturned       = "members_returned"
 	MessageMemberUpdated         = "member_updated"
 	MessageUsernameAvailable     = "username_available"
+	MessageDebtCreated           = "debt_created"
+	MessageRepaymentRecorded     = "repayment_recorded"
+	MessageDebtCompleted         = "debt_completed"
+	MessageDebtDeleted           = "debt_deleted"
 	MessageUsernameTaken         = "username_taken"
 	MessageMemberRemoved         = "member_removed"
 	MessageBalanceAdjusted       = "balance_adjusted"
@@ -75,6 +79,10 @@ var messageTranslations = map[string]translation{
 	MessageMembersReturned:       {"A'zolar olindi", "Участники получены", "Members returned"},
 	MessageMemberUpdated:         {"A'zo ma'lumotlari yangilandi", "Данные участника обновлены", "Member updated"},
 	MessageUsernameAvailable:     {"Username bo'sh", "Username свободен", "Username is available"},
+	MessageDebtCreated:           {"Qarz qo'shildi", "Долг добавлен", "Debt created"},
+	MessageRepaymentRecorded:     {"To'lov qabul qilindi", "Платёж записан", "Repayment recorded"},
+	MessageDebtCompleted:         {"Qarz yopildi", "Долг закрыт", "Debt completed"},
+	MessageDebtDeleted:           {"Qarz o'chirildi", "Долг удалён", "Debt deleted"},
 	MessageUsernameTaken:         {"Bu username band", "Этот username уже занят", "This username is already taken"},
 	MessageMemberRemoved:         {"A'zo guruhdan chiqarildi", "Участник удалён из группы", "Member removed from group"},
 	MessageBalanceAdjusted:       {"Balans yangilandi", "Баланс обновлён", "Balance updated"},

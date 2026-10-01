@@ -10,7 +10,7 @@ import (
 
 func TestNormalizeUsername(t *testing.T) {
 	valid := map[string]string{
-		"proniumq":              "proniumq",
+		"qobulov":               "qobulov",
 		"  Qobulov  ":           "qobulov",
 		"ABROR_755":             "abror_755",
 		"a_1_b":                 "a_1_b",

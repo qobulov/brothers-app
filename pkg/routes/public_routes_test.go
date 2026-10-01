@@ -705,6 +705,52 @@ func (s *PublicRoutesTestSuite) TestRegisterStoresLowercaseUsername() {
 	s.Equal(fiber.StatusConflict, status, "the same username in another case is taken")
 }
 
+func (s *PublicRoutesTestSuite) TestDebtFlow() {
+	status, body := s.sendJSON("GET", "/api/v1/debts/summary", nil)
+	s.Require().Equal(fiber.StatusOK, status, string(body), "summary is not read as a debt ID")
+
+	status, body = s.sendJSON("POST", "/api/v1/debts", map[string]any{
+		"direction": "they_owe_me", "person_name": "Akmal", "currency": "USD", "amount": 1500,
+	})
+	s.Require().Equal(fiber.StatusCreated, status, string(body))
+	var created struct {
+		Data struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	s.Require().NoError(json.Unmarshal(body, &created))
+	debtPath := "/api/v1/debts/" + created.Data.ID
+
+	status, body = s.sendJSON("POST", debtPath+"/repayments", map[string]any{"amount": 600})
+	s.Require().Equal(fiber.StatusCreated, status, string(body))
+	s.Contains(string(body), `"remaining_amount":900`)
+
+	status, body = s.sendJSON("GET", debtPath+"/repayments", nil)
+	s.Require().Equal(fiber.StatusOK, status)
+	s.Contains(string(body), `"amount":600`)
+
+	status, body = s.sendJSON("GET", "/api/v1/debts/summary", nil)
+	s.Require().Equal(fiber.StatusOK, status)
+	s.Contains(string(body), `"usd":{"they_owe_me":900,"i_owe":0}`)
+
+	status, _ = s.sendJSON("GET", "/api/v1/debts?status=bogus", nil)
+	s.Equal(fiber.StatusBadRequest, status)
+	status, _ = s.sendJSON("POST", debtPath+"/complete", nil)
+	s.Equal(fiber.StatusOK, status)
+	status, _ = s.sendJSON("POST", debtPath+"/complete", nil)
+	s.Equal(fiber.StatusConflict, status)
+	status, _ = s.sendJSON("DELETE", debtPath, nil)
+	s.Equal(fiber.StatusOK, status)
+	status, _ = s.sendJSON("GET", debtPath, nil)
+	s.Equal(fiber.StatusNotFound, status)
+
+	request := httptest.NewRequest("GET", "/api/v1/debts", nil)
+	response, err := s.app.Test(request, -1)
+	s.Require().NoError(err)
+	response.Body.Close()
+	s.Equal(fiber.StatusUnauthorized, response.StatusCode, "debts require a token")
+}
+
 func (s *PublicRoutesTestSuite) createGroup(name string) string {
 	s.T().Helper()
 	status, body := s.sendJSON("POST", "/api/v1/groups", map[string]any{"name": name})

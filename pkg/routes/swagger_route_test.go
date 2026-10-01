@@ -164,6 +164,8 @@ func TestSwaggerWriteRequestsExcludeDatabaseManagedFields(t *testing.T) {
 		{name: "password reset", operation: spec.Paths["/auth/password/reset"].Post, wantFields: []string{"reset_token", "password"}, forbiddenFields: []string{"confirm_password"}},
 		{name: "current profile patch", operation: spec.Paths["/me"].Patch, wantFields: []string{"first_name", "last_name", "avatar_url", "language"}},
 		{name: "group order create", operation: spec.Paths["/groups/{groupID}/orders"].Post, wantFields: []string{"giver_user_id", "giver_customer_phone", "receiver_user_id", "receiver_customer_phone", "amount_usd", "fee_uzs"}},
+		{name: "debt create", operation: spec.Paths["/debts"].Post, wantFields: []string{"direction", "person_name", "person_phone", "currency", "amount"}},
+		{name: "debt repayment", operation: spec.Paths["/debts/{debtID}/repayments"].Post, wantFields: []string{"amount"}},
 		{name: "member edit", operation: spec.Paths["/groups/{groupID}/members/{userID}"].Patch, wantFields: []string{"role", "location_id"}},
 		{name: "member balance adjust", operation: spec.Paths["/groups/{groupID}/members/{userID}/balance-adjustments"].Post, wantFields: []string{"new_balance_usd", "reason"}},
 		{name: "group order confirm", operation: spec.Paths["/groups/{groupID}/orders/{orderID}/confirmations"].Post, wantFields: []string{"amount_usd", "fee_uzs"}},
