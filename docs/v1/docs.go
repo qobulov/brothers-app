@@ -100,7 +100,7 @@ const docTemplate = `{
         },
         "/auth/otp/send": {
             "post": {
-                "description": "Sends an OTP for registration or password reset. Password reset accepts either email or username and returns the recipient email when delivery is started.",
+                "description": "Sends an OTP for registration or password reset. Password reset accepts either email or username, returns 404 if the account does not exist, and returns the recipient email when delivery is started.",
                 "consumes": [
                     "application/json"
                 ],
@@ -131,6 +131,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/authdto.ErrorResponse"
                         }

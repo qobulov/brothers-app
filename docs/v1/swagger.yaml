@@ -1520,8 +1520,8 @@ paths:
       consumes:
       - application/json
       description: Sends an OTP for registration or password reset. Password reset
-        accepts either email or username and returns the recipient email when delivery
-        is started.
+        accepts either email or username, returns 404 if the account does not exist,
+        and returns the recipient email when delivery is started.
       parameters:
       - description: OTP purpose and email or username
         in: body
@@ -1538,6 +1538,10 @@ paths:
             $ref: '#/definitions/authdto.StartResponse'
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+        "404":
+          description: Not Found
           schema:
             $ref: '#/definitions/authdto.ErrorResponse'
         "409":

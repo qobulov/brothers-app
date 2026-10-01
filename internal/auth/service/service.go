@@ -98,8 +98,11 @@ func (s *Service) SendOTP(ctx context.Context, req dto.SendOTPRequest) (dto.Star
 			}
 			userID = uuidFromPG(user.ID)
 		} else if errors.Is(findErr, pgx.ErrNoRows) {
-			expires := s.now().UTC().Add(time.Duration(s.cfg.OTPExpiration) * time.Second)
-			return s.startData(expires), nil
+			return dto.StartData{}, apperror.New(apperror.ErrRecordNotFound, apperror.Text{
+				UZ: "Bu email yoki username bilan akkaunt topilmadi",
+				RU: "Аккаунт с таким email или именем пользователя не найден",
+				EN: "No account found with this email or username",
+			})
 		} else {
 			return dto.StartData{}, fmt.Errorf("finding password reset user by email: %w", findErr)
 		}

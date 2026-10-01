@@ -7,14 +7,69 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/qobulov/brothers-app/internal/auth/dto"
 	"github.com/qobulov/brothers-app/internal/auth/otp"
+	db "github.com/qobulov/brothers-app/internal/db"
 	"github.com/qobulov/brothers-app/pkg/apperror"
 	"github.com/qobulov/brothers-app/pkg/config"
 	"github.com/qobulov/brothers-app/pkg/helpers"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 )
+
+type failedUserLookup struct {
+	db.DBTX
+	err error
+}
+
+func (q failedUserLookup) QueryRow(context.Context, string, ...interface{}) pgx.Row {
+	return failedUserRow{err: q.err}
+}
+
+type failedUserRow struct{ err error }
+
+func (r failedUserRow) Scan(...interface{}) error { return r.err }
+
+func TestSendOTPRejectsUnknownPasswordResetAccount(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name    string
+		request authdto.SendOTPRequest
+	}{
+		{name: "email", request: authdto.SendOTPRequest{Email: "random@example.com", Purpose: passwordResetPurpose}},
+		{name: "username", request: authdto.SendOTPRequest{Username: "random_user", Purpose: passwordResetPurpose}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			s := &Service{
+				queries: db.New(failedUserLookup{err: pgx.ErrNoRows}),
+				cfg:     &config.Config{OTPExpiration: 300},
+				now:     time.Now,
+			}
+			// No cache or sender: missing accounts must stop before starting an OTP flow.
+			data, err := s.SendOTP(t.Context(), test.request)
+			if !errors.Is(err, apperror.ErrRecordNotFound) {
+				t.Fatalf("SendOTP() = (%+v, %v), want account not found", data, err)
+			}
+			if data != (authdto.StartData{}) {
+				t.Fatalf("SendOTP() returned OTP metadata for a missing account: %+v", data)
+			}
+			if apperror.StatusCode(err) != 404 || apperror.MessageForLanguage(err, "uz") != "Bu email yoki username bilan akkaunt topilmadi" {
+				t.Fatalf("unexpected account not found response: %v", err)
+			}
+		})
+	}
+}
+
+func TestSendOTPPreservesPasswordResetLookupError(t *testing.T) {
+	t.Parallel()
+	cause := errors.New("database unavailable")
+	s := &Service{queries: db.New(failedUserLookup{err: cause})}
+	_, err := s.SendOTP(t.Context(), authdto.SendOTPRequest{Email: "ali@example.com", Purpose: passwordResetPurpose})
+	if !errors.Is(err, cause) || errors.Is(err, apperror.ErrRecordNotFound) {
+		t.Fatalf("SendOTP() = %v, want original database error", err)
+	}
+}
 
 // Only the commands used by these error paths are implemented; no Redis server is needed.
 type failingOTPCache struct {
