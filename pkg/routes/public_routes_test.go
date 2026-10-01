@@ -665,9 +665,9 @@ func (s *PublicRoutesTestSuite) checkUsername(username, language string) (int, s
 func (s *PublicRoutesTestSuite) TestUsernameCheckWithoutToken() {
 	s.createLoginUser("qobulov", "+998901230001", "qobulov@example.com", "securepassword123")
 
-	status, username, available, message := s.checkUsername("proniumq", "uz")
+	status, username, available, message := s.checkUsername("qobulov", "uz")
 	s.Equal(fiber.StatusOK, status)
-	s.Equal("proniumq", username)
+	s.Equal("qobulov", username)
 	s.True(available)
 	s.Equal("Username bo'sh", message)
 

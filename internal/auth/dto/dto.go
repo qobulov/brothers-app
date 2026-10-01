@@ -110,6 +110,6 @@ type UserData struct {
 // UsernameAvailability is the result of a username check. Username is the
 // normalized form that registration would store.
 type UsernameAvailability struct {
-	Username  string `json:"username" example:"proniumq"`
+	Username  string `json:"username" example:"qobulov"`
 	Available bool   `json:"available" example:"true"`
 }

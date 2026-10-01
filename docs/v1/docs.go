@@ -3058,7 +3058,7 @@ const docTemplate = `{
                 },
                 "username": {
                     "type": "string",
-                    "example": "proniumq"
+                    "example": "qobulov"
                 }
             }
         },

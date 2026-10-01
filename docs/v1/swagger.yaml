@@ -339,7 +339,7 @@ definitions:
         example: true
         type: boolean
       username:
-        example: proniumq
+        example: qobulov
         type: string
     type: object
   authdto.UsernameAvailabilityResponse:
