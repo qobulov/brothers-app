@@ -663,7 +663,8 @@ func (s *PublicRoutesTestSuite) checkUsername(username, language string) (int, s
 }
 
 func (s *PublicRoutesTestSuite) TestUsernameCheckWithoutToken() {
-	s.createLoginUser("qobulov", "+998901230001", "qobulov@example.com", "securepassword123")
+	// "qobulov" is free here; "taken_user" is the registered one.
+	s.createLoginUser("taken_user", "+998901230001", "taken@example.com", "securepassword123")
 
 	status, username, available, message := s.checkUsername("qobulov", "uz")
 	s.Equal(fiber.StatusOK, status)
@@ -671,9 +672,9 @@ func (s *PublicRoutesTestSuite) TestUsernameCheckWithoutToken() {
 	s.True(available)
 	s.Equal("Username bo'sh", message)
 
-	status, username, available, message = s.checkUsername("  QOBULOV ", "uz")
+	status, username, available, message = s.checkUsername("  TAKEN_USER ", "uz")
 	s.Equal(fiber.StatusOK, status, "a taken username is not an error")
-	s.Equal("qobulov", username, "the response returns the normalized form")
+	s.Equal("taken_user", username, "the response returns the normalized form")
 	s.False(available, "uniqueness ignores case")
 	s.Equal("Bu username band", message)
 
