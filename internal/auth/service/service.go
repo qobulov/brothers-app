@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/url"
 	"strconv"
 	"strings"
@@ -537,6 +538,7 @@ func (s *Service) createOTPFlow(ctx context.Context, purpose, email string, user
 			// Formula's default OTP flow must stay usable while delivery is being
 			// configured. A real email OTP remains cached if delivery succeeds.
 			if defaultOTPEnabled() {
+				slog.Error("otp email delivery failed; default otp still accepted", "purpose", purpose, "error", err)
 				return s.startData(expires, email), nil
 			}
 			cleanupErr := errors.Join(

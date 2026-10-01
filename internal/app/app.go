@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -36,17 +35,19 @@ func SetupRestServer(pool *pgxpool.Pool, otpCache *otp.Cache, sessions session.S
 		return nil, err
 	}
 	reporter := telegramlog.New(cfg)
-	emailDispatcher := email.NewDispatcher(email.New(cfg), 2, 64)
+	// Email is sent inside the request: on serverless hosts the process is
+	// frozen once the response is written, so background delivery never finishes.
+	emailSender := email.New(cfg)
 	responses.Middleware(app, cfg.AppEnv, reporter.Report)
 	app.Use(recover.New())
 	app.Use(middleware.RequestTimeout(requestTimeout))
 	app.Hooks().OnShutdown(func() error {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		return errors.Join(emailDispatcher.Close(ctx), reporter.Close(ctx))
+		return reporter.Close(ctx)
 	})
 	routes.SwaggerRoute(app)
-	routes.RegisterPublicRoutes(app, pool, otpCache, sessions, cfg, emailDispatcher)
+	routes.RegisterPublicRoutes(app, pool, otpCache, sessions, cfg, emailSender)
 	routes.RegisterPrivateRoutes(app, pool, otpCache, sessions, cfg)
 	routes.RegisterNotFoundRoute(app)
 	return app, nil
