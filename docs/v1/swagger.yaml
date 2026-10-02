@@ -1678,10 +1678,10 @@ paths:
       - auth
   /auth/username/check:
     get:
-      description: Public, no token. Usernames are a-z, 0-9 and underscores, 5-32
-        characters, stored in lowercase; the response returns the normalized form.
-        A taken username returns 200 with available=false; a badly formatted one returns
-        400.
+      description: Public, no token. Usernames are Latin letters, digits and underscores,
+        5-32 characters. The typed case is kept, but uniqueness ignores case (Abror
+        and abror are the same). The response returns the trimmed username. A taken
+        username returns 200 with available=false; a badly formatted one returns 400.
       parameters:
       - description: Username to check
         in: query

@@ -238,7 +238,7 @@ func authLocals(c *fiber.Ctx) (uuid.UUID, uuid.UUID, error) {
 
 // CheckUsername godoc
 // @Summary Check whether a username is available
-// @Description Public, no token. Usernames are a-z, 0-9 and underscores, 5-32 characters, stored in lowercase; the response returns the normalized form. A taken username returns 200 with available=false; a badly formatted one returns 400.
+// @Description Public, no token. Usernames are Latin letters, digits and underscores, 5-32 characters. The typed case is kept, but uniqueness ignores case (Abror and abror are the same). The response returns the trimmed username. A taken username returns 200 with available=false; a badly formatted one returns 400.
 // @Tags auth
 // @Produce json
 // @Param username query string true "Username to check" minlength(5) maxlength(32)

@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestMigrationLowercasesExistingUsernames(t *testing.T) {
+func TestMigrationsKeepUsernameCase(t *testing.T) {
 	pool, cleanup := SetupTestDB(t)
 	defer cleanup()
 	ctx := context.Background()
@@ -19,7 +19,10 @@ func TestMigrationLowercasesExistingUsernames(t *testing.T) {
 	if err := pool.QueryRow(ctx, `SELECT username FROM users`).Scan(&username); err != nil {
 		t.Fatalf("read username: %v", err)
 	}
-	if username != "abror" {
-		t.Fatalf("username = %q, want abror", username)
+	if username != "Abror" {
+		t.Fatalf("username = %q, want Abror unchanged", username)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO users (username, language) VALUES ('abror', 'uz')`); err == nil {
+		t.Fatal("abror must be rejected while Abror exists: uniqueness ignores case")
 	}
 }

@@ -674,7 +674,7 @@ func (s *PublicRoutesTestSuite) TestUsernameCheckWithoutToken() {
 
 	status, username, available, message = s.checkUsername("  TAKEN_USER ", "uz")
 	s.Equal(fiber.StatusOK, status, "a taken username is not an error")
-	s.Equal("taken_user", username, "the response returns the normalized form")
+	s.Equal("TAKEN_USER", username, "the response keeps the typed case, trimmed")
 	s.False(available, "uniqueness ignores case")
 	s.Equal("Bu username band", message)
 
@@ -683,10 +683,10 @@ func (s *PublicRoutesTestSuite) TestUsernameCheckWithoutToken() {
 	s.Equal("Username 5 dan 32 belgigacha bo'lishi kerak", message)
 	status, _, _, message = s.checkUsername("ali-vali", "en")
 	s.Equal(fiber.StatusBadRequest, status)
-	s.Equal("A username can contain only a-z, 0-9 and underscores", message)
+	s.Equal("A username can contain only Latin letters, digits and underscores", message)
 }
 
-func (s *PublicRoutesTestSuite) TestRegisterStoresLowercaseUsername() {
+func (s *PublicRoutesTestSuite) TestRegisterKeepsUsernameCase() {
 	status, body := s.sendJSON("POST", "/api/v1/auth/register", map[string]any{
 		"email": "mixedcase@example.com", "username": "Mixed_Case1", "first_name": "Mixed",
 		"password": "securepassword123", "otp_code": "111111",
@@ -695,7 +695,7 @@ func (s *PublicRoutesTestSuite) TestRegisterStoresLowercaseUsername() {
 
 	var stored string
 	s.Require().NoError(s.db.QueryRow(s.T().Context(), `SELECT username FROM users WHERE email = 'mixedcase@example.com'`).Scan(&stored))
-	s.Equal("mixed_case1", stored)
+	s.Equal("Mixed_Case1", stored, "the username is stored as typed")
 
 	s.NotEmpty(s.loginAccessToken("MIXED_CASE1", "securepassword123"), "login matches any capitalization")
 

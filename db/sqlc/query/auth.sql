@@ -1,6 +1,6 @@
 -- name: GetUserByEmailOrUsername :one
 SELECT * FROM users
-WHERE (email = $1 OR username = $2) AND deleted_at IS NULL
+WHERE (email = sqlc.arg(email) OR lower(username) = lower(sqlc.arg(username))) AND deleted_at IS NULL
 FOR UPDATE;
 
 -- name: CreateAuthUser :one
@@ -12,7 +12,7 @@ RETURNING *;
 
 -- name: GetUserByLogin :one
 SELECT * FROM users
-WHERE (username = $1 OR email = $2) AND is_active = true AND deleted_at IS NULL;
+WHERE (lower(username) = lower(sqlc.arg(username)) OR email = sqlc.arg(email)) AND is_active = true AND deleted_at IS NULL;
 
 -- name: UpdateUserLogin :one
 UPDATE users SET last_login_at = $2, updated_at = $2
@@ -44,5 +44,5 @@ UPDATE users SET password_hash = $2, updated_at = $3 WHERE id = $1 AND deleted_a
 
 -- name: UsernameTaken :one
 SELECT EXISTS (
-    SELECT 1 FROM users WHERE username = $1 AND deleted_at IS NULL
+    SELECT 1 FROM users WHERE lower(username) = lower(sqlc.arg(username)) AND deleted_at IS NULL
 );

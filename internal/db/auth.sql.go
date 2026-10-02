@@ -135,13 +135,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, arg GetUserByEmailParams) 
 
 const getUserByEmailOrUsername = `-- name: GetUserByEmailOrUsername :one
 SELECT id, email, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at FROM users
-WHERE (email = $1 OR username = $2) AND deleted_at IS NULL
+WHERE (email = $1 OR lower(username) = lower($2)) AND deleted_at IS NULL
 FOR UPDATE
 `
 
 type GetUserByEmailOrUsernameParams struct {
 	Email    pgtype.Text `json:"email"`
-	Username pgtype.Text `json:"username"`
+	Username string      `json:"username"`
 }
 
 func (q *Queries) GetUserByEmailOrUsername(ctx context.Context, arg GetUserByEmailOrUsernameParams) (User, error) {
@@ -170,11 +170,11 @@ func (q *Queries) GetUserByEmailOrUsername(ctx context.Context, arg GetUserByEma
 
 const getUserByLogin = `-- name: GetUserByLogin :one
 SELECT id, email, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at FROM users
-WHERE (username = $1 OR email = $2) AND is_active = true AND deleted_at IS NULL
+WHERE (lower(username) = lower($1) OR email = $2) AND is_active = true AND deleted_at IS NULL
 `
 
 type GetUserByLoginParams struct {
-	Username pgtype.Text `json:"username"`
+	Username string      `json:"username"`
 	Email    pgtype.Text `json:"email"`
 }
 
@@ -312,12 +312,12 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 
 const usernameTaken = `-- name: UsernameTaken :one
 SELECT EXISTS (
-    SELECT 1 FROM users WHERE username = $1 AND deleted_at IS NULL
+    SELECT 1 FROM users WHERE lower(username) = lower($1) AND deleted_at IS NULL
 )
 `
 
 type UsernameTakenParams struct {
-	Username pgtype.Text `json:"username"`
+	Username string `json:"username"`
 }
 
 func (q *Queries) UsernameTaken(ctx context.Context, arg UsernameTakenParams) (bool, error) {

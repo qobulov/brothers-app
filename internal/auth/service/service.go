@@ -87,7 +87,7 @@ func (s *Service) SendOTP(ctx context.Context, req dto.SendOTPRequest) (dto.Star
 		var user db.User
 		var findErr error
 		if username != "" {
-			user, findErr = s.queries.GetUserByLogin(ctx, db.GetUserByLoginParams{Username: text(username), Email: text("")})
+			user, findErr = s.queries.GetUserByLogin(ctx, db.GetUserByLoginParams{Username: username, Email: text("")})
 		} else {
 			user, findErr = s.queries.GetUserByEmail(ctx, db.GetUserByEmailParams{Email: text(lookupEmail)})
 		}
@@ -115,7 +115,7 @@ func (s *Service) SendOTP(ctx context.Context, req dto.SendOTPRequest) (dto.Star
 // and as the OTP cache key.
 func passwordResetIdentifier(req dto.SendOTPRequest) (email, username string, err error) {
 	emailInput := strings.TrimSpace(req.Email)
-	username = strings.ToLower(strings.TrimSpace(req.Username))
+	username = strings.TrimSpace(req.Username)
 	if emailInput == "" && username == "" {
 		return "", "", apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Parolni tiklash uchun email yoki username kiriting", RU: "Для сброса пароля укажите email или username", EN: "Enter an email or a username to reset the password"})
 	}
@@ -176,7 +176,7 @@ func (s *Service) Register(ctx context.Context, req dto.RegisterRequest) (dto.Re
 
 	var result dto.RegisterData
 	err = s.withTx(ctx, func(q *db.Queries) error {
-		_, findErr := q.GetUserByEmailOrUsername(ctx, db.GetUserByEmailOrUsernameParams{Email: text(email), Username: text(username)})
+		_, findErr := q.GetUserByEmailOrUsername(ctx, db.GetUserByEmailOrUsernameParams{Email: text(email), Username: username})
 		if findErr == nil {
 			return apperror.ErrRegistrationIdentityExists
 		}
@@ -229,7 +229,7 @@ func (s *Service) Login(ctx context.Context, login, password string) (dto.AuthDa
 	}
 	// bcrypt runs outside any transaction so a login never holds a pool
 	// connection or row lock while hashing.
-	user, err := s.queries.GetUserByLogin(ctx, db.GetUserByLoginParams{Username: text(login), Email: text(email)})
+	user, err := s.queries.GetUserByLogin(ctx, db.GetUserByLoginParams{Username: login, Email: text(email)})
 	if errors.Is(err, pgx.ErrNoRows) {
 		// Hash anyway so unknown accounts take as long as wrong passwords.
 		_ = bcrypt.CompareHashAndPassword(dummyPasswordHash, []byte(password))
@@ -269,7 +269,7 @@ func passwordMatches(user db.User, password string) bool {
 }
 
 func loginIdentifiers(value string) (username, email string) {
-	username = strings.ToLower(strings.TrimSpace(value))
+	username = strings.TrimSpace(value)
 	if normalized, err := helpers.NormalizeEmail(username); err == nil {
 		email = normalized
 	}

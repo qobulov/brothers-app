@@ -10,9 +10,9 @@ import (
 
 func TestNormalizeUsername(t *testing.T) {
 	valid := map[string]string{
-		"qobulov":               "qobulov",
-		"  Qobulov  ":           "qobulov",
-		"ABROR_755":             "abror_755",
+		"proniumq":              "proniumq",
+		"  Qobulov  ":           "Qobulov",
+		"ABROR_755":             "ABROR_755",
 		"a_1_b":                 "a_1_b",
 		strings.Repeat("x", 32): strings.Repeat("x", 32),
 	}
@@ -28,10 +28,10 @@ func TestNormalizeUsername(t *testing.T) {
 		"   ":                   "Username kiritilishi shart",
 		"abcd":                  "Username 5 dan 32 belgigacha bo'lishi kerak",
 		strings.Repeat("x", 33): "Username 5 dan 32 belgigacha bo'lishi kerak",
-		"suite-owner":           "Username faqat a-z, 0-9 va _ belgilaridan iborat bo'lishi mumkin",
-		"ali vali":              "Username faqat a-z, 0-9 va _ belgilaridan iborat bo'lishi mumkin",
-		"абдулла":               "Username faqat a-z, 0-9 va _ belgilaridan iborat bo'lishi mumkin",
-		"@qobulov":              "Username faqat a-z, 0-9 va _ belgilaridan iborat bo'lishi mumkin",
+		"suite-owner":           "Username faqat lotin harflari, raqamlar va _ belgisidan iborat bo'lishi mumkin",
+		"ali vali":              "Username faqat lotin harflari, raqamlar va _ belgisidan iborat bo'lishi mumkin",
+		"абдулла":               "Username faqat lotin harflari, raqamlar va _ belgisidan iborat bo'lishi mumkin",
+		"@qobulov":              "Username faqat lotin harflari, raqamlar va _ belgisidan iborat bo'lishi mumkin",
 	}
 	for input, want := range invalid {
 		_, err := NormalizeUsername(input)

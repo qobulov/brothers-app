@@ -45,6 +45,31 @@ type Customer struct {
 	DeletedAt pgtype.Timestamptz `json:"deleted_at"`
 }
 
+type Debt struct {
+	ID              pgtype.UUID        `json:"id"`
+	OwnerUserID     pgtype.UUID        `json:"owner_user_id"`
+	Direction       string             `json:"direction"`
+	PersonName      string             `json:"person_name"`
+	PersonPhone     pgtype.Text        `json:"person_phone"`
+	Currency        string             `json:"currency"`
+	OriginalAmount  int64              `json:"original_amount"`
+	RemainingAmount int64              `json:"remaining_amount"`
+	Status          string             `json:"status"`
+	CompletedAt     pgtype.Timestamptz `json:"completed_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
+}
+
+type DebtRepayment struct {
+	ID        pgtype.UUID        `json:"id"`
+	DebtID    pgtype.UUID        `json:"debt_id"`
+	Amount    int64              `json:"amount"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt pgtype.Timestamptz `json:"deleted_at"`
+}
+
 type EmployeeBalance struct {
 	ID         pgtype.UUID        `json:"id"`
 	GroupID    pgtype.UUID        `json:"group_id"`

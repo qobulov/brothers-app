@@ -15,22 +15,23 @@ const (
 	maxUsernameLength = 32
 )
 
-// NormalizeUsername trims and lowercases a username and checks it against the
-// Telegram-style rule: a-z, 0-9 and underscores, 5 to 32 characters. Storing
-// usernames in lowercase makes uniqueness case-insensitive.
+// NormalizeUsername trims a username and checks it against the Telegram-style
+// rule: Latin letters, digits and underscores, 5 to 32 characters. The typed
+// case is kept; uniqueness and lookups ignore case, so Abror and abror are the
+// same username.
 func NormalizeUsername(value string) (string, error) {
-	username := strings.ToLower(strings.TrimSpace(value))
+	username := strings.TrimSpace(value)
 	if username == "" {
 		return "", apperror.New(apperror.ErrInvalidData, apperror.Text{
 			UZ: "Username kiritilishi shart", RU: "Укажите username", EN: "Username is required",
 		})
 	}
 	for _, r := range username {
-		if (r < 'a' || r > 'z') && (r < '0' || r > '9') && r != '_' {
+		if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') && r != '_' {
 			return "", apperror.New(apperror.ErrInvalidData, apperror.Text{
-				UZ: "Username faqat a-z, 0-9 va _ belgilaridan iborat bo'lishi mumkin",
-				RU: "Username может содержать только a-z, 0-9 и _",
-				EN: "A username can contain only a-z, 0-9 and underscores",
+				UZ: "Username faqat lotin harflari, raqamlar va _ belgisidan iborat bo'lishi mumkin",
+				RU: "Username может содержать только латинские буквы, цифры и _",
+				EN: "A username can contain only Latin letters, digits and underscores",
 			})
 		}
 	}
@@ -51,7 +52,7 @@ func (s *Service) CheckUsername(ctx context.Context, value string) (dto.Username
 	if err != nil {
 		return dto.UsernameAvailability{}, err
 	}
-	taken, err := s.queries.UsernameTaken(ctx, db.UsernameTakenParams{Username: text(username)})
+	taken, err := s.queries.UsernameTaken(ctx, db.UsernameTakenParams{Username: username})
 	if err != nil {
 		return dto.UsernameAvailability{}, fmt.Errorf("checking username: %w", err)
 	}
