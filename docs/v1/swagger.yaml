@@ -411,11 +411,6 @@ definitions:
         type: string
       remaining_amount:
         type: integer
-      source:
-        enum:
-        - manual
-        - order
-        type: string
       status:
         enum:
         - active

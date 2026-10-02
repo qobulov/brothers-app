@@ -1,5 +1,5 @@
 // Package debt keeps a user's private record of money they owe and money owed
-// to them. Debts are not tied to a group and nobody else can see them.
+// to them. Debts are independent of orders and groups, and nobody else can see them.
 package debt
 
 import (
@@ -47,7 +47,6 @@ type Debt struct {
 	OriginalAmount  int64      `json:"original_amount"`
 	RemainingAmount int64      `json:"remaining_amount"`
 	Status          string     `json:"status" enums:"active,completed"`
-	Source          string     `json:"source" enums:"manual,order"`
 	CreatedAt       time.Time  `json:"created_at"`
 	CompletedAt     *time.Time `json:"completed_at"`
 }

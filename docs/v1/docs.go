@@ -3166,13 +3166,6 @@ const docTemplate = `{
                 "remaining_amount": {
                     "type": "integer"
                 },
-                "source": {
-                    "type": "string",
-                    "enum": [
-                        "manual",
-                        "order"
-                    ]
-                },
                 "status": {
                     "type": "string",
                     "enum": [

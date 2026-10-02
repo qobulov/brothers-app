@@ -31,21 +31,14 @@ type querier interface {
 
 const debtColumns = `
 	id, direction, person_name, COALESCE(person_phone, ''), currency,
-	original_amount, remaining_amount, status, source_order_id IS NOT NULL,
-	created_at, completed_at`
+	original_amount, remaining_amount, status, created_at, completed_at`
 
 func scanDebt(row pgx.Row) (Debt, error) {
 	var d Debt
-	var fromOrder bool
 	err := row.Scan(
 		&d.ID, &d.Direction, &d.PersonName, &d.PersonPhone, &d.Currency,
-		&d.OriginalAmount, &d.RemainingAmount, &d.Status, &fromOrder,
-		&d.CreatedAt, &d.CompletedAt,
+		&d.OriginalAmount, &d.RemainingAmount, &d.Status, &d.CreatedAt, &d.CompletedAt,
 	)
-	d.Source = "manual"
-	if fromOrder {
-		d.Source = "order"
-	}
 	return d, err
 }
 

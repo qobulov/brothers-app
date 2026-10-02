@@ -1,4 +1,5 @@
--- Personal debts. A debt belongs to one user and is visible only to them.
+-- Personal debts. A debt belongs to one user, is visible only to them and is
+-- independent of orders and groups.
 CREATE TABLE IF NOT EXISTS debts (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_user_id uuid NOT NULL REFERENCES users(id),
@@ -9,7 +10,6 @@ CREATE TABLE IF NOT EXISTS debts (
     original_amount bigint NOT NULL,
     remaining_amount bigint NOT NULL,
     status varchar(16) NOT NULL DEFAULT 'active',
-    source_order_id uuid REFERENCES orders(id),
     completed_at timestamptz,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
@@ -20,6 +20,10 @@ CREATE TABLE IF NOT EXISTS debts (
     -- The last line of defence: no code path can push a debt below zero.
     CONSTRAINT debts_amounts_check CHECK (original_amount > 0 AND remaining_amount BETWEEN 0 AND original_amount)
 );
+
+-- An earlier draft of this migration linked debts to orders; drop that column
+-- where the draft was already applied.
+ALTER TABLE debts DROP COLUMN IF EXISTS source_order_id;
 
 CREATE INDEX IF NOT EXISTS debts_owner_created_idx
     ON debts (owner_user_id, created_at DESC, id DESC)

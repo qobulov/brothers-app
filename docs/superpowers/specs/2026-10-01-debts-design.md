@@ -1,7 +1,8 @@
 # Personal Debts — Design
 
-Stage 1 of the debts feature. Stage 2 adds "Mark as debt" on orders, which
-creates a debt from an order side and changes the order flow.
+Debts are a standalone feature: they are never created from orders and have no
+link to orders or groups. (An earlier draft planned a stage 2 "Mark as debt" on
+orders; that was dropped on 2026-10-02.)
 
 ## Goal
 
@@ -26,7 +27,7 @@ and repayment history), Add Debt.
 | Reopen | Not possible. |
 | Delete | Allowed at any time, even with repayments. Soft delete. |
 | Edit | Not supported (not in the design). |
-| Order debts | Out of scope. `source_order_id` exists for stage 2 and is always empty now. |
+| Orders | No link. Debts are never created from orders and store no order reference. |
 | Architecture | New `internal/debt` package with `Handler` and `Service`, hand-written SQL, as in `internal/group` and `internal/order`. |
 
 ## Data model
@@ -44,7 +45,6 @@ CREATE TABLE IF NOT EXISTS debts (
     original_amount bigint NOT NULL,
     remaining_amount bigint NOT NULL,
     status varchar(16) NOT NULL DEFAULT 'active',
-    source_order_id uuid REFERENCES orders(id),
     completed_at timestamptz,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
@@ -117,13 +117,11 @@ Returned by list, detail, create, repayment and complete:
   "original_amount": 1500,
   "remaining_amount": 900,
   "status": "active",
-  "source": "manual",
   "created_at": "2026-10-01T09:00:00Z",
   "completed_at": null
 }
 ```
 
-`source` is `manual` for every debt in this stage; stage 2 adds `order`.
 
 ### `GET /debts/summary`
 

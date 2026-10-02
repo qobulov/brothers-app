@@ -15,7 +15,8 @@ Response formati va xatolar `ERRORS.md` dagi kabi.
 
 ## Qisqacha mantiq
 
-- Qarz **shaxsiy**: uni faqat yaratgan foydalanuvchi ko‘radi. Guruh a'zolari, guruh egasi va admin ham ko‘rmaydi. Qarz hech qanday guruh balansiga ta'sir qilmaydi.
+- Qarz **shaxsiy**: uni faqat yaratgan foydalanuvchi ko‘radi. Guruh a'zolari, guruh egasi va admin ham ko‘rmaydi.
+- Qarz orderlar va guruhlardan **mustaqil**: order'dan yaratilmaydi, hech qanday guruh balansiga ta'sir qilmaydi.
 - Yo‘nalish: `they_owe_me` (menga qarzdor) yoki `i_owe` (men qarzdorman).
 - Valyuta: `USD` yoki `UZS`, yaratilgandan keyin o‘zgarmaydi. Summalar butun son.
 - Qisman to‘lov mumkin. Har bir to‘lov alohida yozuv bo‘lib qoladi va o‘zgartirilmaydi.
@@ -51,14 +52,12 @@ Ro‘yxat, detail, yaratish, to‘lov va yopish javoblarida bir xil:
   "original_amount": 1500,
   "remaining_amount": 900,
   "status": "active",
-  "source": "manual",
   "created_at": "2026-10-01T09:00:00Z",
   "completed_at": null
 }
 ```
 
 - `status`: `active` yoki `completed`.
-- `source` hozircha doim `manual`. Keyingi bosqichda orderdan yaratilgan qarzlar `order` bo‘ladi ("FROM ORDER" belgisi uchun).
 - `person_phone` kiritilmagan bo‘lsa — bo‘sh satr.
 
 ## 1. Jami summalar
@@ -187,5 +186,4 @@ Har bir xatoda `message` aniq sababni so‘ralgan tilda qaytaradi (`ERRORS.md` g
 
 ## Hozircha mavjud emas
 
-- Order'ni qarz sifatida yopish ("Mark as debt") — keyingi bosqich.
 - Qarzni tahrirlash.

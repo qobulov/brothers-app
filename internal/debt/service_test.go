@@ -62,7 +62,7 @@ func TestCreate_ValidatesInput(t *testing.T) {
 	if created.Direction != DirectionTheyOweMe || created.PersonName != "Akmal" || created.PersonPhone != "+998907774422" || created.Currency != CurrencyUSD {
 		t.Fatalf("created = %#v", created)
 	}
-	if created.OriginalAmount != 1500 || created.RemainingAmount != 1500 || created.Status != StatusActive || created.Source != "manual" || created.CompletedAt != nil {
+	if created.OriginalAmount != 1500 || created.RemainingAmount != 1500 || created.Status != StatusActive || created.CompletedAt != nil {
 		t.Fatalf("created amounts/status = %#v", created)
 	}
 
