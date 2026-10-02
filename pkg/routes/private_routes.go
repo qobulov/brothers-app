@@ -32,6 +32,7 @@ func RegisterPrivateRoutes(app fiber.Router, pool *pgxpool.Pool, otpCache *otp.C
 	secureRoute.Get("/me", handler.CurrentUser)
 	secureRoute.Patch("/me", handler.UpdateCurrentUser)
 	secureRoute.Post("/me/email", handler.ChangeEmail)
+	secureRoute.Post("/me/password", handler.ChangePassword)
 	secureRoute.Post("/auth/logout", handler.Logout)
 	secureRoute.Get("/users", userLookupHandler.Lookup)
 

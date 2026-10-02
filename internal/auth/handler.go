@@ -302,3 +302,30 @@ func (h *Handler) ChangeEmail(c *fiber.Ctx) error {
 	}
 	return responses.Success(c, fiber.StatusOK, user, responses.MessageEmailChanged)
 }
+
+// ChangePassword godoc
+// @Summary Change my password
+// @Description Needs the current password. The new password must have 8-72 characters with an uppercase letter, a lowercase letter and a digit. The app checks the confirmation field. The current session stays valid.
+// @Tags profile
+// @Accept json
+// @Produce json
+// @Param request body authdto.ChangePasswordRequest true "Current and new password"
+// @Success 200 {object} authdto.EmptyResponse
+// @Failure 400 {object} authdto.ErrorResponse
+// @Failure 401 {object} authdto.ErrorResponse
+// @Security BearerAuth
+// @Router /me/password [post]
+func (h *Handler) ChangePassword(c *fiber.Ctx) error {
+	userID, ok := c.Locals("auth_user_id").(uuid.UUID)
+	if !ok || userID == uuid.Nil {
+		return responses.Error(c, apperror.ErrUnauthorized)
+	}
+	var request authdto.ChangePasswordRequest
+	if err := c.BodyParser(&request); err != nil {
+		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
+	}
+	if err := h.service.ChangePassword(c.UserContext(), userID, request); err != nil {
+		return responses.Error(c, err)
+	}
+	return responses.Message(c, fiber.StatusOK, responses.MessagePasswordChanged)
+}

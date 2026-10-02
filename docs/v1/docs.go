@@ -2525,6 +2525,57 @@ const docTemplate = `{
                 }
             }
         },
+        "/me/password": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Needs the current password. The new password must have 8-72 characters with an uppercase letter, a lowercase letter and a digit. The app checks the confirmation field. The current session stays valid.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "profile"
+                ],
+                "summary": "Change my password",
+                "parameters": [
+                    {
+                        "description": "Current and new password",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ChangePasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.EmptyResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/notifications": {
             "get": {
                 "security": [
@@ -2684,6 +2735,19 @@ const docTemplate = `{
                 }
             }
         },
+        "authdto.ChangePasswordRequest": {
+            "type": "object",
+            "properties": {
+                "current_password": {
+                    "type": "string",
+                    "example": "OldPass123"
+                },
+                "new_password": {
+                    "type": "string",
+                    "example": "NewPass123"
+                }
+            }
+        },
         "authdto.EmptyResponse": {
             "type": "object",
             "properties": {
@@ -2752,7 +2816,7 @@ const docTemplate = `{
                 },
                 "password": {
                     "type": "string",
-                    "example": "strong-password"
+                    "example": "StrongPass123"
                 }
             }
         },
@@ -2818,7 +2882,7 @@ const docTemplate = `{
                 },
                 "password": {
                     "type": "string",
-                    "example": "strong-password"
+                    "example": "StrongPass123"
                 },
                 "phone": {
                     "type": "string",
@@ -2891,7 +2955,7 @@ const docTemplate = `{
             "properties": {
                 "password": {
                     "type": "string",
-                    "example": "new-strong-password"
+                    "example": "StrongPass123"
                 },
                 "reset_token": {
                     "type": "string",

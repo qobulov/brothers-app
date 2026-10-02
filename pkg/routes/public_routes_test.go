@@ -266,7 +266,7 @@ func (s *PublicRoutesTestSuite) TestRegisterConflictLocalized() {
 				"username":   "new_user_" + test.language,
 				"first_name": "Azizbek",
 				"last_name":  "Qobulov",
-				"password":   "strong-password",
+				"password":   "StrongPass123",
 				"language":   test.language,
 				"otp_code":   "111111",
 			})
@@ -689,7 +689,7 @@ func (s *PublicRoutesTestSuite) TestUsernameCheckWithoutToken() {
 func (s *PublicRoutesTestSuite) TestRegisterKeepsUsernameCase() {
 	status, body := s.sendJSON("POST", "/api/v1/auth/register", map[string]any{
 		"email": "mixedcase@example.com", "username": "Mixed_Case1", "first_name": "Mixed",
-		"password": "securepassword123", "otp_code": "111111",
+		"password": "SecurePass123", "otp_code": "111111",
 	})
 	s.Require().Equal(fiber.StatusOK, status, string(body))
 
@@ -714,11 +714,11 @@ func (s *PublicRoutesTestSuite) TestRegisterKeepsUsernameCase() {
 	s.Require().NoError(s.db.QueryRow(s.T().Context(), `SELECT username FROM users WHERE email = 'mixedcase@example.com'`).Scan(&stored))
 	s.Equal("Mixed_Case1", stored, "the username is stored as typed")
 
-	s.NotEmpty(s.loginAccessToken("MIXED_CASE1", "securepassword123"), "login matches any capitalization")
+	s.NotEmpty(s.loginAccessToken("MIXED_CASE1", "SecurePass123"), "login matches any capitalization")
 
 	status, _ = s.sendJSON("POST", "/api/v1/auth/register", map[string]any{
 		"email": "other@example.com", "username": "mixed_CASE1", "first_name": "Other",
-		"password": "securepassword123", "otp_code": "111111",
+		"password": "SecurePass123", "otp_code": "111111",
 	})
 	s.Equal(fiber.StatusConflict, status, "the same username in another case is taken")
 }
@@ -837,6 +837,61 @@ func (s *PublicRoutesTestSuite) TestProfileUsernameUpdate() {
 
 	status, _ = patch("ab")
 	s.Equal(fiber.StatusBadRequest, status)
+}
+
+func (s *PublicRoutesTestSuite) TestChangePassword() {
+	change := func(current, next string) (int, string) {
+		status, body := s.sendJSON("POST", "/api/v1/me/password", map[string]any{"current_password": current, "new_password": next})
+		var envelope struct {
+			Message string `json:"message"`
+		}
+		s.Require().NoError(json.Unmarshal(body, &envelope))
+		return status, envelope.Message
+	}
+	request := func(token string) int {
+		req := httptest.NewRequest("GET", "/api/v1/me", nil)
+		if token != "" {
+			req.Header.Set("Authorization", token)
+		}
+		response, err := s.app.Test(req, -1)
+		s.Require().NoError(err)
+		response.Body.Close()
+		return response.StatusCode
+	}
+
+	status, message := change("wrong-password", "NewPass123")
+	s.Equal(fiber.StatusUnauthorized, status)
+	s.Equal("The current password is incorrect", message)
+
+	status, message = change("securepassword123", "securepassword123")
+	s.Equal(fiber.StatusBadRequest, status)
+	s.Equal("The new password must differ from the current one", message)
+
+	status, message = change("securepassword123", "newpass123")
+	s.Equal(fiber.StatusBadRequest, status)
+	s.Equal("The password must contain an uppercase letter", message)
+
+	status, message = change("securepassword123", "NewPass123")
+	s.Require().Equal(fiber.StatusOK, status, message)
+	s.Equal("Password changed", message)
+	s.Equal(fiber.StatusOK, request(s.accessToken), "the current session stays valid")
+
+	old, err := json.Marshal(map[string]string{"login": "suite-owner", "password": "securepassword123"})
+	s.Require().NoError(err)
+	oldLogin := httptest.NewRequest("POST", "/api/v1/auth/login", bytes.NewReader(old))
+	oldLogin.Header.Set("Content-Type", "application/json")
+	response, err := s.app.Test(oldLogin, -1)
+	s.Require().NoError(err)
+	response.Body.Close()
+	s.Equal(fiber.StatusUnauthorized, response.StatusCode, "the old password no longer works")
+	s.NotEmpty(s.loginAccessToken("suite-owner", "NewPass123"), "the new password works")
+
+	unauthenticated := httptest.NewRequest("POST", "/api/v1/me/password", bytes.NewReader(old))
+	unauthenticated.Header.Set("Content-Type", "application/json")
+	response, err = s.app.Test(unauthenticated, -1)
+	s.Require().NoError(err)
+	response.Body.Close()
+	s.Equal(fiber.StatusUnauthorized, response.StatusCode)
 }
 
 func (s *PublicRoutesTestSuite) createGroup(name string) string {

@@ -93,7 +93,7 @@ func TestPasswordFlowsPreserveCacheErrors(t *testing.T) {
 	if !errors.Is(err, cause) || errors.Is(err, apperror.ErrInvalidOTP) {
 		t.Fatalf("VerifyPasswordOTP() = %v, want original Redis error", err)
 	}
-	err = s.ResetPassword(context.Background(), authdto.ResetPasswordRequest{Password: "test-password", ResetToken: "test-token"})
+	err = s.ResetPassword(context.Background(), authdto.ResetPasswordRequest{Password: "TestPass123", ResetToken: "test-token"})
 	if !errors.Is(err, cause) || errors.Is(err, apperror.ErrInvalidResetToken) {
 		t.Fatalf("ResetPassword() = %v, want original Redis error", err)
 	}

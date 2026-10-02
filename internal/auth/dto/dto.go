@@ -12,7 +12,7 @@ type RegisterRequest struct {
 	Username  string `json:"username" example:"qobulov"`
 	FirstName string `json:"first_name" example:"Azizbek"`
 	LastName  string `json:"last_name" example:"Qobulov"`
-	Password  string `json:"password" example:"strong-password"`
+	Password  string `json:"password" example:"StrongPass123"`
 	Language  string `json:"language" example:"uz"`
 	AvatarURL string `json:"avatar_url" example:"https://example.com/avatar.jpg"`
 	OTPCode   string `json:"otp_code" example:"482910"`
@@ -29,7 +29,7 @@ type SendOTPRequest struct {
 // LoginRequest contains username-or-email credentials.
 type LoginRequest struct {
 	Login    string `json:"login" example:"qobulov"`
-	Password string `json:"password" example:"strong-password"`
+	Password string `json:"password" example:"StrongPass123"`
 }
 
 type RefreshRequest struct {
@@ -43,7 +43,7 @@ type OTPVerifyRequest struct {
 
 type ResetPasswordRequest struct {
 	ResetToken string `json:"reset_token" example:"opaque-reset-token"`
-	Password   string `json:"password" example:"new-strong-password"`
+	Password   string `json:"password" example:"StrongPass123"`
 }
 
 // UpdateProfileRequest contains only user-editable profile fields. Pointer
@@ -124,4 +124,11 @@ type UsernameAvailability struct {
 type ChangeEmailRequest struct {
 	NewEmail string `json:"new_email" example:"new@example.com"`
 	OTPCode  string `json:"otp_code" example:"482910"`
+}
+
+// ChangePasswordRequest changes a logged-in user's password. The app checks
+// the confirmation field itself.
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password" example:"OldPass123"`
+	NewPassword     string `json:"new_password" example:"NewPass123"`
 }

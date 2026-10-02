@@ -35,6 +35,15 @@ definitions:
         example: "482910"
         type: string
     type: object
+  authdto.ChangePasswordRequest:
+    properties:
+      current_password:
+        example: OldPass123
+        type: string
+      new_password:
+        example: NewPass123
+        type: string
+    type: object
   authdto.EmptyResponse:
     properties:
       code:
@@ -81,7 +90,7 @@ definitions:
         example: qobulov
         type: string
       password:
-        example: strong-password
+        example: StrongPass123
         type: string
     type: object
   authdto.OTPVerifyRequest:
@@ -127,7 +136,7 @@ definitions:
         example: "482910"
         type: string
       password:
-        example: strong-password
+        example: StrongPass123
         type: string
       phone:
         example: "+998901234567"
@@ -177,7 +186,7 @@ definitions:
   authdto.ResetPasswordRequest:
     properties:
       password:
-        example: new-strong-password
+        example: StrongPass123
         type: string
       reset_token:
         example: opaque-reset-token
@@ -3128,6 +3137,40 @@ paths:
       security:
       - BearerAuth: []
       summary: Change my email
+      tags:
+      - profile
+  /me/password:
+    post:
+      consumes:
+      - application/json
+      description: Needs the current password. The new password must have 8-72 characters
+        with an uppercase letter, a lowercase letter and a digit. The app checks the
+        confirmation field. The current session stays valid.
+      parameters:
+      - description: Current and new password
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/authdto.ChangePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/authdto.EmptyResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Change my password
       tags:
       - profile
   /notifications:

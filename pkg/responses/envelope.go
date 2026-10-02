@@ -45,6 +45,7 @@ const (
 	MessageUsernameAvailable     = "username_available"
 	MessageDebtCreated           = "debt_created"
 	MessageEmailChanged          = "email_changed"
+	MessagePasswordChanged       = "password_changed"
 	MessageRepaymentRecorded     = "repayment_recorded"
 	MessageDebtCompleted         = "debt_completed"
 	MessageDebtDeleted           = "debt_deleted"
@@ -82,6 +83,7 @@ var messageTranslations = map[string]translation{
 	MessageUsernameAvailable:     {"Username bo'sh", "Username свободен", "Username is available"},
 	MessageDebtCreated:           {"Qarz qo'shildi", "Долг добавлен", "Debt created"},
 	MessageEmailChanged:          {"Email o'zgartirildi", "Email изменён", "Email changed"},
+	MessagePasswordChanged:       {"Parol o'zgartirildi", "Пароль изменён", "Password changed"},
 	MessageRepaymentRecorded:     {"To'lov qabul qilindi", "Платёж записан", "Repayment recorded"},
 	MessageDebtCompleted:         {"Qarz yopildi", "Долг закрыт", "Debt completed"},
 	MessageDebtDeleted:           {"Qarz o'chirildi", "Долг удалён", "Debt deleted"},

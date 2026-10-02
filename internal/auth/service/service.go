@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
@@ -761,9 +762,37 @@ func validRegistration(password, firstName string) error {
 	return nil
 }
 
+// maxPasswordBytes is bcrypt's input limit; longer passwords cannot be hashed.
+const maxPasswordBytes = 72
+
+// validPassword applies one rule to every new password (registration, reset
+// and change): 8 to 72 bytes with an uppercase letter, a lowercase letter and
+// a digit. Existing passwords are not re-checked.
 func validPassword(password string) error {
 	if len(password) < 8 {
 		return apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Parol kamida 8 belgidan iborat bo'lishi kerak", RU: "Пароль должен содержать не менее 8 символов", EN: "The password must be at least 8 characters"})
+	}
+	if len(password) > maxPasswordBytes {
+		return apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Parol 72 belgidan oshmasligi kerak", RU: "Пароль не должен превышать 72 символа", EN: "The password must be at most 72 characters"})
+	}
+	var upper, lower, digit bool
+	for _, r := range password {
+		switch {
+		case unicode.IsUpper(r):
+			upper = true
+		case unicode.IsLower(r):
+			lower = true
+		case unicode.IsDigit(r):
+			digit = true
+		}
+	}
+	switch {
+	case !upper:
+		return apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Parolda kamida bitta katta harf bo'lishi kerak", RU: "Пароль должен содержать хотя бы одну заглавную букву", EN: "The password must contain an uppercase letter"})
+	case !lower:
+		return apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Parolda kamida bitta kichik harf bo'lishi kerak", RU: "Пароль должен содержать хотя бы одну строчную букву", EN: "The password must contain a lowercase letter"})
+	case !digit:
+		return apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Parolda kamida bitta raqam bo'lishi kerak", RU: "Пароль должен содержать хотя бы одну цифру", EN: "The password must contain a digit"})
 	}
 	return nil
 }
