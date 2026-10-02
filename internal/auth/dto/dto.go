@@ -53,6 +53,7 @@ type UpdateProfileRequest struct {
 	LastName  *string `json:"last_name,omitempty" example:"Qobulov"`
 	AvatarURL *string `json:"avatar_url,omitempty" example:"https://example.com/avatar.jpg"`
 	Language  *string `json:"language,omitempty" enums:"uz,ru,en" example:"uz"`
+	Username  *string `json:"username,omitempty" example:"Qobulov"`
 }
 
 type StartData struct {

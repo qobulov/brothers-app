@@ -202,6 +202,22 @@ func (q *Queries) GetUserByLogin(ctx context.Context, arg GetUserByLoginParams) 
 	return i, err
 }
 
+const syncMemberUsername = `-- name: SyncMemberUsername :exec
+UPDATE group_members SET username = $1, updated_at = $2
+WHERE user_id = $3 AND deleted_at IS NULL
+`
+
+type SyncMemberUsernameParams struct {
+	Username  string             `json:"username"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	UserID    pgtype.UUID        `json:"user_id"`
+}
+
+func (q *Queries) SyncMemberUsername(ctx context.Context, arg SyncMemberUsernameParams) error {
+	_, err := q.db.Exec(ctx, syncMemberUsername, arg.Username, arg.UpdatedAt, arg.UserID)
+	return err
+}
+
 const updateUserEmail = `-- name: UpdateUserEmail :one
 UPDATE users SET email = $2, updated_at = $3
 WHERE id = $1 AND is_active = true AND deleted_at IS NULL
@@ -297,12 +313,13 @@ UPDATE users SET
     last_name = COALESCE($2, last_name),
     avatar_url = COALESCE($3, avatar_url),
     language = COALESCE($4, language),
+    username = COALESCE($5, username),
     name = BTRIM(CONCAT_WS(' ',
         COALESCE($1, first_name),
         COALESCE($2, last_name)
     )),
-    updated_at = $5
-WHERE id = $6 AND is_active = true AND deleted_at IS NULL
+    updated_at = $6
+WHERE id = $7 AND is_active = true AND deleted_at IS NULL
 RETURNING id, email, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at
 `
 
@@ -311,6 +328,7 @@ type UpdateUserProfileParams struct {
 	LastName  pgtype.Text        `json:"last_name"`
 	AvatarUrl pgtype.Text        `json:"avatar_url"`
 	Language  pgtype.Text        `json:"language"`
+	Username  pgtype.Text        `json:"username"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 	ID        pgtype.UUID        `json:"id"`
 }
@@ -321,6 +339,7 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 		arg.LastName,
 		arg.AvatarUrl,
 		arg.Language,
+		arg.Username,
 		arg.UpdatedAt,
 		arg.ID,
 	)
@@ -358,6 +377,25 @@ type UsernameTakenParams struct {
 
 func (q *Queries) UsernameTaken(ctx context.Context, arg UsernameTakenParams) (bool, error) {
 	row := q.db.QueryRow(ctx, usernameTaken, arg.Username)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const usernameTakenByOther = `-- name: UsernameTakenByOther :one
+SELECT EXISTS (
+    SELECT 1 FROM users
+    WHERE lower(username) = lower($1) AND id <> $2 AND deleted_at IS NULL
+)
+`
+
+type UsernameTakenByOtherParams struct {
+	Username string      `json:"username"`
+	ID       pgtype.UUID `json:"id"`
+}
+
+func (q *Queries) UsernameTakenByOther(ctx context.Context, arg UsernameTakenByOtherParams) (bool, error) {
+	row := q.db.QueryRow(ctx, usernameTakenByOther, arg.Username, arg.ID)
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err

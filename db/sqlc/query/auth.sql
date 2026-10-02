@@ -28,6 +28,7 @@ UPDATE users SET
     last_name = COALESCE(sqlc.narg('last_name'), last_name),
     avatar_url = COALESCE(sqlc.narg('avatar_url'), avatar_url),
     language = COALESCE(sqlc.narg('language'), language),
+    username = COALESCE(sqlc.narg('username'), username),
     name = BTRIM(CONCAT_WS(' ',
         COALESCE(sqlc.narg('first_name'), first_name),
         COALESCE(sqlc.narg('last_name'), last_name)
@@ -51,3 +52,13 @@ SELECT EXISTS (
 UPDATE users SET email = $2, updated_at = $3
 WHERE id = $1 AND is_active = true AND deleted_at IS NULL
 RETURNING *;
+
+-- name: UsernameTakenByOther :one
+SELECT EXISTS (
+    SELECT 1 FROM users
+    WHERE lower(username) = lower(sqlc.arg(username)) AND id <> sqlc.arg(id) AND deleted_at IS NULL
+);
+
+-- name: SyncMemberUsername :exec
+UPDATE group_members SET username = sqlc.arg(username), updated_at = sqlc.arg(updated_at)
+WHERE user_id = sqlc.arg(user_id) AND deleted_at IS NULL;

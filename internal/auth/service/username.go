@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 	dto "github.com/qobulov/brothers-app/internal/auth/dto"
 	db "github.com/qobulov/brothers-app/internal/db"
 	"github.com/qobulov/brothers-app/pkg/apperror"
@@ -57,4 +59,31 @@ func (s *Service) CheckUsername(ctx context.Context, value string) (dto.Username
 		return dto.UsernameAvailability{}, fmt.Errorf("checking username: %w", err)
 	}
 	return dto.UsernameAvailability{Username: username, Available: !taken}, nil
+}
+
+// optionalUsername validates a requested username change. Changing only the
+// case of your own username is allowed; a name another account holds in any
+// case is not.
+func (s *Service) optionalUsername(ctx context.Context, userID uuid.UUID, value *string) (pgtype.Text, error) {
+	if value == nil {
+		return pgtype.Text{}, nil
+	}
+	username, err := NormalizeUsername(*value)
+	if err != nil {
+		return pgtype.Text{}, err
+	}
+	taken, err := s.queries.UsernameTakenByOther(ctx, db.UsernameTakenByOtherParams{Username: username, ID: pgUUID(userID)})
+	if err != nil {
+		return pgtype.Text{}, fmt.Errorf("checking username: %w", err)
+	}
+	if taken {
+		return pgtype.Text{}, usernameTaken()
+	}
+	return text(username), nil
+}
+
+func usernameTaken() error {
+	return apperror.New(apperror.ErrAlreadyExists, apperror.Text{
+		UZ: "Bu username band", RU: "Этот username уже занят", EN: "This username is already taken",
+	})
 }

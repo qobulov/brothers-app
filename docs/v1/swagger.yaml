@@ -306,6 +306,9 @@ definitions:
       last_name:
         example: Qobulov
         type: string
+      username:
+        example: Qobulov
+        type: string
     type: object
   authdto.UserData:
     properties:

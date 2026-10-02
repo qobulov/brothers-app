@@ -162,7 +162,7 @@ func TestSwaggerWriteRequestsExcludeDatabaseManagedFields(t *testing.T) {
 		{name: "auth otp send", operation: spec.Paths["/auth/otp/send"].Post, wantFields: []string{"email", "purpose"}},
 		{name: "password verify", operation: spec.Paths["/auth/password/verify"].Post, wantFields: []string{"email", "otp"}},
 		{name: "password reset", operation: spec.Paths["/auth/password/reset"].Post, wantFields: []string{"reset_token", "password"}, forbiddenFields: []string{"confirm_password"}},
-		{name: "current profile patch", operation: spec.Paths["/me"].Patch, wantFields: []string{"first_name", "last_name", "avatar_url", "language"}},
+		{name: "current profile patch", operation: spec.Paths["/me"].Patch, wantFields: []string{"first_name", "last_name", "avatar_url", "language", "username"}},
 		{name: "group order create", operation: spec.Paths["/groups/{groupID}/orders"].Post, wantFields: []string{"giver_user_id", "giver_customer_phone", "receiver_user_id", "receiver_customer_phone", "amount_usd", "fee_uzs"}},
 		{name: "email change", operation: spec.Paths["/me/email"].Post, wantFields: []string{"new_email", "otp_code"}},
 		{name: "debt create", operation: spec.Paths["/debts"].Post, wantFields: []string{"direction", "person_name", "person_phone", "currency", "amount"}},

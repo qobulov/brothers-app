@@ -332,7 +332,7 @@ func (s *Service) CurrentUser(ctx context.Context, userID uuid.UUID) (dto.UserDa
 }
 
 func (s *Service) UpdateCurrentUser(ctx context.Context, userID uuid.UUID, req dto.UpdateProfileRequest) (dto.UserData, error) {
-	if req.FirstName == nil && req.LastName == nil && req.AvatarURL == nil && req.Language == nil {
+	if req.FirstName == nil && req.LastName == nil && req.AvatarURL == nil && req.Language == nil && req.Username == nil {
 		return dto.UserData{}, apperror.NothingToUpdate()
 	}
 
@@ -352,17 +352,35 @@ func (s *Service) UpdateCurrentUser(ctx context.Context, userID uuid.UUID, req d
 	if err != nil {
 		return dto.UserData{}, err
 	}
+	username, err := s.optionalUsername(ctx, userID, req.Username)
+	if err != nil {
+		return dto.UserData{}, err
+	}
 
-	user, err := s.queries.UpdateUserProfile(ctx, db.UpdateUserProfileParams{
-		FirstName: firstName,
-		LastName:  lastName,
-		AvatarUrl: avatarURL,
-		Language:  language,
-		UpdatedAt: timestamp(s.now().UTC()),
-		ID:        pgUUID(userID),
+	now := timestamp(s.now().UTC())
+	var user db.User
+	err = s.withTx(ctx, func(q *db.Queries) error {
+		var updateErr error
+		user, updateErr = q.UpdateUserProfile(ctx, db.UpdateUserProfileParams{
+			FirstName: firstName,
+			LastName:  lastName,
+			AvatarUrl: avatarURL,
+			Language:  language,
+			Username:  username,
+			UpdatedAt: now,
+			ID:        pgUUID(userID),
+		})
+		if updateErr != nil || !username.Valid {
+			return updateErr
+		}
+		// group_members keeps a copy of the username; keep it in sync.
+		return q.SyncMemberUsername(ctx, db.SyncMemberUsernameParams{Username: username.String, UpdatedAt: now, UserID: pgUUID(userID)})
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return dto.UserData{}, apperror.ErrUnauthorized
+	}
+	if isUniqueViolation(err) {
+		return dto.UserData{}, usernameTaken()
 	}
 	if err != nil {
 		return dto.UserData{}, fmt.Errorf("updating current user: %w", err)

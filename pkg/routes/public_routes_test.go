@@ -795,6 +795,50 @@ func (s *PublicRoutesTestSuite) TestEmailChangeRequiresToken() {
 	s.Equal(fiber.StatusBadRequest, post("/api/v1/auth/otp/send", s.accessToken, map[string]any{"purpose": "email_change", "email": "suite-owner@example.com"}))
 }
 
+func (s *PublicRoutesTestSuite) TestProfileUsernameUpdate() {
+	s.createLoginUser("Other_User", "+998901230002", "other-user@example.com", "securepassword123")
+	groupID := s.createGroup("Username Sync")
+
+	patch := func(username string) (int, map[string]any) {
+		status, body := s.sendJSON("PATCH", "/api/v1/me", map[string]any{"username": username})
+		var envelope struct {
+			Message string         `json:"message"`
+			Data    map[string]any `json:"data"`
+		}
+		s.Require().NoError(json.Unmarshal(body, &envelope))
+		if envelope.Data == nil {
+			envelope.Data = map[string]any{}
+		}
+		envelope.Data["message"] = envelope.Message
+		return status, envelope.Data
+	}
+
+	status, data := patch("  New_Name1 ")
+	s.Require().Equal(fiber.StatusOK, status, data)
+	s.Equal("New_Name1", data["username"], "trimmed and stored as typed")
+	// A new login replaces the previous session (one session per user), so keep using the new token.
+	s.accessToken = s.loginAccessToken("new_name1", "securepassword123")
+	s.NotEmpty(s.accessToken, "login works with the new username in any case")
+
+	var memberUsername string
+	s.Require().NoError(s.db.QueryRow(s.T().Context(), `
+		SELECT members.username FROM group_members members JOIN users ON users.id = members.user_id
+		WHERE members.group_id = $1 AND users.email = 'suite-owner@example.com'
+	`, groupID).Scan(&memberUsername))
+	s.Equal("New_Name1", memberUsername, "the copy in group_members stays in sync")
+
+	status, data = patch("NEW_NAME1")
+	s.Equal(fiber.StatusOK, status, "changing only the case of your own username is allowed")
+	s.Equal("NEW_NAME1", data["username"])
+
+	status, data = patch("other_user")
+	s.Equal(fiber.StatusConflict, status, "taken by another account regardless of case")
+	s.Equal("This username is already taken", data["message"])
+
+	status, _ = patch("ab")
+	s.Equal(fiber.StatusBadRequest, status)
+}
+
 func (s *PublicRoutesTestSuite) createGroup(name string) string {
 	s.T().Helper()
 	status, body := s.sendJSON("POST", "/api/v1/groups", map[string]any{"name": name})

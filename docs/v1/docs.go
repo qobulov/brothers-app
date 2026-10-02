@@ -3070,6 +3070,10 @@ const docTemplate = `{
                 "last_name": {
                     "type": "string",
                     "example": "Qobulov"
+                },
+                "username": {
+                    "type": "string",
+                    "example": "Qobulov"
                 }
             }
         },
