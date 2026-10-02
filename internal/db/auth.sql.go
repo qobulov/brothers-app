@@ -202,6 +202,42 @@ func (q *Queries) GetUserByLogin(ctx context.Context, arg GetUserByLoginParams) 
 	return i, err
 }
 
+const updateUserEmail = `-- name: UpdateUserEmail :one
+UPDATE users SET email = $2, updated_at = $3
+WHERE id = $1 AND is_active = true AND deleted_at IS NULL
+RETURNING id, email, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at
+`
+
+type UpdateUserEmailParams struct {
+	ID        pgtype.UUID        `json:"id"`
+	Email     pgtype.Text        `json:"email"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) UpdateUserEmail(ctx context.Context, arg UpdateUserEmailParams) (User, error) {
+	row := q.db.QueryRow(ctx, updateUserEmail, arg.ID, arg.Email, arg.UpdatedAt)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Password,
+		&i.PasswordHash,
+		&i.Name,
+		&i.Phone,
+		&i.Username,
+		&i.FirstName,
+		&i.LastName,
+		&i.AvatarUrl,
+		&i.Language,
+		&i.IsActive,
+		&i.LastLoginAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
 const updateUserLogin = `-- name: UpdateUserLogin :one
 UPDATE users SET last_login_at = $2, updated_at = $2
 WHERE id = $1 AND is_active = true AND deleted_at IS NULL

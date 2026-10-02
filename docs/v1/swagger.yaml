@@ -26,6 +26,15 @@ definitions:
         example: true
         type: boolean
     type: object
+  authdto.ChangeEmailRequest:
+    properties:
+      new_email:
+        example: new@example.com
+        type: string
+      otp_code:
+        example: "482910"
+        type: string
+    type: object
   authdto.EmptyResponse:
     properties:
       code:
@@ -230,6 +239,7 @@ definitions:
         enum:
         - registration
         - password_reset
+        - email_change
         example: registration
         type: string
       username:
@@ -3077,6 +3087,44 @@ paths:
       security:
       - BearerAuth: []
       summary: Update current profile
+      tags:
+      - profile
+  /me/email:
+    post:
+      consumes:
+      - application/json
+      description: First request a code with POST /auth/otp/send, purpose email_change,
+        the new address as email and this token. Then confirm here with the code sent
+        to the new address. The current session stays valid.
+      parameters:
+      - description: New email and OTP
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/authdto.ChangeEmailRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/authdto.UserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/authdto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Change my email
       tags:
       - profile
   /notifications:

@@ -611,7 +611,7 @@ func normalizeOTPPurpose(value string) (string, error) {
 		purpose = registrationPurpose
 	}
 	if purpose != registrationPurpose && purpose != passwordResetPurpose {
-		return "", apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "OTP maqsadi registration yoki password_reset bo'lishi kerak", RU: "Цель OTP должна быть registration или password_reset", EN: "Purpose must be registration or password_reset"})
+		return "", apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "OTP maqsadi registration, password_reset yoki email_change bo'lishi kerak", RU: "Цель OTP должна быть registration, password_reset или email_change", EN: "Purpose must be registration, password_reset or email_change"})
 	}
 	return purpose, nil
 }

@@ -46,3 +46,8 @@ UPDATE users SET password_hash = $2, updated_at = $3 WHERE id = $1 AND deleted_a
 SELECT EXISTS (
     SELECT 1 FROM users WHERE lower(username) = lower(sqlc.arg(username)) AND deleted_at IS NULL
 );
+
+-- name: UpdateUserEmail :one
+UPDATE users SET email = $2, updated_at = $3
+WHERE id = $1 AND is_active = true AND deleted_at IS NULL
+RETURNING *;

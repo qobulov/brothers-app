@@ -9,6 +9,7 @@ import (
 	authService "github.com/qobulov/brothers-app/internal/auth/service"
 	"github.com/qobulov/brothers-app/internal/auth/session"
 	"github.com/qobulov/brothers-app/pkg/config"
+	"github.com/qobulov/brothers-app/pkg/middleware"
 )
 
 func RegisterPublicRoutes(app fiber.Router, pool *pgxpool.Pool, otpCache *otp.Cache, sessions session.Store, cfg *config.Config, emailSender authService.EmailSender) {
@@ -23,7 +24,8 @@ func RegisterPublicRoutes(app fiber.Router, pool *pgxpool.Pool, otpCache *otp.Ca
 	// Auth routes (separated from /users)
 	authGroup := api.Group("/auth")
 	authGroup.Post("/register", authHandler.Register)
-	authGroup.Post("/otp/send", authHandler.SendOTP)
+	// A token is optional here; the email_change purpose requires one.
+	authGroup.Post("/otp/send", middleware.OptionalSessionJWTMiddleware(sessions, cfg), authHandler.SendOTP)
 	authGroup.Get("/username/check", authHandler.CheckUsername)
 	authGroup.Post("/login", authHandler.Login)
 	authGroup.Post("/refresh", authHandler.Refresh)

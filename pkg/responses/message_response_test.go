@@ -80,6 +80,7 @@ func TestLocalizeMessageCoversHandlerMessages(t *testing.T) {
 		{MessageMemberUpdated, "A'zo ma'lumotlari yangilandi", "Данные участника обновлены", "Member updated"},
 		{MessageUsernameAvailable, "Username bo'sh", "Username свободен", "Username is available"},
 		{MessageDebtCreated, "Qarz qo'shildi", "Долг добавлен", "Debt created"},
+		{MessageEmailChanged, "Email o'zgartirildi", "Email изменён", "Email changed"},
 		{MessageRepaymentRecorded, "To'lov qabul qilindi", "Платёж записан", "Repayment recorded"},
 		{MessageDebtCompleted, "Qarz yopildi", "Долг закрыт", "Debt completed"},
 		{MessageDebtDeleted, "Qarz o'chirildi", "Долг удалён", "Debt deleted"},

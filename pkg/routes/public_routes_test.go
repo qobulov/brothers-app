@@ -769,6 +769,32 @@ func (s *PublicRoutesTestSuite) TestDebtFlow() {
 	s.Equal(fiber.StatusUnauthorized, response.StatusCode, "debts require a token")
 }
 
+func (s *PublicRoutesTestSuite) TestEmailChangeRequiresToken() {
+	post := func(path, token string, payload map[string]any) int {
+		body, err := json.Marshal(payload)
+		s.Require().NoError(err)
+		request := httptest.NewRequest("POST", path, bytes.NewReader(body))
+		request.Header.Set("Content-Type", "application/json")
+		if token != "" {
+			request.Header.Set("Authorization", token)
+		}
+		response, err := s.app.Test(request, -1)
+		s.Require().NoError(err)
+		response.Body.Close()
+		return response.StatusCode
+	}
+
+	emailChange := map[string]any{"purpose": "email_change", "email": "new@example.com"}
+	s.Equal(fiber.StatusUnauthorized, post("/api/v1/auth/otp/send", "", emailChange), "email_change needs a token")
+	s.Equal(fiber.StatusUnauthorized, post("/api/v1/auth/otp/send", "Bearer not-a-jwt", emailChange), "a bad token is rejected")
+	s.Equal(fiber.StatusUnauthorized, post("/api/v1/me/email", "", map[string]any{"new_email": "new@example.com", "otp_code": "123456"}))
+
+	// Registration still works without a token: here it reaches validation.
+	s.Equal(fiber.StatusBadRequest, post("/api/v1/auth/otp/send", "", map[string]any{"purpose": "registration", "email": "x@example.com", "username": "nope"}))
+	// With a token the email change request reaches the service, which rejects the current address.
+	s.Equal(fiber.StatusBadRequest, post("/api/v1/auth/otp/send", s.accessToken, map[string]any{"purpose": "email_change", "email": "suite-owner@example.com"}))
+}
+
 func (s *PublicRoutesTestSuite) createGroup(name string) string {
 	s.T().Helper()
 	status, body := s.sendJSON("POST", "/api/v1/groups", map[string]any{"name": name})

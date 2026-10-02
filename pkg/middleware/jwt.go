@@ -17,7 +17,21 @@ import (
 // SessionJWTMiddleware validates an access token and checks that its single
 // referenced session is still active. It is used by the new auth endpoints.
 func SessionJWTMiddleware(sessions session.Store, cfg *config.Config) fiber.Handler {
+	return sessionJWT(sessions, cfg, true)
+}
+
+// OptionalSessionJWTMiddleware authenticates only when an Authorization header
+// is sent. A request without one continues anonymously; a bad token is still
+// rejected. Handlers decide which actions need a user.
+func OptionalSessionJWTMiddleware(sessions session.Store, cfg *config.Config) fiber.Handler {
+	return sessionJWT(sessions, cfg, false)
+}
+
+func sessionJWT(sessions session.Store, cfg *config.Config, required bool) fiber.Handler {
 	return func(c *fiber.Ctx) error {
+		if !required && strings.TrimSpace(c.Get("Authorization")) == "" {
+			return c.Next()
+		}
 		tokenString, ok := authorizationToken(c.Get("Authorization"))
 		if !ok {
 			return unauthorized(c)

@@ -8,6 +8,7 @@ import (
 	"github.com/qobulov/brothers-app/internal/auth/service"
 	"github.com/qobulov/brothers-app/pkg/apperror"
 	"github.com/qobulov/brothers-app/pkg/responses"
+	"strings"
 )
 
 type Handler struct{ service *service.Service }
@@ -55,7 +56,23 @@ func (h *Handler) SendOTP(c *fiber.Ctx) error {
 	if err := c.BodyParser(&request); err != nil {
 		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
 	}
+	if strings.EqualFold(strings.TrimSpace(request.Purpose), service.EmailChangePurpose) {
+		return h.sendEmailChangeOTP(c, request.Email)
+	}
 	data, err := h.service.SendOTP(c.UserContext(), request)
+	if err != nil {
+		return responses.Error(c, err)
+	}
+	return responses.Success(c, fiber.StatusOK, data, responses.MessageRequestProcessed)
+}
+
+// sendEmailChangeOTP needs the logged-in user, set by the optional token check on this route.
+func (h *Handler) sendEmailChangeOTP(c *fiber.Ctx, newEmail string) error {
+	userID, ok := c.Locals("auth_user_id").(uuid.UUID)
+	if !ok || userID == uuid.Nil {
+		return responses.Error(c, apperror.ErrUnauthorized)
+	}
+	data, err := h.service.SendEmailChangeOTP(c.UserContext(), userID, newEmail)
 	if err != nil {
 		return responses.Error(c, err)
 	}
@@ -255,4 +272,33 @@ func (h *Handler) CheckUsername(c *fiber.Ctx) error {
 		message = responses.MessageUsernameTaken
 	}
 	return responses.Success(c, fiber.StatusOK, data, message)
+}
+
+// ChangeEmail godoc
+// @Summary Change my email
+// @Description First request a code with POST /auth/otp/send, purpose email_change, the new address as email and this token. Then confirm here with the code sent to the new address. The current session stays valid.
+// @Tags profile
+// @Accept json
+// @Produce json
+// @Param request body authdto.ChangeEmailRequest true "New email and OTP"
+// @Success 200 {object} authdto.UserResponse
+// @Failure 400 {object} authdto.ErrorResponse
+// @Failure 401 {object} authdto.ErrorResponse
+// @Failure 409 {object} authdto.ErrorResponse
+// @Security BearerAuth
+// @Router /me/email [post]
+func (h *Handler) ChangeEmail(c *fiber.Ctx) error {
+	userID, ok := c.Locals("auth_user_id").(uuid.UUID)
+	if !ok || userID == uuid.Nil {
+		return responses.Error(c, apperror.ErrUnauthorized)
+	}
+	var request authdto.ChangeEmailRequest
+	if err := c.BodyParser(&request); err != nil {
+		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
+	}
+	user, err := h.service.ChangeEmail(c.UserContext(), userID, request)
+	if err != nil {
+		return responses.Error(c, err)
+	}
+	return responses.Success(c, fiber.StatusOK, user, responses.MessageEmailChanged)
 }

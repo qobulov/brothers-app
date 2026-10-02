@@ -2468,6 +2468,63 @@ const docTemplate = `{
                 }
             }
         },
+        "/me/email": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "First request a code with POST /auth/otp/send, purpose email_change, the new address as email and this token. Then confirm here with the code sent to the new address. The current session stays valid.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "profile"
+                ],
+                "summary": "Change my email",
+                "parameters": [
+                    {
+                        "description": "New email and OTP",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ChangeEmailRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.UserResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/authdto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/notifications": {
             "get": {
                 "security": [
@@ -2611,6 +2668,19 @@ const docTemplate = `{
                 "success": {
                     "type": "boolean",
                     "example": true
+                }
+            }
+        },
+        "authdto.ChangeEmailRequest": {
+            "type": "object",
+            "properties": {
+                "new_email": {
+                    "type": "string",
+                    "example": "new@example.com"
+                },
+                "otp_code": {
+                    "type": "string",
+                    "example": "482910"
                 }
             }
         },
@@ -2904,7 +2974,8 @@ const docTemplate = `{
                     "type": "string",
                     "enum": [
                         "registration",
-                        "password_reset"
+                        "password_reset",
+                        "email_change"
                     ],
                     "example": "registration"
                 },

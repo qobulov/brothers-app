@@ -23,7 +23,7 @@ type SendOTPRequest struct {
 	// one of Email or Username.
 	Email    string `json:"email,omitempty" example:"ali@example.com"`
 	Username string `json:"username,omitempty" example:"qobulov"`
-	Purpose  string `json:"purpose" enums:"registration,password_reset" example:"registration"`
+	Purpose  string `json:"purpose" enums:"registration,password_reset,email_change" example:"registration"`
 }
 
 // LoginRequest contains username-or-email credentials.
@@ -116,4 +116,11 @@ type UserData struct {
 type UsernameAvailability struct {
 	Username  string `json:"username" example:"qobulov"`
 	Available bool   `json:"available" example:"true"`
+}
+
+// ChangeEmailRequest confirms an email change with the OTP sent to the new
+// address by POST /auth/otp/send with purpose email_change.
+type ChangeEmailRequest struct {
+	NewEmail string `json:"new_email" example:"new@example.com"`
+	OTPCode  string `json:"otp_code" example:"482910"`
 }
