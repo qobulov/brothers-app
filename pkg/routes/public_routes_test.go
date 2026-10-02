@@ -693,6 +693,23 @@ func (s *PublicRoutesTestSuite) TestRegisterKeepsUsernameCase() {
 	})
 	s.Require().Equal(fiber.StatusOK, status, string(body))
 
+	var registered struct {
+		Data struct {
+			User map[string]any `json:"user"`
+		} `json:"data"`
+	}
+	s.Require().NoError(json.Unmarshal(body, &registered))
+	keys := make([]string, 0, len(registered.Data.User))
+	for key := range registered.Data.User {
+		keys = append(keys, key)
+	}
+	s.ElementsMatch([]string{"id", "email", "username", "first_name", "last_name", "avatar_url", "language", "is_active"}, keys)
+	s.Equal("Mixed_Case1", registered.Data.User["username"])
+	s.Equal("mixedcase@example.com", registered.Data.User["email"])
+	s.Equal("Mixed", registered.Data.User["first_name"])
+	s.Equal("uz", registered.Data.User["language"], "language defaults to uz")
+	s.Equal(true, registered.Data.User["is_active"])
+
 	var stored string
 	s.Require().NoError(s.db.QueryRow(s.T().Context(), `SELECT username FROM users WHERE email = 'mixedcase@example.com'`).Scan(&stored))
 	s.Equal("Mixed_Case1", stored, "the username is stored as typed")

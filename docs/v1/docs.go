@@ -2790,19 +2790,28 @@ const docTemplate = `{
         "authdto.RegisterUserData": {
             "type": "object",
             "properties": {
+                "avatar_url": {
+                    "type": "string"
+                },
                 "email": {
                     "type": "string"
                 },
-                "full_name": {
+                "first_name": {
                     "type": "string"
                 },
                 "id": {
                     "type": "string"
                 },
-                "phone": {
+                "is_active": {
+                    "type": "boolean"
+                },
+                "language": {
                     "type": "string"
                 },
-                "role": {
+                "last_name": {
+                    "type": "string"
+                },
+                "username": {
                     "type": "string"
                 }
             }

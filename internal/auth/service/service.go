@@ -211,7 +211,9 @@ func (s *Service) Register(ctx context.Context, req dto.RegisterRequest) (dto.Re
 		result = dto.RegisterData{
 			Tokens: tokenData(pair),
 			User: dto.RegisterUserData{
-				ID: uuidFromPG(user.ID), FullName: user.Name.String, Email: user.Email.String, Phone: user.Phone.String, Role: "user",
+				ID: uuidFromPG(user.ID), Email: user.Email.String, Username: user.Username.String,
+				FirstName: user.FirstName.String, LastName: user.LastName.String, AvatarURL: user.AvatarUrl.String,
+				Language: user.Language, IsActive: user.IsActive,
 			},
 		}
 		return nil

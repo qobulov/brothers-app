@@ -69,12 +69,16 @@ type TokenData struct {
 	RefreshExpiresAt string `json:"refresh_expires_at"`
 }
 
+// RegisterUserData is the newly registered user returned by registration.
 type RegisterUserData struct {
-	ID       uuid.UUID `json:"id"`
-	FullName string    `json:"full_name"`
-	Email    string    `json:"email"`
-	Phone    string    `json:"phone"`
-	Role     string    `json:"role"`
+	ID        uuid.UUID `json:"id"`
+	Email     string    `json:"email"`
+	Username  string    `json:"username"`
+	FirstName string    `json:"first_name"`
+	LastName  string    `json:"last_name"`
+	AvatarURL string    `json:"avatar_url"`
+	Language  string    `json:"language"`
+	IsActive  bool      `json:"is_active"`
 }
 
 type RegisterData struct {
