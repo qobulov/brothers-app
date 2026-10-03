@@ -127,7 +127,7 @@ var (
 
 	// Business logic / domain-specific errors
 	ErrAlreadyExists              = errors.New("already exists")                                        // 409
-	ErrRegistrationIdentityExists = errors.New("registration email, phone, or username already exists") // 409
+	ErrRegistrationIdentityExists = errors.New("registration email or username already exists") // 409
 	ErrNotAvailable               = errors.New("not available")                                         // 409
 	ErrLimitExceeded              = errors.New("limit exceeded")                                        // 429
 	ErrOperationDenied            = errors.New("operation denied")                                      // 403
@@ -243,7 +243,7 @@ func Slug(err error) string {
 	case errors.Is(err, ErrRecordNotFound):
 		return "not_found"
 	case errors.Is(err, ErrRegistrationIdentityExists):
-		return "email_phone_or_username_exists"
+		return "email_or_username_exists"
 	case errors.Is(err, ErrAlreadyExists), errors.Is(err, ErrConflict), errors.Is(err, ErrDuplicatedKey):
 		return "conflict"
 	case errors.Is(err, ErrLimitExceeded):
@@ -307,7 +307,7 @@ func MessageForLanguage(err error, language string) string {
 	case errors.Is(err, ErrRecordNotFound):
 		return localized(language, "Resurs topilmadi", "Ресурс не найден", "Resource not found")
 	case errors.Is(err, ErrRegistrationIdentityExists):
-		return localized(language, "Email, telefon raqami yoki foydalanuvchi nomi allaqachon mavjud", "Email, номер телефона или имя пользователя уже существуют", "Email, phone, or username already exists")
+		return localized(language, "Email yoki foydalanuvchi nomi allaqachon mavjud", "Email или имя пользователя уже существуют", "Email or username already exists")
 	case errors.Is(err, ErrAlreadyExists), errors.Is(err, ErrConflict), errors.Is(err, ErrDuplicatedKey):
 		return localized(language, "Ma'lumotlar ziddiyati", "Конфликт данных", "Data conflict")
 	case errors.Is(err, ErrLimitExceeded):

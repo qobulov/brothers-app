@@ -5,9 +5,9 @@ FOR UPDATE;
 
 -- name: CreateAuthUser :one
 INSERT INTO users (
-    id, password_hash, name, email, phone, username, first_name, last_name,
+    id, password_hash, name, email, username, first_name, last_name,
     avatar_url, language, is_active, created_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true, $11, $11)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true, $10, $10)
 RETURNING *;
 
 -- name: GetUserByLogin :one

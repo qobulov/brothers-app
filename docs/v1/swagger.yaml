@@ -138,9 +138,6 @@ definitions:
       password:
         example: StrongPass123
         type: string
-      phone:
-        example: "+998901234567"
-        type: string
       username:
         example: qobulov
         type: string
@@ -336,8 +333,6 @@ definitions:
       last_login_at:
         type: string
       last_name:
-        type: string
-      phone:
         type: string
       username:
         type: string

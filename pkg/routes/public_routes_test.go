@@ -253,16 +253,15 @@ func (s *PublicRoutesTestSuite) TestRegisterConflictLocalized() {
 		language string
 		want     string
 	}{
-		{name: "uzbek", language: "uz", want: "Email, telefon raqami yoki foydalanuvchi nomi allaqachon mavjud"},
-		{name: "russian", language: "ru", want: "Email, номер телефона или имя пользователя уже существуют"},
-		{name: "english", language: "en", want: "Email, phone, or username already exists"},
+		{name: "uzbek", language: "uz", want: "Email yoki foydalanuvchi nomi allaqachon mavjud"},
+		{name: "russian", language: "ru", want: "Email или имя пользователя уже существуют"},
+		{name: "english", language: "en", want: "Email or username already exists"},
 	}
 
 	for _, test := range tests {
 		s.Run(test.name, func() {
 			body, err := json.Marshal(map[string]string{
 				"email":      "existing@example.com",
-				"phone":      "+998901234577",
 				"username":   "new_user_" + test.language,
 				"first_name": "Azizbek",
 				"last_name":  "Qobulov",
@@ -287,7 +286,7 @@ func (s *PublicRoutesTestSuite) TestRegisterConflictLocalized() {
 			}
 			s.Require().NoError(json.NewDecoder(resp.Body).Decode(&envelope))
 			s.Equal(1409, envelope.Code)
-			s.Equal("email_phone_or_username_exists", envelope.Slug)
+			s.Equal("email_or_username_exists", envelope.Slug)
 			s.Equal(test.want, envelope.Message)
 		})
 	}

@@ -138,14 +138,6 @@ func (s *Service) Register(ctx context.Context, req dto.RegisterRequest) (dto.Re
 	if err != nil {
 		return dto.RegisterData{}, apperror.InvalidEmail()
 	}
-	phone := pgtype.Text{}
-	if strings.TrimSpace(req.Phone) != "" {
-		normalizedPhone, normalizeErr := helpers.NormalizePhone(req.Phone)
-		if normalizeErr != nil {
-			return dto.RegisterData{}, apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Telefon raqami noto'g'ri", RU: "Некорректный номер телефона", EN: "The phone number is invalid"})
-		}
-		phone = text(normalizedPhone)
-	}
 	firstName := strings.TrimSpace(req.FirstName)
 	lastName := strings.TrimSpace(req.LastName)
 	if err := validRegistration(req.Password, firstName); err != nil {
@@ -194,7 +186,6 @@ func (s *Service) Register(ctx context.Context, req dto.RegisterRequest) (dto.Re
 			PasswordHash: text(string(passwordHash)),
 			Name:         text(strings.TrimSpace(firstName + " " + lastName)),
 			Email:        text(email),
-			Phone:        phone,
 			Username:     text(username),
 			FirstName:    text(firstName),
 			LastName:     text(lastName),
@@ -684,7 +675,7 @@ func uuidFromPG(value pgtype.UUID) uuid.UUID { return uuid.UUID(value.Bytes) }
 func toEntity(user db.User) entities.User {
 	result := entities.User{
 		ID: uuidFromPG(user.ID), Password: user.Password.String, PasswordHash: user.PasswordHash.String,
-		Name: user.Name.String, Email: user.Email.String, Phone: user.Phone.String, Username: user.Username.String, FirstName: user.FirstName.String,
+		Name: user.Name.String, Email: user.Email.String, Username: user.Username.String, FirstName: user.FirstName.String,
 		LastName: user.LastName.String, AvatarURL: user.AvatarUrl.String, Language: user.Language, IsActive: user.IsActive,
 		CreatedAt: user.CreatedAt.Time, UpdatedAt: user.UpdatedAt.Time,
 	}
@@ -696,7 +687,7 @@ func toEntity(user db.User) entities.User {
 
 func SafeUser(user entities.User) dto.UserData {
 	return dto.UserData{
-		ID: user.ID, Email: user.Email, Phone: user.Phone, Username: user.Username, FirstName: user.FirstName,
+		ID: user.ID, Email: user.Email, Username: user.Username, FirstName: user.FirstName,
 		LastName: user.LastName, AvatarURL: user.AvatarURL, Language: user.Language,
 		IsActive: user.IsActive, LastLoginAt: user.LastLoginAt,
 	}

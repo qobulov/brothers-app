@@ -73,7 +73,7 @@ javob kelmadi (internet yo'q, timeout):
 | `forbidden` | 1403 | 403 | `message` ko‘rsatish. Odatda UI bunday tugmani ko‘rsatmasligi kerak (`permissions` maydonlariga qarang) |
 | `not_found` | 1404 | 404 | "Topilmadi" holati yoki oldingi sahifaga qaytish |
 | `conflict` | 1409 | 409 | `message` ko‘rsatish va ma'lumotni qayta yuklash: server tomonda holat o‘zgargan |
-| `email_phone_or_username_exists` | 1409 | 409 | Ro‘yxatdan o‘tish formasida `message` |
+| `email_or_username_exists` | 1409 | 409 | Ro‘yxatdan o‘tish formasida `message` |
 | `rate_limit_exceeded` | 1429 | 429 | `message` ko‘rsatish, "qayta yuborish" tugmasini kutish vaqtiga qadar o‘chirish |
 
 `429` qaytadigan holatlar (bitta IP manzil bo‘yicha hisoblanadi):

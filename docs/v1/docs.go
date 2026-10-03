@@ -2884,10 +2884,6 @@ const docTemplate = `{
                     "type": "string",
                     "example": "StrongPass123"
                 },
-                "phone": {
-                    "type": "string",
-                    "example": "+998901234567"
-                },
                 "username": {
                     "type": "string",
                     "example": "qobulov"
@@ -3166,9 +3162,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "last_name": {
-                    "type": "string"
-                },
-                "phone": {
                     "type": "string"
                 },
                 "username": {

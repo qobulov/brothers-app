@@ -8,7 +8,6 @@ import (
 
 type RegisterRequest struct {
 	Email     string `json:"email" example:"ali@example.com"`
-	Phone     string `json:"phone,omitempty" example:"+998901234567"`
 	Username  string `json:"username" example:"qobulov"`
 	FirstName string `json:"first_name" example:"Azizbek"`
 	LastName  string `json:"last_name" example:"Qobulov"`
@@ -102,7 +101,6 @@ type ResetVerifyData struct {
 type UserData struct {
 	ID          uuid.UUID  `json:"id"`
 	Email       string     `json:"email"`
-	Phone       string     `json:"phone"`
 	Username    string     `json:"username"`
 	FirstName   string     `json:"first_name"`
 	LastName    string     `json:"last_name"`

@@ -13,9 +13,9 @@ import (
 
 const createAuthUser = `-- name: CreateAuthUser :one
 INSERT INTO users (
-    id, password_hash, name, email, phone, username, first_name, last_name,
+    id, password_hash, name, email, username, first_name, last_name,
     avatar_url, language, is_active, created_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true, $11, $11)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true, $10, $10)
 RETURNING id, email, password, password_hash, name, phone, username, first_name, last_name, avatar_url, language, is_active, last_login_at, created_at, updated_at, deleted_at
 `
 
@@ -24,7 +24,6 @@ type CreateAuthUserParams struct {
 	PasswordHash pgtype.Text        `json:"password_hash"`
 	Name         pgtype.Text        `json:"name"`
 	Email        pgtype.Text        `json:"email"`
-	Phone        pgtype.Text        `json:"phone"`
 	Username     pgtype.Text        `json:"username"`
 	FirstName    pgtype.Text        `json:"first_name"`
 	LastName     pgtype.Text        `json:"last_name"`
@@ -39,7 +38,6 @@ func (q *Queries) CreateAuthUser(ctx context.Context, arg CreateAuthUserParams) 
 		arg.PasswordHash,
 		arg.Name,
 		arg.Email,
-		arg.Phone,
 		arg.Username,
 		arg.FirstName,
 		arg.LastName,
