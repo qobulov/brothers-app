@@ -222,6 +222,9 @@ func (s *Service) Register(ctx context.Context, req dto.RegisterRequest) (dto.Re
 	if isUniqueViolation(err) {
 		return dto.RegisterData{}, fmt.Errorf("%w: %w", apperror.ErrRegistrationIdentityExists, err)
 	}
+	if err == nil {
+		s.forgetUsername(ctx, username)
+	}
 	return result, err
 }
 
@@ -385,6 +388,9 @@ func (s *Service) UpdateCurrentUser(ctx context.Context, userID uuid.UUID, req d
 	}
 	if err != nil {
 		return dto.UserData{}, fmt.Errorf("updating current user: %w", err)
+	}
+	if username.Valid {
+		s.forgetUsername(ctx, username.String)
 	}
 	return SafeUser(toEntity(user)), nil
 }

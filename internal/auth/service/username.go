@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -54,11 +55,60 @@ func (s *Service) CheckUsername(ctx context.Context, value string) (dto.Username
 	if err != nil {
 		return dto.UsernameAvailability{}, err
 	}
+	key := usernameCacheKey(username)
+	if taken, ok := s.cachedUsernameTaken(ctx, key); ok {
+		return dto.UsernameAvailability{Username: username, Available: !taken}, nil
+	}
 	taken, err := s.queries.UsernameTaken(ctx, db.UsernameTakenParams{Username: username})
 	if err != nil {
 		return dto.UsernameAvailability{}, fmt.Errorf("checking username: %w", err)
 	}
+	s.rememberUsernameTaken(ctx, key, taken)
 	return dto.UsernameAvailability{Username: username, Available: !taken}, nil
+}
+
+// usernameCacheTTL bounds how stale a cached answer can be. The check runs on
+// every keystroke of the username field, so it is cached in Redis to keep that
+// traffic off the database. Registration and profile updates always check the
+// database, so a stale "available" can only lead to a 409 there.
+const usernameCacheTTL = 30 * time.Second
+
+func usernameCacheKey(username string) string {
+	return "username-taken:" + strings.ToLower(username)
+}
+
+// cachedUsernameTaken reports a cached answer. A miss, a missing cache or a
+// Redis failure all mean "ask the database".
+func (s *Service) cachedUsernameTaken(ctx context.Context, key string) (taken, ok bool) {
+	if s.otp == nil {
+		return false, false
+	}
+	value, err := s.otp.Get(ctx, key)
+	if err != nil {
+		return false, false
+	}
+	return value == "1", true
+}
+
+func (s *Service) rememberUsernameTaken(ctx context.Context, key string, taken bool) {
+	if s.otp == nil {
+		return
+	}
+	value := "0"
+	if taken {
+		value = "1"
+	}
+	// Caching is best effort; the answer was already read from the database.
+	_ = s.otp.Set(ctx, key, value, usernameCacheTTL)
+}
+
+// forgetUsername drops the cached answer once a username is taken, so the
+// check reports it as taken immediately instead of after the TTL.
+func (s *Service) forgetUsername(ctx context.Context, username string) {
+	if s.otp == nil {
+		return
+	}
+	_ = s.otp.Delete(ctx, usernameCacheKey(username))
 }
 
 // optionalUsername validates a requested username change. Changing only the
