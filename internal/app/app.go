@@ -59,7 +59,9 @@ func SetupRestServer(pool *pgxpool.Pool, otpCache *otp.Cache, sessions session.S
 func SetupDependencies(env string) (*pgxpool.Pool, *config.Config, error) {
 	cfg := config.LoadConfig(env)
 
-	pool, err := database.Connect(context.Background(), cfg.DatabaseDSN)
+	pool, err := database.Connect(context.Background(), database.Options{
+		DSN: cfg.DatabaseDSN, MaxConns: cfg.DBMaxConns, MinConns: cfg.DBMinConns,
+	})
 	if err != nil {
 		return nil, nil, err
 	}

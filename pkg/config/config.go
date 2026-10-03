@@ -21,6 +21,8 @@ type Config struct {
 	DBPassword                   string
 	DBName                       string
 	DatabaseDSN                  string
+	DBMaxConns                   int
+	DBMinConns                   int
 	RedisURL                     string
 	CORSAllowOrigins             string
 	CORSAllowCredentials         bool
@@ -66,6 +68,8 @@ func LoadConfig(env string) *Config {
 		DBUser:                       getEnv("DB_USER", "postgres"),
 		DBPassword:                   getEnv("DB_PASSWORD", "brothers"),
 		DBName:                       getEnv("DB_NAME", "test"),
+		DBMaxConns:                   getEnvAsInt("DB_MAX_CONNS", 3),
+		DBMinConns:                   getEnvAsInt("DB_MIN_CONNS", 0),
 		RedisURL:                     getEnv("REDIS_URL", "redis://localhost:6379/0"),
 		CORSAllowOrigins:             getEnv("CORS_ALLOW_ORIGINS", "*"),
 		CORSAllowCredentials:         getEnvAsBool("CORS_ALLOW_CREDENTIALS", false),
