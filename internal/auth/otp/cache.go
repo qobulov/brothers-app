@@ -97,6 +97,21 @@ func (c *Cache) Reserve(ctx context.Context, recipient string, ttl time.Duration
 	return reserved, nil
 }
 
+// Increment adds one to a counter and returns its value. The first hit starts
+// the window; the counter disappears when the window ends. It backs rate
+// limits and login attempt counting.
+func (c *Cache) Increment(ctx context.Context, name string, window time.Duration) (int64, error) {
+	const script = `
+local count = redis.call('INCR', KEYS[1])
+if count == 1 then redis.call('PEXPIRE', KEYS[1], ARGV[1]) end
+return count`
+	count, err := c.client.Eval(ctx, script, []string{c.key(name)}, window.Milliseconds()).Int64()
+	if err != nil {
+		return 0, fmt.Errorf("incrementing counter: %w", err)
+	}
+	return count, nil
+}
+
 // Delete consumes the OTP after successful verification.
 func (c *Cache) Delete(ctx context.Context, recipient string) error {
 	if err := c.client.Del(ctx, c.key(recipient)).Err(); err != nil {

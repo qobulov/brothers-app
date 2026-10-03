@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"os"
 	"sync"
 	"testing"
 
@@ -13,9 +12,9 @@ import (
 	"github.com/qobulov/brothers-app/internal/auth/otp"
 	"github.com/qobulov/brothers-app/internal/auth/session"
 	"github.com/qobulov/brothers-app/pkg/apperror"
+	"github.com/qobulov/brothers-app/pkg/cache"
 	"github.com/qobulov/brothers-app/pkg/config"
 	"github.com/qobulov/brothers-app/pkg/database"
-	"github.com/redis/go-redis/v9"
 )
 
 // capturingSender records the last code sent to each address instead of mailing it.
@@ -47,22 +46,7 @@ type emailFixture struct {
 // newEmailFixture needs PostgreSQL and Redis. Without Redis the tests are skipped.
 func newEmailFixture(t *testing.T) *emailFixture {
 	t.Helper()
-	redisURL := os.Getenv("REDIS_TEST_URL")
-	if redisURL == "" {
-		redisURL = "redis://localhost:6379/15"
-	}
-	options, err := redis.ParseURL(redisURL)
-	if err != nil {
-		t.Fatalf("parse REDIS_TEST_URL: %v", err)
-	}
-	client := redis.NewClient(options)
-	t.Cleanup(func() { _ = client.Close() })
-	if err := client.Ping(context.Background()).Err(); err != nil {
-		t.Skipf("redis is not available at %s: %v", redisURL, err)
-	}
-	if err := client.FlushDB(context.Background()).Err(); err != nil {
-		t.Fatalf("flush test redis: %v", err)
-	}
+	client := cache.TestClient(t, 15)
 
 	pool, cleanup := database.SetupTestDB(t)
 	t.Cleanup(cleanup)

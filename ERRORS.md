@@ -75,6 +75,16 @@ javob kelmadi (internet yo'q, timeout):
 | `conflict` | 1409 | 409 | `message` ko‘rsatish va ma'lumotni qayta yuklash: server tomonda holat o‘zgargan |
 | `email_phone_or_username_exists` | 1409 | 409 | Ro‘yxatdan o‘tish formasida `message` |
 | `rate_limit_exceeded` | 1429 | 429 | `message` ko‘rsatish, "qayta yuborish" tugmasini kutish vaqtiga qadar o‘chirish |
+
+`429` qaytadigan holatlar (bitta IP manzil bo‘yicha hisoblanadi):
+
+| Endpoint | Chegara |
+| --- | --- |
+| `POST /auth/login` | bitta login uchun 15 daqiqada 10 ta urinish; jami 15 daqiqada 100 ta |
+| `GET /auth/username/check` | daqiqasiga 60 ta |
+| `POST /auth/otp/send` | 15 daqiqada 20 ta, hamda bitta email uchun qayta yuborish kutish vaqti |
+
+Username tekshiruvini har bir harfda emas, yozish to‘xtagach (300–500 ms debounce) yuboring.
 | `email_delivery_unavailable` | 1503 | 503 | "Keyinroq urinib ko‘ring" |
 | `timeout` | 1504 | 504 | Qayta urinish tugmasi |
 | `internal_error` | 1500 | 500 | Umumiy xato matni, `meta.request_id` ni logga yozish |
