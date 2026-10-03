@@ -2136,6 +2136,20 @@ paths:
         in: query
         name: query
         type: string
+      - default: 20
+        description: Page size
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - default: 0
+        description: Number of customers to skip
+        in: query
+        maximum: 10000
+        minimum: 0
+        name: offset
+        type: integer
       produces:
       - application/json
       responses:

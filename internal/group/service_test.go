@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/qobulov/brothers-app/pkg/apperror"
 	"github.com/qobulov/brothers-app/pkg/database"
+	"github.com/qobulov/brothers-app/pkg/paging"
 )
 
 func TestService_CreateInviteAndAccept(t *testing.T) {
@@ -330,7 +331,7 @@ func TestService_CreateInviteAndAccept(t *testing.T) {
 	if len(locations) != 2 || tashkent.ID == uuid.Nil || tashkent.Employee == nil || tashkent.Employee.ID != recipientID || kokand.ID == uuid.Nil {
 		t.Fatalf("locations = %#v, want assigned Tashkent and unassigned Kokand", locations)
 	}
-	customers, err := service.ListCustomers(context.Background(), recipientID, created.ID, "2222")
+	customers, err := service.ListCustomers(context.Background(), recipientID, created.ID, ListCustomersInput{Query: "2222"})
 	if err != nil {
 		t.Fatalf("search customers as group member: %v", err)
 	}
@@ -355,8 +356,20 @@ func TestService_CreateInviteAndAccept(t *testing.T) {
 		t.Fatalf("create location as employee: error = %v, want forbidden", err)
 	}
 
+	firstPage, err := service.ListCustomers(context.Background(), recipientID, created.ID, ListCustomersInput{Page: paging.Page{Limit: 1}})
+	if err != nil || len(firstPage) != 1 {
+		t.Fatalf("first customer page = %#v, %v; want exactly one customer", firstPage, err)
+	}
+	secondPage, err := service.ListCustomers(context.Background(), recipientID, created.ID, ListCustomersInput{Page: paging.Page{Limit: 1, Offset: 1}})
+	if err != nil || len(secondPage) != 1 || secondPage[0].ID == firstPage[0].ID {
+		t.Fatalf("second customer page = %#v, %v; want the next customer", secondPage, err)
+	}
+	if _, err := service.ListCustomers(context.Background(), recipientID, created.ID, ListCustomersInput{Page: paging.Page{Limit: 101}}); !errors.Is(err, apperror.ErrInvalidData) {
+		t.Fatalf("oversized customer page: error = %v, want invalid data", err)
+	}
+
 	outsiderID := createUser(t, pool, "outsider@example.com", "group-outsider")
-	if _, err := service.ListCustomers(context.Background(), outsiderID, created.ID, ""); !errors.Is(err, apperror.ErrRecordNotFound) {
+	if _, err := service.ListCustomers(context.Background(), outsiderID, created.ID, ListCustomersInput{}); !errors.Is(err, apperror.ErrRecordNotFound) {
 		t.Fatalf("list customers as outsider: error = %v, want record not found", err)
 	}
 }

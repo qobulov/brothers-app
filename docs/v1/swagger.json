@@ -1013,6 +1013,24 @@
                         "description": "Phone search",
                         "name": "query",
                         "in": "query"
+                    },
+                    {
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Page size",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 10000,
+                        "minimum": 0,
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Number of customers to skip",
+                        "name": "offset",
+                        "in": "query"
                     }
                 ],
                 "responses": {

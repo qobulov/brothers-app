@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/qobulov/brothers-app/pkg/apperror"
 	"github.com/qobulov/brothers-app/pkg/helpers"
+	"github.com/qobulov/brothers-app/pkg/paging"
 )
 
 type LocationEmployee struct {
@@ -59,18 +60,8 @@ func (s *Service) ListLocations(ctx context.Context, actorID, groupID uuid.UUID)
 		 AND users.deleted_at IS NULL
 		WHERE locations.group_id = $1
 		  AND locations.deleted_at IS NULL
-		  AND EXISTS (
-		      SELECT 1
-		      FROM group_members actor_membership
-		      JOIN groups ON groups.id = actor_membership.group_id
-		      WHERE actor_membership.group_id = locations.group_id
-		        AND actor_membership.user_id = $2
-		        AND actor_membership.deleted_at IS NULL
-		        AND groups.deleted_at IS NULL
-		        AND groups.is_active
-		  )
 		ORDER BY locations.created_at ASC, locations.id ASC
-	`, groupID, actorID)
+	`, groupID)
 	if err != nil {
 		return nil, fmt.Errorf("listing group locations: %w", err)
 	}
@@ -162,11 +153,21 @@ func (s *Service) DeleteLocation(ctx context.Context, actorID, groupID, location
 	return nil
 }
 
-func (s *Service) ListCustomers(ctx context.Context, actorID, groupID uuid.UUID, query string) ([]Customer, error) {
+type ListCustomersInput struct {
+	Query string
+	Page  paging.Page
+}
+
+// ListCustomers returns one page of the group's customers, newest first.
+func (s *Service) ListCustomers(ctx context.Context, actorID, groupID uuid.UUID, input ListCustomersInput) ([]Customer, error) {
 	if err := s.requireMember(ctx, actorID, groupID); err != nil {
 		return nil, err
 	}
-	query = strings.TrimSpace(query)
+	page, err := input.Page.Valid()
+	if err != nil {
+		return nil, err
+	}
+	query := strings.TrimSpace(input.Query)
 	if len(query) > 20 {
 		return nil, apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Qidiruv matni 20 belgidan oshmasligi kerak", RU: "Поисковый запрос не должен превышать 20 символов", EN: "The search query must be at most 20 characters"})
 	}
@@ -177,18 +178,9 @@ func (s *Service) ListCustomers(ctx context.Context, actorID, groupID uuid.UUID,
 		WHERE group_id = $1
 		  AND deleted_at IS NULL
 		  AND ($2::text = '' OR phone ILIKE '%' || $2 || '%')
-		  AND EXISTS (
-		      SELECT 1
-		      FROM group_members actor_membership
-		      JOIN groups ON groups.id = actor_membership.group_id
-		      WHERE actor_membership.group_id = customers.group_id
-		        AND actor_membership.user_id = $3
-		        AND actor_membership.deleted_at IS NULL
-		        AND groups.deleted_at IS NULL
-		        AND groups.is_active
-		  )
 		ORDER BY created_at DESC, id DESC
-	`, groupID, helpers.EscapeLike(query), actorID)
+		LIMIT $3 OFFSET $4
+	`, groupID, helpers.EscapeLike(query), page.Limit, page.Offset)
 	if err != nil {
 		return nil, fmt.Errorf("listing group customers: %w", err)
 	}

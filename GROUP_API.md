@@ -440,6 +440,12 @@ GET /api/v1/groups/:groupID/customers?query=99890
 
 `query` maksimal 20 ta belgidan iborat bo‘lishi mumkin.
 
+Ro‘yxat sahifalab qaytadi, eng yangisi birinchi: `limit` 1–100 (default 20), `offset` 0–10000.
+
+```http
+GET /api/v1/groups/:groupID/customers?query=99890&limit=20&offset=0
+```
+
 Response — `200 OK`:
 
 ```json

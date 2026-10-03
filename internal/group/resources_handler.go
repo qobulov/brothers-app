@@ -121,6 +121,8 @@ func (h *Handler) DeleteLocation(c *fiber.Ctx) error {
 // @Produce json
 // @Param groupID path string true "Group UUID"
 // @Param query query string false "Phone search"
+// @Param limit query int false "Page size" default(20) minimum(1) maximum(100)
+// @Param offset query int false "Number of customers to skip" default(0) minimum(0) maximum(10000)
 // @Success 200 {object} CustomersResponse
 // @Failure 400 {object} ErrorResponse
 // @Failure 401 {object} ErrorResponse
@@ -136,7 +138,11 @@ func (h *Handler) ListCustomers(c *fiber.Ctx) error {
 	if err != nil {
 		return responses.Error(c, err)
 	}
-	customers, err := h.service.ListCustomers(c.UserContext(), actorID, groupID, c.Query("query"))
+	page, err := request.Page(c)
+	if err != nil {
+		return responses.Error(c, err)
+	}
+	customers, err := h.service.ListCustomers(c.UserContext(), actorID, groupID, ListCustomersInput{Query: c.Query("query"), Page: page})
 	if err != nil {
 		return responses.Error(c, err)
 	}
