@@ -1,12 +1,12 @@
 package group
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/qobulov/brothers-app/pkg/apperror"
+	"github.com/qobulov/brothers-app/pkg/request"
 	"github.com/qobulov/brothers-app/pkg/responses"
 )
 
@@ -26,11 +26,11 @@ type CreateLocationRequest struct {
 // @Security BearerAuth
 // @Router /groups/{groupID}/locations [get]
 func (h *Handler) ListLocations(c *fiber.Ctx) error {
-	actorID, err := authenticatedUserID(c)
+	actorID, err := request.UserID(c)
 	if err != nil {
 		return responses.Error(c, err)
 	}
-	groupID, err := pathUUID(c, "groupID")
+	groupID, err := request.PathUUID(c, "groupID")
 	if err != nil {
 		return responses.Error(c, err)
 	}
@@ -56,17 +56,17 @@ func (h *Handler) ListLocations(c *fiber.Ctx) error {
 // @Security BearerAuth
 // @Router /groups/{groupID}/locations [post]
 func (h *Handler) CreateLocation(c *fiber.Ctx) error {
-	actorID, err := authenticatedUserID(c)
+	actorID, err := request.UserID(c)
 	if err != nil {
 		return responses.Error(c, err)
 	}
-	groupID, err := pathUUID(c, "groupID")
+	groupID, err := request.PathUUID(c, "groupID")
 	if err != nil {
 		return responses.Error(c, err)
 	}
 	var request CreateLocationRequest
 	if err := c.BodyParser(&request); err != nil {
-		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
+		return responses.InvalidBody(c, err)
 	}
 	employeeID, err := optionalUUID(request.EmployeeID)
 	if err != nil {
@@ -96,15 +96,15 @@ func (h *Handler) CreateLocation(c *fiber.Ctx) error {
 // @Security BearerAuth
 // @Router /groups/{groupID}/locations/{locationID} [delete]
 func (h *Handler) DeleteLocation(c *fiber.Ctx) error {
-	actorID, err := authenticatedUserID(c)
+	actorID, err := request.UserID(c)
 	if err != nil {
 		return responses.Error(c, err)
 	}
-	groupID, err := pathUUID(c, "groupID")
+	groupID, err := request.PathUUID(c, "groupID")
 	if err != nil {
 		return responses.Error(c, err)
 	}
-	locationID, err := pathUUID(c, "locationID")
+	locationID, err := request.PathUUID(c, "locationID")
 	if err != nil {
 		return responses.Error(c, err)
 	}
@@ -128,11 +128,11 @@ func (h *Handler) DeleteLocation(c *fiber.Ctx) error {
 // @Security BearerAuth
 // @Router /groups/{groupID}/customers [get]
 func (h *Handler) ListCustomers(c *fiber.Ctx) error {
-	actorID, err := authenticatedUserID(c)
+	actorID, err := request.UserID(c)
 	if err != nil {
 		return responses.Error(c, err)
 	}
-	groupID, err := pathUUID(c, "groupID")
+	groupID, err := request.PathUUID(c, "groupID")
 	if err != nil {
 		return responses.Error(c, err)
 	}

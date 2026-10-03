@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/qobulov/brothers-app/pkg/apperror"
+	"github.com/qobulov/brothers-app/pkg/database"
 )
 
 // EditMemberInput changes only the non-nil fields. A LocationID of uuid.Nil
@@ -104,7 +105,7 @@ type memberChange struct {
 	at      time.Time
 }
 
-func newMemberChange(ctx context.Context, q querier, lookup memberLookup, actorID uuid.UUID) (memberChange, error) {
+func newMemberChange(ctx context.Context, q database.Querier, lookup memberLookup, actorID uuid.UUID) (memberChange, error) {
 	a, err := loadActor(ctx, q, lookup.groupID, actorID)
 	if err != nil {
 		return memberChange{}, err
@@ -140,7 +141,7 @@ func (m memberRow) requireSettled() error {
 	return nil
 }
 
-func (c *memberChange) changeRole(ctx context.Context, q querier, value string) error {
+func (c *memberChange) changeRole(ctx context.Context, q database.Querier, value string) error {
 	role, err := invitationRole(value)
 	if err != nil {
 		return err
@@ -178,7 +179,7 @@ func (c *memberChange) changeRole(ctx context.Context, q querier, value string) 
 	return c.audit(ctx, q, "member.role_changed", map[string]any{"role": oldRole}, map[string]any{"role": role})
 }
 
-func (c *memberChange) changeLocation(ctx context.Context, q querier, locationID uuid.UUID) error {
+func (c *memberChange) changeLocation(ctx context.Context, q database.Querier, locationID uuid.UUID) error {
 	if c.target.role != roleEmployee {
 		return apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Joy faqat xodimlarga biriktiriladi", RU: "Локация назначается только сотрудникам", EN: "Only employees have a location"})
 	}
@@ -216,7 +217,7 @@ func (c *memberChange) changeLocation(ctx context.Context, q querier, locationID
 	return nil
 }
 
-func (c *memberChange) unassignLocation(ctx context.Context, q querier) error {
+func (c *memberChange) unassignLocation(ctx context.Context, q database.Querier) error {
 	_, err := q.Exec(ctx, `
 		UPDATE locations SET employee_id = NULL, updated_at = $3
 		WHERE group_id = $1 AND employee_id = $2 AND deleted_at IS NULL
@@ -228,7 +229,7 @@ func (c *memberChange) unassignLocation(ctx context.Context, q querier) error {
 	return nil
 }
 
-func (c *memberChange) audit(ctx context.Context, q querier, action string, oldData, newData map[string]any) error {
+func (c *memberChange) audit(ctx context.Context, q database.Querier, action string, oldData, newData map[string]any) error {
 	_, err := q.Exec(ctx, `
 		INSERT INTO audit_logs (
 			group_id, actor_user_id, action, entity_type, entity_id, old_data, new_data, created_at, updated_at
@@ -241,7 +242,7 @@ func (c *memberChange) audit(ctx context.Context, q querier, action string, oldD
 	return nil
 }
 
-func ensureBalanceRow(ctx context.Context, q querier, groupID, memberID uuid.UUID) error {
+func ensureBalanceRow(ctx context.Context, q database.Querier, groupID, memberID uuid.UUID) error {
 	_, err := q.Exec(ctx, `
 		INSERT INTO employee_balances (group_id, member_id, balance_usd)
 		VALUES ($1, $2, 0)

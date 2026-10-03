@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/qobulov/brothers-app/pkg/apperror"
 	"github.com/qobulov/brothers-app/pkg/helpers"
+	"github.com/qobulov/brothers-app/pkg/paging"
 )
 
 const (
@@ -26,10 +27,6 @@ const (
 
 	maxPersonName = 100
 	maxQuery      = 100
-
-	defaultPageSize = 50
-	maxPageSize     = 100
-	maxOffset       = 10000
 )
 
 // Largest amount per currency, in whole units.
@@ -84,12 +81,6 @@ type ListInput struct {
 	Query     string
 	Limit     int
 	Offset    int
-}
-
-// Page with Limit 0 uses the default page size.
-type Page struct {
-	Limit  int
-	Offset int
 }
 
 func validCreateInput(input CreateInput) (CreateInput, error) {
@@ -159,22 +150,12 @@ func validListInput(input ListInput) (ListInput, error) {
 			EN: "The search query must be at most 100 characters",
 		})
 	}
-	page, err := validPage(Page{Limit: input.Limit, Offset: input.Offset})
+	page, err := paging.Page{Limit: input.Limit, Offset: input.Offset}.Valid()
 	if err != nil {
 		return ListInput{}, err
 	}
 	input.Limit, input.Offset = page.Limit, page.Offset
 	return input, nil
-}
-
-func validPage(page Page) (Page, error) {
-	if page.Limit == 0 {
-		page.Limit = defaultPageSize
-	}
-	if page.Limit < 1 || page.Limit > maxPageSize || page.Offset < 0 || page.Offset > maxOffset {
-		return Page{}, apperror.PageOutOfRange(maxPageSize, maxOffset)
-	}
-	return page, nil
 }
 
 // phoneDigits keeps only digits, so "90 777-44" finds "+998907774422".

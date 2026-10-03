@@ -9,16 +9,14 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/qobulov/brothers-app/pkg/apperror"
+	"github.com/qobulov/brothers-app/pkg/database"
+	"github.com/qobulov/brothers-app/pkg/paging"
 )
 
 const maxBalanceUSD int64 = 1_000_000_000_000
 
 const (
 	maxAdjustmentReason = 500
-
-	defaultPageSize = 50
-	maxPageSize     = 100
-	maxOffset       = 10000
 )
 
 type PersonRef struct {
@@ -55,12 +53,6 @@ type BalanceHistory struct {
 type AdjustBalanceInput struct {
 	NewBalanceUSD int64
 	Reason        string
-}
-
-// Page with Limit 0 uses the default page size.
-type Page struct {
-	Limit  int
-	Offset int
 }
 
 // AdjustBalance sets an employee's balance and records the change permanently.
@@ -115,7 +107,7 @@ func (s *Service) AdjustBalance(ctx context.Context, actorID, groupID, userID uu
 	if err != nil {
 		return BalanceAdjustment{}, fmt.Errorf("recording balance adjustment: %w", err)
 	}
-	adjustments, err := loadAdjustments(ctx, tx, adjustmentFilter{groupID: groupID, memberID: memberID, id: &adjustmentID, page: Page{Limit: 1}})
+	adjustments, err := loadAdjustments(ctx, tx, adjustmentFilter{groupID: groupID, memberID: memberID, id: &adjustmentID, page: paging.Page{Limit: 1}})
 	if err != nil {
 		return BalanceAdjustment{}, err
 	}
@@ -127,7 +119,7 @@ func (s *Service) AdjustBalance(ctx context.Context, actorID, groupID, userID uu
 
 // lockBalance returns the member's balance under a row lock. Order completion
 // updates the same row, so neither change can overwrite the other.
-func lockBalance(ctx context.Context, q querier, groupID, memberID uuid.UUID) (int64, error) {
+func lockBalance(ctx context.Context, q database.Querier, groupID, memberID uuid.UUID) (int64, error) {
 	if err := ensureBalanceRow(ctx, q, groupID, memberID); err != nil {
 		return 0, err
 	}
@@ -144,8 +136,8 @@ func lockBalance(ctx context.Context, q querier, groupID, memberID uuid.UUID) (i
 }
 
 // ListBalanceAdjustments returns a member's manual adjustments, newest first.
-func (s *Service) ListBalanceAdjustments(ctx context.Context, actorID, groupID, userID uuid.UUID, page Page) (BalanceHistory, error) {
-	page, err := validPage(page)
+func (s *Service) ListBalanceAdjustments(ctx context.Context, actorID, groupID, userID uuid.UUID, page paging.Page) (BalanceHistory, error) {
+	page, err := page.Valid()
 	if err != nil {
 		return BalanceHistory{}, err
 	}
@@ -175,24 +167,14 @@ func (s *Service) ListBalanceAdjustments(ctx context.Context, actorID, groupID, 
 	return history, nil
 }
 
-func validPage(page Page) (Page, error) {
-	if page.Limit == 0 {
-		page.Limit = defaultPageSize
-	}
-	if page.Limit < 1 || page.Limit > maxPageSize || page.Offset < 0 || page.Offset > maxOffset {
-		return Page{}, apperror.PageOutOfRange(maxPageSize, maxOffset)
-	}
-	return page, nil
-}
-
 type adjustmentFilter struct {
 	groupID, memberID uuid.UUID
 	// id narrows the result to one adjustment.
 	id   *uuid.UUID
-	page Page
+	page paging.Page
 }
 
-func loadAdjustments(ctx context.Context, q querier, f adjustmentFilter) ([]BalanceAdjustment, error) {
+func loadAdjustments(ctx context.Context, q database.Querier, f adjustmentFilter) ([]BalanceAdjustment, error) {
 	rows, err := q.Query(ctx, `
 		SELECT adjustments.id, adjustments.amount_usd, adjustments.old_balance_usd, adjustments.new_balance_usd,
 		       COALESCE(adjustments.reason, ''), adjustments.created_by,

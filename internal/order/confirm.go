@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/qobulov/brothers-app/pkg/apperror"
+	"github.com/qobulov/brothers-app/pkg/database"
 )
 
 // Confirm records or corrects the actor's own confirmation. The order row is
@@ -82,7 +83,7 @@ type lockedOrder struct {
 	receiverPhone      string
 }
 
-func lockOrder(ctx context.Context, q querier, groupID, orderID uuid.UUID) (lockedOrder, error) {
+func lockOrder(ctx context.Context, q database.Querier, groupID, orderID uuid.UUID) (lockedOrder, error) {
 	var o lockedOrder
 	err := q.QueryRow(ctx, `
 		SELECT orders.status, orders.created_by, orders.amount_usd, orders.fee_uzs,
@@ -117,7 +118,7 @@ type confirmationWrite struct {
 
 // saveConfirmation updates the active confirmation or inserts the first one,
 // and reports which event that was.
-func saveConfirmation(ctx context.Context, q querier, w confirmationWrite) (string, error) {
+func saveConfirmation(ctx context.Context, q database.Querier, w confirmationWrite) (string, error) {
 	result, err := q.Exec(ctx, `
 		UPDATE order_confirmations
 		SET amount_usd = $3, fee_uzs = $4, confirmed_at = $5, updated_at = $5
@@ -148,7 +149,7 @@ type settlement struct {
 
 // settle completes the order when both confirmations agree, or records the
 // mismatch when they do not. With fewer than two confirmations it does nothing.
-func settle(ctx context.Context, q querier, st settlement) error {
+func settle(ctx context.Context, q database.Querier, st settlement) error {
 	if len(st.confirmations) < 2 {
 		return nil
 	}

@@ -8,24 +8,17 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/qobulov/brothers-app/pkg/apperror"
+	"github.com/qobulov/brothers-app/pkg/database"
 	"github.com/qobulov/brothers-app/pkg/helpers"
 )
-
-// querier is satisfied by both *pgxpool.Pool and pgx.Tx.
-type querier interface {
-	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
-	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
-	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
-}
 
 // displayName is the SQL expression for a person's name, matching the group package.
 func displayName(alias string) string {
 	return fmt.Sprintf(`COALESCE(NULLIF(btrim(concat_ws(' ', %[1]s.first_name, %[1]s.last_name)), ''), NULLIF(%[1]s.name, ''), NULLIF(%[1]s.username, ''), '')`, alias)
 }
 
-func loadViewer(ctx context.Context, q querier, groupID, userID uuid.UUID) (viewer, error) {
+func loadViewer(ctx context.Context, q database.Querier, groupID, userID uuid.UUID) (viewer, error) {
 	v := viewer{userID: userID}
 	err := q.QueryRow(ctx, `
 		SELECT members.id, members.role::text, members.is_owner
@@ -64,7 +57,7 @@ type partyRef struct {
 }
 
 // resolveEmployee finds an active employee membership and its current location.
-func resolveEmployee(ctx context.Context, q querier, groupID, userID uuid.UUID) (partyRef, error) {
+func resolveEmployee(ctx context.Context, q database.Querier, groupID, userID uuid.UUID) (partyRef, error) {
 	var ref partyRef
 	err := q.QueryRow(ctx, `
 		SELECT members.id, locations.id
@@ -89,7 +82,7 @@ func resolveEmployee(ctx context.Context, q querier, groupID, userID uuid.UUID) 
 }
 
 // upsertCustomer finds or creates the group's customer for an already normalized phone.
-func upsertCustomer(ctx context.Context, q querier, groupID uuid.UUID, phone string, now time.Time) (uuid.UUID, error) {
+func upsertCustomer(ctx context.Context, q database.Querier, groupID uuid.UUID, phone string, now time.Time) (uuid.UUID, error) {
 	var id uuid.UUID
 	err := q.QueryRow(ctx, `
 		INSERT INTO customers (group_id, phone, created_at, updated_at)

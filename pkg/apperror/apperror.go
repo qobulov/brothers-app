@@ -12,21 +12,6 @@ import (
 	"github.com/qobulov/brothers-app/pkg/localization"
 )
 
-type AppError struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-	Err     error  `json:"-"`
-}
-
-func (e *AppError) Error() string {
-	if e.Err != nil {
-		return e.Message + ": " + e.Err.Error()
-	}
-	return e.Message
-}
-
-func (e *AppError) Unwrap() error { return e.Err }
-
 // Normalize classifies driver/framework errors while retaining the original cause.
 func Normalize(err error) error {
 	if err == nil {
@@ -77,14 +62,6 @@ func Normalize(err error) error {
 	return err
 }
 
-func NewAppError(code int, msg string, err error) *AppError {
-	return &AppError{
-		Code:    code,
-		Message: msg,
-		Err:     err,
-	}
-}
-
 var (
 	// Generic errors
 	ErrInternalServer = errors.New("internal server error") // 500
@@ -126,11 +103,11 @@ var (
 	ErrUnprocessable = errors.New("unprocessable entity")   // 422
 
 	// Business logic / domain-specific errors
-	ErrAlreadyExists              = errors.New("already exists")                                        // 409
+	ErrAlreadyExists              = errors.New("already exists")                                // 409
 	ErrRegistrationIdentityExists = errors.New("registration email or username already exists") // 409
-	ErrNotAvailable               = errors.New("not available")                                         // 409
-	ErrLimitExceeded              = errors.New("limit exceeded")                                        // 429
-	ErrOperationDenied            = errors.New("operation denied")                                      // 403
+	ErrNotAvailable               = errors.New("not available")                                 // 409
+	ErrLimitExceeded              = errors.New("limit exceeded")                                // 429
+	ErrOperationDenied            = errors.New("operation denied")                              // 403
 	ErrInvalidOTP                 = errors.New("invalid or expired otp")
 	ErrInvalidResetToken          = errors.New("invalid or expired reset token")
 	ErrInvalidCredentials         = errors.New("invalid credentials")
@@ -276,10 +253,6 @@ func Slug(err error) string {
 			return strings.ReplaceAll(strings.ToLower(http.StatusText(StatusCode(err))), " ", "_")
 		}
 	}
-}
-
-func Message(err error) string {
-	return MessageForLanguage(err, "en")
 }
 
 // MessageForLanguage returns a user-facing error message in Uzbek, Russian, or

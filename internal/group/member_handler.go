@@ -1,13 +1,9 @@
 package group
 
 import (
-	"fmt"
-	"strconv"
-	"strings"
-
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
-	"github.com/qobulov/brothers-app/pkg/apperror"
+	"github.com/qobulov/brothers-app/pkg/request"
 	"github.com/qobulov/brothers-app/pkg/responses"
 )
 
@@ -72,7 +68,7 @@ func (h *Handler) EditMember(c *fiber.Ctx) error {
 	}
 	var request EditMemberRequest
 	if err := c.BodyParser(&request); err != nil {
-		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
+		return responses.InvalidBody(c, err)
 	}
 	input := EditMemberInput{Role: request.Role}
 	if request.LocationID != nil {
@@ -138,7 +134,7 @@ func (h *Handler) AdjustBalance(c *fiber.Ctx) error {
 	}
 	var request AdjustBalanceRequest
 	if err := c.BodyParser(&request); err != nil {
-		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
+		return responses.InvalidBody(c, err)
 	}
 	adjustment, err := h.service.AdjustBalance(c.UserContext(), ids.actor, ids.group, ids.user, AdjustBalanceInput(request))
 	if err != nil {
@@ -167,15 +163,11 @@ func (h *Handler) BalanceHistory(c *fiber.Ctx) error {
 	if err != nil {
 		return responses.Error(c, err)
 	}
-	limit, err := optionalQueryInt(c, "limit")
+	page, err := request.Page(c)
 	if err != nil {
 		return responses.Error(c, err)
 	}
-	offset, err := optionalQueryInt(c, "offset")
-	if err != nil {
-		return responses.Error(c, err)
-	}
-	history, err := h.service.ListBalanceAdjustments(c.UserContext(), ids.actor, ids.group, ids.user, Page{Limit: limit, Offset: offset})
+	history, err := h.service.ListBalanceAdjustments(c.UserContext(), ids.actor, ids.group, ids.user, page)
 	if err != nil {
 		return responses.Error(c, err)
 	}
@@ -187,31 +179,17 @@ type memberIDs struct {
 }
 
 func memberRequestIDs(c *fiber.Ctx) (memberIDs, error) {
-	actorID, err := authenticatedUserID(c)
+	actorID, err := request.UserID(c)
 	if err != nil {
 		return memberIDs{}, err
 	}
-	groupID, err := pathUUID(c, "groupID")
+	groupID, err := request.PathUUID(c, "groupID")
 	if err != nil {
 		return memberIDs{}, err
 	}
-	userID, err := pathUUID(c, "userID")
+	userID, err := request.PathUUID(c, "userID")
 	if err != nil {
 		return memberIDs{}, err
 	}
 	return memberIDs{actor: actorID, group: groupID, user: userID}, nil
-}
-
-// optionalQueryInt reads an integer query parameter; a missing one is 0 and
-// the service applies its default.
-func optionalQueryInt(c *fiber.Ctx, name string) (int, error) {
-	raw := strings.TrimSpace(c.Query(name))
-	if raw == "" {
-		return 0, nil
-	}
-	value, err := strconv.Atoi(raw)
-	if err != nil {
-		return 0, apperror.NotAnInteger(name)
-	}
-	return value, nil
 }

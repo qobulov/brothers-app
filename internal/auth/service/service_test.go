@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/qobulov/brothers-app/internal/auth/dto"
+	authdto "github.com/qobulov/brothers-app/internal/auth/dto"
 	"github.com/qobulov/brothers-app/internal/auth/otp"
 	db "github.com/qobulov/brothers-app/internal/db"
 	"github.com/qobulov/brothers-app/pkg/apperror"

@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/qobulov/brothers-app/pkg/database"
 	"github.com/qobulov/brothers-app/pkg/helpers"
 )
 
@@ -20,13 +20,6 @@ type Service struct {
 
 func NewService(pool *pgxpool.Pool) *Service {
 	return &Service{pool: pool, now: time.Now}
-}
-
-// querier is satisfied by both *pgxpool.Pool and pgx.Tx.
-type querier interface {
-	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
-	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
-	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 }
 
 const debtColumns = `
@@ -75,7 +68,7 @@ type debtLookup struct {
 	lock bool
 }
 
-func loadDebt(ctx context.Context, q querier, lookup debtLookup) (Debt, error) {
+func loadDebt(ctx context.Context, q database.Querier, lookup debtLookup) (Debt, error) {
 	query := `SELECT ` + debtColumns + `
 		FROM debts
 		WHERE id = $1 AND owner_user_id = $2 AND deleted_at IS NULL`
@@ -191,7 +184,7 @@ func (s *Service) Complete(ctx context.Context, ownerID, debtID uuid.UUID) (Debt
 	return s.Get(ctx, ownerID, debtID)
 }
 
-func markCompleted(ctx context.Context, q querier, debtID uuid.UUID, at time.Time) error {
+func markCompleted(ctx context.Context, q database.Querier, debtID uuid.UUID, at time.Time) error {
 	_, err := q.Exec(ctx, `
 		UPDATE debts SET status = 'completed', completed_at = $2, updated_at = $2 WHERE id = $1
 	`, debtID, at)

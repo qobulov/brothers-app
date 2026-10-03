@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/qobulov/brothers-app/pkg/apperror"
+	"github.com/qobulov/brothers-app/pkg/paging"
 )
 
 // List returns the group's orders newest first. Employees only see orders
@@ -51,12 +52,11 @@ func validListInput(input ListInput) (ListInput, error) {
 	default:
 		return ListInput{}, apperror.New(apperror.ErrInvalidData, apperror.Text{UZ: "Status pending, completed yoki cancelled bo'lishi kerak", RU: "Статус должен быть pending, completed или cancelled", EN: "Status must be pending, completed or cancelled"})
 	}
-	if input.Limit == 0 {
-		input.Limit = defaultPageSize
+	page, err := paging.Page{Limit: input.Limit, Offset: input.Offset}.Valid()
+	if err != nil {
+		return ListInput{}, err
 	}
-	if input.Limit < 1 || input.Limit > maxPageSize || input.Offset < 0 || input.Offset > maxOffset {
-		return ListInput{}, apperror.PageOutOfRange(maxPageSize, maxOffset)
-	}
+	input.Limit, input.Offset = page.Limit, page.Offset
 	return input, nil
 }
 

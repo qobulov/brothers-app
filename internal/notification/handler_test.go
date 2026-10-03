@@ -163,7 +163,7 @@ func TestHandler_ListPagesNewestFirstAndSkipsMalformedPayloads(t *testing.T) {
 	if status != fiber.StatusOK || len(items) != 1 || items[0].Title != "oldest" {
 		t.Fatalf("status %d, page %#v; want only oldest", status, items)
 	}
-	for _, query := range []string{"?limit=0", "?limit=101", "?limit=abc", "?offset=-1"} {
+	for _, query := range []string{"?limit=-1", "?limit=101", "?limit=abc", "?offset=-1"} {
 		if status, _ := list(query); status != fiber.StatusBadRequest {
 			t.Fatalf("%s status = %d, want 400", query, status)
 		}

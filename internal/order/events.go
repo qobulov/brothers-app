@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/qobulov/brothers-app/pkg/apperror"
+	"github.com/qobulov/brothers-app/pkg/database"
 )
 
 const (
@@ -30,7 +31,7 @@ type orderEvent struct {
 	payload   any
 }
 
-func writeEvent(ctx context.Context, q querier, event orderEvent) error {
+func writeEvent(ctx context.Context, q database.Querier, event orderEvent) error {
 	payload := event.payload
 	if payload == nil {
 		payload = map[string]any{}

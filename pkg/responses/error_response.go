@@ -1,7 +1,10 @@
 package responses
 
 import (
+	"fmt"
+
 	"github.com/gofiber/fiber/v2"
+	"github.com/qobulov/brothers-app/pkg/apperror"
 	appError "github.com/qobulov/brothers-app/pkg/apperror"
 )
 
@@ -58,4 +61,9 @@ func errorDetails(c *fiber.Ctx, status int, err error) ErrorDetails {
 		details.Reason = appError.Slug(err)
 	}
 	return details
+}
+
+// InvalidBody reports a request body that could not be parsed.
+func InvalidBody(c *fiber.Ctx, err error) error {
+	return ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), MessageInvalidRequest)
 }

@@ -1,19 +1,8 @@
 package apperror
 
 import (
-	"errors"
 	"testing"
 )
-
-func TestAppErrorPreservesCause(t *testing.T) {
-	err := NewAppError(1400, "invalid identifier", ErrInvalidID)
-	if !errors.Is(err, ErrInvalidID) || StatusCode(err) != 400 || Code(err) != 1400 {
-		t.Fatalf("wrapped error lost classification: %v", err)
-	}
-	if err.Error() != "invalid identifier: invalid id" {
-		t.Fatalf("wrapped error lost cause: %v", err)
-	}
-}
 
 func TestRegistrationIdentityExistsMessage(t *testing.T) {
 	tests := []struct {

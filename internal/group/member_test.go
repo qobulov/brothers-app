@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/qobulov/brothers-app/pkg/apperror"
 	"github.com/qobulov/brothers-app/pkg/database"
+	"github.com/qobulov/brothers-app/pkg/paging"
 )
 
 // memberFixture is a group with an owner, a manager, an investor and two
@@ -170,7 +171,7 @@ func TestAdjustBalance_RecordsHistory(t *testing.T) {
 		t.Fatalf("first adjustment = %#v, %v", first, err)
 	}
 
-	history, err := f.service.ListBalanceAdjustments(ctx, f.investor, f.groupID, f.aziz, Page{})
+	history, err := f.service.ListBalanceAdjustments(ctx, f.investor, f.groupID, f.aziz, paging.Page{})
 	if err != nil {
 		t.Fatalf("balance history: %v", err)
 	}
@@ -180,7 +181,7 @@ func TestAdjustBalance_RecordsHistory(t *testing.T) {
 	if len(history.Adjustments) != 2 || history.Adjustments[0].ID != down.ID || history.Adjustments[1].ID != up.ID {
 		t.Fatalf("history = %#v, want newest first", history.Adjustments)
 	}
-	page, err := f.service.ListBalanceAdjustments(ctx, f.aziz, f.groupID, f.aziz, Page{Limit: 1, Offset: 1})
+	page, err := f.service.ListBalanceAdjustments(ctx, f.aziz, f.groupID, f.aziz, paging.Page{Limit: 1, Offset: 1})
 	if err != nil || len(page.Adjustments) != 1 || page.Adjustments[0].ID != up.ID {
 		t.Fatalf("own history page = %#v, %v", page.Adjustments, err)
 	}
@@ -207,10 +208,10 @@ func TestAdjustBalance_RecordsHistory(t *testing.T) {
 			}
 		})
 	}
-	if _, err := f.service.ListBalanceAdjustments(ctx, f.javohir, f.groupID, f.aziz, Page{}); !errors.Is(err, apperror.ErrRecordNotFound) {
+	if _, err := f.service.ListBalanceAdjustments(ctx, f.javohir, f.groupID, f.aziz, paging.Page{}); !errors.Is(err, apperror.ErrRecordNotFound) {
 		t.Fatalf("other employee history error = %v, want not found", err)
 	}
-	if _, err := f.service.ListBalanceAdjustments(ctx, f.owner, f.groupID, f.aziz, Page{Limit: 101}); !errors.Is(err, apperror.ErrInvalidData) {
+	if _, err := f.service.ListBalanceAdjustments(ctx, f.owner, f.groupID, f.aziz, paging.Page{Limit: 101}); !errors.Is(err, apperror.ErrInvalidData) {
 		t.Fatalf("oversized page error = %v, want invalid data", err)
 	}
 }

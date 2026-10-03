@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/qobulov/brothers-app/pkg/apperror"
+	"github.com/qobulov/brothers-app/pkg/database"
 )
 
 // Edit changes a pending order. Any real change clears both confirmations, so
@@ -136,7 +137,7 @@ type orderEdit struct {
 
 // saveEdit writes the new terms and clears confirmations. A changed party gets
 // their current location; an unchanged party keeps the original snapshot.
-func saveEdit(ctx context.Context, q querier, e orderEdit) error {
+func saveEdit(ctx context.Context, q database.Querier, e orderEdit) error {
 	giver := partyRef{memberID: e.current.parties.giverMemberID, locationID: e.current.giverLocationID}
 	receiver := partyRef{memberID: e.current.parties.receiverMemberID, locationID: e.current.receiverLocationID}
 	var err error

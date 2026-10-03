@@ -4,13 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/qobulov/brothers-app/pkg/apperror"
+	"github.com/qobulov/brothers-app/pkg/request"
 	"github.com/qobulov/brothers-app/pkg/responses"
 )
 
@@ -55,15 +54,14 @@ func NewHandler(pool *pgxpool.Pool) *Handler {
 // @Security BearerAuth
 // @Router /notifications [get]
 func (h *Handler) List(c *fiber.Ctx) error {
-	userID, err := userID(c)
+	userID, err := request.UserID(c)
 	if err != nil {
 		return responses.Error(c, err)
 	}
-	limit, err := queryInt(c, "limit", defaultPageSize, 1, maxPageSize)
-	if err != nil {
-		return responses.Error(c, err)
+	page, err := request.Page(c)
+	if err == nil {
+		page, err = page.Valid()
 	}
-	offset, err := queryInt(c, "offset", 0, 0, maxOffset)
 	if err != nil {
 		return responses.Error(c, err)
 	}
@@ -83,7 +81,7 @@ func (h *Handler) List(c *fiber.Ctx) error {
 		  AND (notifications.expires_at IS NULL OR notifications.expires_at > now())
 		ORDER BY recipients.created_at DESC, recipients.id DESC
 		LIMIT $3 OFFSET $4
-	`, userID, language, limit, offset)
+	`, userID, language, page.Limit, page.Offset)
 	if err != nil {
 		return responses.Error(c, fmt.Errorf("listing notifications: %w", err))
 	}
@@ -113,31 +111,4 @@ func (h *Handler) List(c *fiber.Ctx) error {
 		return responses.Error(c, fmt.Errorf("iterating notifications: %w", err))
 	}
 	return responses.Success(c, fiber.StatusOK, items, responses.MessageNotificationsReturned)
-}
-
-const (
-	defaultPageSize = 50
-	maxPageSize     = 100
-	maxOffset       = 10000
-)
-
-// queryInt reads an optional integer query parameter, rejecting values outside [min, max].
-func queryInt(c *fiber.Ctx, name string, fallback, min, max int) (int, error) {
-	raw := c.Query(name)
-	if raw == "" {
-		return fallback, nil
-	}
-	value, err := strconv.Atoi(raw)
-	if err != nil || value < min || value > max {
-		return 0, apperror.OutOfRange(name, min, max)
-	}
-	return value, nil
-}
-
-func userID(c *fiber.Ctx) (uuid.UUID, error) {
-	id, ok := c.Locals("auth_user_id").(uuid.UUID)
-	if !ok || id == uuid.Nil {
-		return uuid.Nil, apperror.ErrUnauthorized
-	}
-	return id, nil
 }

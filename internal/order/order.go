@@ -25,10 +25,6 @@ const (
 
 	maxAmountUSD int64 = 1_000_000_000
 	maxFeeUZS    int64 = 1_000_000_000_000
-
-	defaultPageSize = 50
-	maxPageSize     = 100
-	maxOffset       = 10000
 )
 
 type Location struct {

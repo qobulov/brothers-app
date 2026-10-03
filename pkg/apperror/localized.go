@@ -59,15 +59,6 @@ func NotAnInteger(field string) error {
 	})
 }
 
-func OutOfRange(field string, min, max int) error {
-	low, high := FormatNumber(int64(min)), FormatNumber(int64(max))
-	return New(ErrInvalidData, Text{
-		UZ: fmt.Sprintf("%s %s dan %s gacha bo'lishi kerak", field, low.UZ, high.UZ),
-		RU: fmt.Sprintf("%s должен быть от %s до %s", field, low.RU, high.RU),
-		EN: fmt.Sprintf("%s must be between %s and %s", field, low.EN, high.EN),
-	})
-}
-
 func ReasonTooLong(max int) error {
 	return New(ErrInvalidData, Text{
 		UZ: fmt.Sprintf("Izoh %d belgidan oshmasligi kerak", max),

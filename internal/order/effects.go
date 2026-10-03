@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/qobulov/brothers-app/pkg/database"
 )
 
 // tashkentZone decides which month a profit belongs to. It is a fixed UTC+5
@@ -16,7 +17,7 @@ var tashkentZone = time.FixedZone("Asia/Tashkent", 5*60*60)
 // completeOrder marks the order completed and applies its money effects: the
 // giver took cash from a customer (+amount), the receiver paid one out
 // (-amount), and each party's own fee goes to their monthly profit.
-func completeOrder(ctx context.Context, q querier, st settlement, amountUSD int64) error {
+func completeOrder(ctx context.Context, q database.Querier, st settlement, amountUSD int64) error {
 	result, err := q.Exec(ctx, `
 		UPDATE orders
 		SET status = 'completed', completed_at = $2, updated_at = $2
@@ -54,7 +55,7 @@ type balanceChange struct {
 	at                time.Time
 }
 
-func addBalance(ctx context.Context, q querier, change balanceChange) error {
+func addBalance(ctx context.Context, q database.Querier, change balanceChange) error {
 	_, err := q.Exec(ctx, `
 		INSERT INTO employee_balances (group_id, member_id, balance_usd, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $4)
@@ -74,7 +75,7 @@ type profitChange struct {
 	at                time.Time
 }
 
-func addProfit(ctx context.Context, q querier, change profitChange) error {
+func addProfit(ctx context.Context, q database.Querier, change profitChange) error {
 	local := change.at.In(tashkentZone)
 	_, err := q.Exec(ctx, `
 		INSERT INTO member_profit_periods (group_id, member_id, year, month, profit_uzs, created_at, updated_at)
@@ -92,7 +93,7 @@ func addProfit(ctx context.Context, q querier, change profitChange) error {
 // reverseCompletion undoes completeOrder's money effects with opposite
 // entries. Profit is reversed in the cancellation's month, so that month's
 // profit may go negative; the month it was earned stays untouched.
-func reverseCompletion(ctx context.Context, q querier, st settlement) error {
+func reverseCompletion(ctx context.Context, q database.Querier, st settlement) error {
 	if len(st.confirmations) != 2 {
 		return fmt.Errorf("reversing order: want 2 confirmations, have %d", len(st.confirmations))
 	}

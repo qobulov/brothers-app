@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/qobulov/brothers-app/pkg/apperror"
+	"github.com/qobulov/brothers-app/pkg/database"
 )
 
 type Service struct {
@@ -137,7 +138,7 @@ var orderDetailQuery = fmt.Sprintf(`
 	WHERE orders.id = $1 AND orders.group_id = $2 AND orders.deleted_at IS NULL
 `, displayName("giver_user"), displayName("receiver_user"), displayName("creator"))
 
-func loadOrder(ctx context.Context, q querier, groupID, orderID uuid.UUID) (Order, parties, error) {
+func loadOrder(ctx context.Context, q database.Querier, groupID, orderID uuid.UUID) (Order, parties, error) {
 	var o Order
 	var p parties
 	var giverLocationID, receiverLocationID *uuid.UUID
@@ -170,7 +171,7 @@ func optionalLocation(id *uuid.UUID, name *string) *Location {
 	return &Location{ID: *id, Name: *name}
 }
 
-func loadConfirmations(ctx context.Context, q querier, orderID uuid.UUID) ([]confirmationRow, error) {
+func loadConfirmations(ctx context.Context, q database.Querier, orderID uuid.UUID) ([]confirmationRow, error) {
 	rows, err := q.Query(ctx, `
 		SELECT member_id, amount_usd, fee_uzs, confirmed_at
 		FROM order_confirmations

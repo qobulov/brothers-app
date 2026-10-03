@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/qobulov/brothers-app/pkg/apperror"
+	"github.com/qobulov/brothers-app/pkg/paging"
 )
 
 func TestList_ScopesEmployeesFiltersAndPages(t *testing.T) {
@@ -57,7 +58,7 @@ func TestList_ScopesEmployeesFiltersAndPages(t *testing.T) {
 	if err != nil || len(completed) != 0 {
 		t.Fatalf("completed filter = %#v, %v; want none", completed, err)
 	}
-	for _, bad := range []ListInput{{Status: "bogus"}, {Limit: maxPageSize + 1}, {Limit: -1}, {Offset: -1}, {Offset: maxOffset + 1}} {
+	for _, bad := range []ListInput{{Status: "bogus"}, {Limit: paging.MaxLimit + 1}, {Limit: -1}, {Offset: -1}, {Offset: paging.MaxOffset + 1}} {
 		if _, err := f.service.List(ctx, f.manager, f.groupID, bad); !errors.Is(err, apperror.ErrInvalidData) {
 			t.Fatalf("list %#v error = %v, want invalid data", bad, err)
 		}

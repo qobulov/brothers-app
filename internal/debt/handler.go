@@ -1,13 +1,9 @@
 package debt
 
 import (
-	"fmt"
-	"strconv"
-	"strings"
-
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
-	"github.com/qobulov/brothers-app/pkg/apperror"
+	"github.com/qobulov/brothers-app/pkg/request"
 	"github.com/qobulov/brothers-app/pkg/responses"
 )
 
@@ -41,7 +37,7 @@ type RepaymentRequest struct {
 // @Security BearerAuth
 // @Router /debts/summary [get]
 func (h *Handler) Summary(c *fiber.Ctx) error {
-	ownerID, err := owner(c)
+	ownerID, err := request.UserID(c)
 	if err != nil {
 		return responses.Error(c, err)
 	}
@@ -68,11 +64,11 @@ func (h *Handler) Summary(c *fiber.Ctx) error {
 // @Security BearerAuth
 // @Router /debts [get]
 func (h *Handler) List(c *fiber.Ctx) error {
-	ownerID, err := owner(c)
+	ownerID, err := request.UserID(c)
 	if err != nil {
 		return responses.Error(c, err)
 	}
-	page, err := queryPage(c)
+	page, err := request.Page(c)
 	if err != nil {
 		return responses.Error(c, err)
 	}
@@ -99,13 +95,13 @@ func (h *Handler) List(c *fiber.Ctx) error {
 // @Security BearerAuth
 // @Router /debts [post]
 func (h *Handler) Create(c *fiber.Ctx) error {
-	ownerID, err := owner(c)
+	ownerID, err := request.UserID(c)
 	if err != nil {
 		return responses.Error(c, err)
 	}
 	var request CreateRequest
 	if err := c.BodyParser(&request); err != nil {
-		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
+		return responses.InvalidBody(c, err)
 	}
 	created, err := h.service.Create(c.UserContext(), ownerID, CreateInput(request))
 	if err != nil {
@@ -159,7 +155,7 @@ func (h *Handler) Repay(c *fiber.Ctx) error {
 	}
 	var request RepaymentRequest
 	if err := c.BodyParser(&request); err != nil {
-		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
+		return responses.InvalidBody(c, err)
 	}
 	updated, err := h.service.Repay(c.UserContext(), ownerID, debtID, request.Amount)
 	if err != nil {
@@ -186,7 +182,7 @@ func (h *Handler) Repayments(c *fiber.Ctx) error {
 	if err != nil {
 		return responses.Error(c, err)
 	}
-	page, err := queryPage(c)
+	page, err := request.Page(c)
 	if err != nil {
 		return responses.Error(c, err)
 	}
@@ -244,40 +240,11 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 	return responses.Message(c, fiber.StatusOK, responses.MessageDebtDeleted)
 }
 
-func owner(c *fiber.Ctx) (uuid.UUID, error) {
-	ownerID, ok := c.Locals("auth_user_id").(uuid.UUID)
-	if !ok || ownerID == uuid.Nil {
-		return uuid.Nil, apperror.ErrUnauthorized
-	}
-	return ownerID, nil
-}
-
 func ownerAndDebt(c *fiber.Ctx) (uuid.UUID, uuid.UUID, error) {
-	ownerID, err := owner(c)
+	ownerID, err := request.UserID(c)
 	if err != nil {
 		return uuid.Nil, uuid.Nil, err
 	}
-	debtID, err := uuid.Parse(c.Params("debtID"))
-	if err != nil || debtID == uuid.Nil {
-		return uuid.Nil, uuid.Nil, apperror.ErrInvalidID
-	}
-	return ownerID, debtID, nil
-}
-
-// queryPage reads limit and offset; a missing value is 0 and the service
-// applies its default.
-func queryPage(c *fiber.Ctx) (Page, error) {
-	var page Page
-	for name, target := range map[string]*int{"limit": &page.Limit, "offset": &page.Offset} {
-		raw := strings.TrimSpace(c.Query(name))
-		if raw == "" {
-			continue
-		}
-		value, err := strconv.Atoi(raw)
-		if err != nil {
-			return Page{}, apperror.NotAnInteger(name)
-		}
-		*target = value
-	}
-	return page, nil
+	debtID, err := request.PathUUID(c, "debtID")
+	return ownerID, debtID, err
 }

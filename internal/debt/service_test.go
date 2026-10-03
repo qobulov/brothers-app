@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/qobulov/brothers-app/pkg/apperror"
 	"github.com/qobulov/brothers-app/pkg/database"
+	"github.com/qobulov/brothers-app/pkg/paging"
 )
 
 type fixture struct {
@@ -117,7 +118,7 @@ func TestRepay_PartialThenFinalCompletes(t *testing.T) {
 		t.Fatalf("repay completed debt error = %v, want conflict", err)
 	}
 
-	repayments, err := f.service.ListRepayments(ctx, f.owner, created.ID, Page{})
+	repayments, err := f.service.ListRepayments(ctx, f.owner, created.ID, paging.Page{})
 	if err != nil || len(repayments) != 2 || repayments[0].Amount != 900 || repayments[1].Amount != 600 {
 		t.Fatalf("repayments = %#v, %v; want 900 then 600", repayments, err)
 	}
@@ -181,7 +182,7 @@ func TestOwnership_OtherUsersSeeNothing(t *testing.T) {
 	checks := map[string]func() error{
 		"get":        func() error { _, err := f.service.Get(ctx, f.other, created.ID); return err },
 		"repay":      func() error { _, err := f.service.Repay(ctx, f.other, created.ID, 1); return err },
-		"repayments": func() error { _, err := f.service.ListRepayments(ctx, f.other, created.ID, Page{}); return err },
+		"repayments": func() error { _, err := f.service.ListRepayments(ctx, f.other, created.ID, paging.Page{}); return err },
 		"complete":   func() error { _, err := f.service.Complete(ctx, f.other, created.ID); return err },
 		"delete":     func() error { return f.service.Delete(ctx, f.other, created.ID) },
 	}

@@ -1,14 +1,15 @@
 package auth
 
 import (
-	"fmt"
+	"strings"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
-	"github.com/qobulov/brothers-app/internal/auth/dto"
+	authdto "github.com/qobulov/brothers-app/internal/auth/dto"
 	"github.com/qobulov/brothers-app/internal/auth/service"
 	"github.com/qobulov/brothers-app/pkg/apperror"
+	"github.com/qobulov/brothers-app/pkg/request"
 	"github.com/qobulov/brothers-app/pkg/responses"
-	"strings"
 )
 
 type Handler struct{ service *service.Service }
@@ -29,7 +30,7 @@ func NewHandler(authService *service.Service) *Handler { return &Handler{service
 func (h *Handler) Register(c *fiber.Ctx) error {
 	var request authdto.RegisterRequest
 	if err := c.BodyParser(&request); err != nil {
-		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
+		return responses.InvalidBody(c, err)
 	}
 	data, err := h.service.Register(c.UserContext(), request)
 	if err != nil {
@@ -54,7 +55,7 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 func (h *Handler) SendOTP(c *fiber.Ctx) error {
 	var request authdto.SendOTPRequest
 	if err := c.BodyParser(&request); err != nil {
-		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
+		return responses.InvalidBody(c, err)
 	}
 	if strings.EqualFold(strings.TrimSpace(request.Purpose), service.EmailChangePurpose) {
 		return h.sendEmailChangeOTP(c, request.Email)
@@ -68,9 +69,9 @@ func (h *Handler) SendOTP(c *fiber.Ctx) error {
 
 // sendEmailChangeOTP needs the logged-in user, set by the optional token check on this route.
 func (h *Handler) sendEmailChangeOTP(c *fiber.Ctx, newEmail string) error {
-	userID, ok := c.Locals("auth_user_id").(uuid.UUID)
-	if !ok || userID == uuid.Nil {
-		return responses.Error(c, apperror.ErrUnauthorized)
+	userID, err := request.UserID(c)
+	if err != nil {
+		return responses.Error(c, err)
 	}
 	data, err := h.service.SendEmailChangeOTP(c.UserContext(), userID, newEmail)
 	if err != nil {
@@ -94,7 +95,7 @@ func (h *Handler) sendEmailChangeOTP(c *fiber.Ctx, newEmail string) error {
 func (h *Handler) Login(c *fiber.Ctx) error {
 	var request authdto.LoginRequest
 	if err := c.BodyParser(&request); err != nil {
-		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
+		return responses.InvalidBody(c, err)
 	}
 	data, err := h.service.Login(c.UserContext(), request.Login, request.Password)
 	if err != nil {
@@ -118,7 +119,7 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 func (h *Handler) Refresh(c *fiber.Ctx) error {
 	var request authdto.RefreshRequest
 	if err := c.BodyParser(&request); err != nil {
-		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
+		return responses.InvalidBody(c, err)
 	}
 	data, err := h.service.Refresh(c.UserContext(), request.RefreshToken)
 	if err != nil {
@@ -167,7 +168,7 @@ func (h *Handler) UpdateCurrentUser(c *fiber.Ctx) error {
 	}
 	var request authdto.UpdateProfileRequest
 	if err := c.BodyParser(&request); err != nil {
-		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
+		return responses.InvalidBody(c, err)
 	}
 	data, err := h.service.UpdateCurrentUser(c.UserContext(), userID, request)
 	if err != nil {
@@ -190,7 +191,7 @@ func (h *Handler) UpdateCurrentUser(c *fiber.Ctx) error {
 func (h *Handler) VerifyPassword(c *fiber.Ctx) error {
 	var request authdto.OTPVerifyRequest
 	if err := c.BodyParser(&request); err != nil {
-		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
+		return responses.InvalidBody(c, err)
 	}
 	data, err := h.service.VerifyPasswordOTP(c.UserContext(), request.Email, request.OTP)
 	if err != nil {
@@ -213,7 +214,7 @@ func (h *Handler) VerifyPassword(c *fiber.Ctx) error {
 func (h *Handler) ResetPassword(c *fiber.Ctx) error {
 	var request authdto.ResetPasswordRequest
 	if err := c.BodyParser(&request); err != nil {
-		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
+		return responses.InvalidBody(c, err)
 	}
 	if err := h.service.ResetPassword(c.UserContext(), request); err != nil {
 		return responses.Error(c, err)
@@ -242,9 +243,9 @@ func (h *Handler) Logout(c *fiber.Ctx) error {
 }
 
 func authLocals(c *fiber.Ctx) (uuid.UUID, uuid.UUID, error) {
-	userID, ok := c.Locals("auth_user_id").(uuid.UUID)
-	if !ok || userID == uuid.Nil {
-		return uuid.Nil, uuid.Nil, apperror.ErrUnauthorized
+	userID, err := request.UserID(c)
+	if err != nil {
+		return uuid.Nil, uuid.Nil, err
 	}
 	sessionID, ok := c.Locals("auth_session_id").(uuid.UUID)
 	if !ok || sessionID == uuid.Nil {
@@ -288,13 +289,13 @@ func (h *Handler) CheckUsername(c *fiber.Ctx) error {
 // @Security BearerAuth
 // @Router /me/email [post]
 func (h *Handler) ChangeEmail(c *fiber.Ctx) error {
-	userID, ok := c.Locals("auth_user_id").(uuid.UUID)
-	if !ok || userID == uuid.Nil {
-		return responses.Error(c, apperror.ErrUnauthorized)
+	userID, err := request.UserID(c)
+	if err != nil {
+		return responses.Error(c, err)
 	}
 	var request authdto.ChangeEmailRequest
 	if err := c.BodyParser(&request); err != nil {
-		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
+		return responses.InvalidBody(c, err)
 	}
 	user, err := h.service.ChangeEmail(c.UserContext(), userID, request)
 	if err != nil {
@@ -316,13 +317,13 @@ func (h *Handler) ChangeEmail(c *fiber.Ctx) error {
 // @Security BearerAuth
 // @Router /me/password [post]
 func (h *Handler) ChangePassword(c *fiber.Ctx) error {
-	userID, ok := c.Locals("auth_user_id").(uuid.UUID)
-	if !ok || userID == uuid.Nil {
-		return responses.Error(c, apperror.ErrUnauthorized)
+	userID, err := request.UserID(c)
+	if err != nil {
+		return responses.Error(c, err)
 	}
 	var request authdto.ChangePasswordRequest
 	if err := c.BodyParser(&request); err != nil {
-		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
+		return responses.InvalidBody(c, err)
 	}
 	if err := h.service.ChangePassword(c.UserContext(), userID, request); err != nil {
 		return responses.Error(c, err)

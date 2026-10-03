@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/qobulov/brothers-app/pkg/apperror"
+	"github.com/qobulov/brothers-app/pkg/database"
 )
 
 type MemberLocation struct {
@@ -66,13 +66,6 @@ func (s *Service) GetMember(ctx context.Context, actorID, groupID, userID uuid.U
 	return target.detail(a), nil
 }
 
-// querier is satisfied by both *pgxpool.Pool and pgx.Tx.
-type querier interface {
-	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
-	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
-	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
-}
-
 // actor is the requesting user's active membership in the group.
 type actor struct {
 	userID   uuid.UUID
@@ -101,7 +94,7 @@ func (a actor) canRemove(target memberRow) bool {
 	return a.isOwner
 }
 
-func loadActor(ctx context.Context, q querier, groupID, userID uuid.UUID) (actor, error) {
+func loadActor(ctx context.Context, q database.Querier, groupID, userID uuid.UUID) (actor, error) {
 	a := actor{userID: userID}
 	err := q.QueryRow(ctx, `
 		SELECT members.id, members.role::text, members.is_owner
@@ -223,7 +216,7 @@ const memberQuery = `
 	WHERE members.group_id = $1 AND members.user_id = $2 AND members.deleted_at IS NULL
 `
 
-func loadMember(ctx context.Context, q querier, lookup memberLookup) (memberRow, error) {
+func loadMember(ctx context.Context, q database.Querier, lookup memberLookup) (memberRow, error) {
 	query := memberQuery
 	if lookup.lock {
 		query += " FOR UPDATE OF members"

@@ -1,12 +1,12 @@
 package group
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/qobulov/brothers-app/pkg/apperror"
+	"github.com/qobulov/brothers-app/pkg/request"
 	"github.com/qobulov/brothers-app/pkg/responses"
 )
 
@@ -45,13 +45,13 @@ func NewHandler(service *Service) *Handler {
 // @Security BearerAuth
 // @Router /groups [post]
 func (h *Handler) Create(c *fiber.Ctx) error {
-	actorID, err := authenticatedUserID(c)
+	actorID, err := request.UserID(c)
 	if err != nil {
 		return responses.Error(c, err)
 	}
 	var request CreateRequest
 	if err := c.BodyParser(&request); err != nil {
-		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
+		return responses.InvalidBody(c, err)
 	}
 	group, err := h.service.Create(c.UserContext(), actorID, request.Name)
 	if err != nil {
@@ -69,7 +69,7 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 // @Security BearerAuth
 // @Router /groups [get]
 func (h *Handler) List(c *fiber.Ctx) error {
-	actorID, err := authenticatedUserID(c)
+	actorID, err := request.UserID(c)
 	if err != nil {
 		return responses.Error(c, err)
 	}
@@ -96,17 +96,17 @@ func (h *Handler) List(c *fiber.Ctx) error {
 // @Security BearerAuth
 // @Router /groups/{groupID} [delete]
 func (h *Handler) Delete(c *fiber.Ctx) error {
-	actorID, err := authenticatedUserID(c)
+	actorID, err := request.UserID(c)
 	if err != nil {
 		return responses.Error(c, err)
 	}
-	groupID, err := pathUUID(c, "groupID")
+	groupID, err := request.PathUUID(c, "groupID")
 	if err != nil {
 		return responses.Error(c, err)
 	}
 	var request DeleteRequest
 	if err := c.BodyParser(&request); err != nil {
-		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
+		return responses.InvalidBody(c, err)
 	}
 	if err := h.service.Delete(c.UserContext(), actorID, groupID, request.Confirm); err != nil {
 		return responses.Error(c, err)
@@ -128,17 +128,17 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 // @Security BearerAuth
 // @Router /groups/{groupID}/invitations [post]
 func (h *Handler) Invite(c *fiber.Ctx) error {
-	actorID, err := authenticatedUserID(c)
+	actorID, err := request.UserID(c)
 	if err != nil {
 		return responses.Error(c, err)
 	}
-	groupID, err := pathUUID(c, "groupID")
+	groupID, err := request.PathUUID(c, "groupID")
 	if err != nil {
 		return responses.Error(c, err)
 	}
 	var request InviteRequest
 	if err := c.BodyParser(&request); err != nil {
-		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
+		return responses.InvalidBody(c, err)
 	}
 	input := InviteInput{Email: request.Email, Role: request.Role, LocationName: request.LocationName}
 	if strings.TrimSpace(request.UserID) != "" {
@@ -169,11 +169,11 @@ func (h *Handler) Invite(c *fiber.Ctx) error {
 // @Security BearerAuth
 // @Router /groups/{groupID}/members [get]
 func (h *Handler) ListMembers(c *fiber.Ctx) error {
-	actorID, err := authenticatedUserID(c)
+	actorID, err := request.UserID(c)
 	if err != nil {
 		return responses.Error(c, err)
 	}
-	groupID, err := pathUUID(c, "groupID")
+	groupID, err := request.PathUUID(c, "groupID")
 	if err != nil {
 		return responses.Error(c, err)
 	}
@@ -206,37 +206,21 @@ type InvitationActionRequest struct {
 // @Security BearerAuth
 // @Router /invitations/{invitationID}/action [post]
 func (h *Handler) Action(c *fiber.Ctx) error {
-	actorID, err := authenticatedUserID(c)
+	actorID, err := request.UserID(c)
 	if err != nil {
 		return responses.Error(c, err)
 	}
-	invitationID, err := pathUUID(c, "invitationID")
+	invitationID, err := request.PathUUID(c, "invitationID")
 	if err != nil {
 		return responses.Error(c, err)
 	}
 	var request InvitationActionRequest
 	if err := c.BodyParser(&request); err != nil {
-		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
+		return responses.InvalidBody(c, err)
 	}
 	invitation, err := h.service.RespondInvitation(c.UserContext(), actorID, invitationID, strings.ToLower(strings.TrimSpace(request.Action)))
 	if err != nil {
 		return responses.Error(c, err)
 	}
 	return responses.Success(c, fiber.StatusOK, invitation, responses.MessageInvitationAction)
-}
-
-func authenticatedUserID(c *fiber.Ctx) (uuid.UUID, error) {
-	userID, ok := c.Locals("auth_user_id").(uuid.UUID)
-	if !ok || userID == uuid.Nil {
-		return uuid.Nil, apperror.ErrUnauthorized
-	}
-	return userID, nil
-}
-
-func pathUUID(c *fiber.Ctx, name string) (uuid.UUID, error) {
-	id, err := uuid.Parse(c.Params(name))
-	if err != nil || id == uuid.Nil {
-		return uuid.Nil, apperror.ErrInvalidID
-	}
-	return id, nil
 }

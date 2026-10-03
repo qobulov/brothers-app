@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/qobulov/brothers-app/pkg/database"
 )
 
 const (
@@ -85,7 +86,7 @@ func notificationTexts(eventType string, amountUSD int64) (translations, transla
 	}
 }
 
-func notify(ctx context.Context, q querier, n orderNotification, now time.Time) error {
+func notify(ctx context.Context, q database.Querier, n orderNotification, now time.Time) error {
 	if len(n.recipients) == 0 {
 		return nil
 	}

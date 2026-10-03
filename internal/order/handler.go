@@ -1,13 +1,12 @@
 package order
 
 import (
-	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/qobulov/brothers-app/pkg/apperror"
+	"github.com/qobulov/brothers-app/pkg/request"
 	"github.com/qobulov/brothers-app/pkg/responses"
 )
 
@@ -65,7 +64,7 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 	}
 	var request CreateRequest
 	if err := c.BodyParser(&request); err != nil {
-		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
+		return responses.InvalidBody(c, err)
 	}
 	input, err := request.input()
 	if err != nil {
@@ -98,15 +97,11 @@ func (h *Handler) List(c *fiber.Ctx) error {
 	if err != nil {
 		return responses.Error(c, err)
 	}
-	limit, err := optionalInt(c, "limit")
+	page, err := request.Page(c)
 	if err != nil {
 		return responses.Error(c, err)
 	}
-	offset, err := optionalInt(c, "offset")
-	if err != nil {
-		return responses.Error(c, err)
-	}
-	items, err := h.service.List(c.UserContext(), actorID, groupID, ListInput{Status: c.Query("status"), Limit: limit, Offset: offset})
+	items, err := h.service.List(c.UserContext(), actorID, groupID, ListInput{Status: c.Query("status"), Limit: page.Limit, Offset: page.Offset})
 	if err != nil {
 		return responses.Error(c, err)
 	}
@@ -162,7 +157,7 @@ func (h *Handler) Edit(c *fiber.Ctx) error {
 	}
 	var request EditRequest
 	if err := c.BodyParser(&request); err != nil {
-		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
+		return responses.InvalidBody(c, err)
 	}
 	input, err := request.input()
 	if err != nil {
@@ -199,7 +194,7 @@ func (h *Handler) Confirm(c *fiber.Ctx) error {
 	}
 	var request ConfirmRequest
 	if err := c.BodyParser(&request); err != nil {
-		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
+		return responses.InvalidBody(c, err)
 	}
 	confirmed, err := h.service.Confirm(c.UserContext(), actorID, groupID, orderID, ConfirmInput(request))
 	if err != nil {
@@ -284,11 +279,11 @@ func parseOptionalUserID(value *string) (*uuid.UUID, error) {
 }
 
 func actorAndGroup(c *fiber.Ctx) (uuid.UUID, uuid.UUID, error) {
-	actorID, ok := c.Locals("auth_user_id").(uuid.UUID)
-	if !ok || actorID == uuid.Nil {
-		return uuid.Nil, uuid.Nil, apperror.ErrUnauthorized
+	actorID, err := request.UserID(c)
+	if err != nil {
+		return uuid.Nil, uuid.Nil, err
 	}
-	groupID, err := pathUUID(c, "groupID")
+	groupID, err := request.PathUUID(c, "groupID")
 	return actorID, groupID, err
 }
 
@@ -297,30 +292,8 @@ func actorGroupAndOrder(c *fiber.Ctx) (uuid.UUID, uuid.UUID, uuid.UUID, error) {
 	if err != nil {
 		return uuid.Nil, uuid.Nil, uuid.Nil, err
 	}
-	orderID, err := pathUUID(c, "orderID")
+	orderID, err := request.PathUUID(c, "orderID")
 	return actorID, groupID, orderID, err
-}
-
-func pathUUID(c *fiber.Ctx, name string) (uuid.UUID, error) {
-	id, err := uuid.Parse(c.Params(name))
-	if err != nil || id == uuid.Nil {
-		return uuid.Nil, apperror.ErrInvalidID
-	}
-	return id, nil
-}
-
-// optionalInt reads an integer query parameter; a missing one is 0 and the
-// service applies its default.
-func optionalInt(c *fiber.Ctx, name string) (int, error) {
-	raw := c.Query(name)
-	if raw == "" {
-		return 0, nil
-	}
-	value, err := strconv.Atoi(raw)
-	if err != nil {
-		return 0, apperror.NotAnInteger(name)
-	}
-	return value, nil
 }
 
 type CancellationRequest struct {
@@ -356,7 +329,7 @@ func (h *Handler) RequestCancellation(c *fiber.Ctx) error {
 	var request CancellationRequest
 	if len(c.Body()) > 0 {
 		if err := c.BodyParser(&request); err != nil {
-			return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
+			return responses.InvalidBody(c, err)
 		}
 	}
 	requested, err := h.service.RequestCancellation(c.UserContext(), actorID, groupID, orderID, request.Reason)
@@ -390,7 +363,7 @@ func (h *Handler) RespondCancellation(c *fiber.Ctx) error {
 	}
 	var request CancellationActionRequest
 	if err := c.BodyParser(&request); err != nil {
-		return responses.ErrorWithMessage(c, fmt.Errorf("%w: %w", apperror.ErrInvalidData, err), responses.MessageInvalidRequest)
+		return responses.InvalidBody(c, err)
 	}
 	responded, err := h.service.RespondCancellation(c.UserContext(), actorID, groupID, orderID, request.Action)
 	if err != nil {

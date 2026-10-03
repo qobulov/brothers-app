@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -731,22 +730,6 @@ func optionalAvatarURL(value *string) (pgtype.Text, error) {
 		return pgtype.Text{}, invalidAvatarURL()
 	}
 	return text(avatar), nil
-}
-
-func ParseUUID(value string) (uuid.UUID, error) {
-	parsed, err := uuid.Parse(value)
-	if err != nil {
-		return uuid.Nil, apperror.ErrUnauthorized
-	}
-	return parsed, nil
-}
-
-func ParseRefreshExpiry(value string) (time.Time, error) {
-	seconds, err := strconv.ParseInt(value, 10, 64)
-	if err != nil {
-		return time.Time{}, err
-	}
-	return time.Unix(seconds, 0), nil
 }
 
 func validRegistration(password, firstName string) error {

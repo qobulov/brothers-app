@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/qobulov/brothers-app/pkg/apperror"
+	"github.com/qobulov/brothers-app/pkg/database"
 )
 
 const (
@@ -91,7 +92,7 @@ type cancellationRequest struct {
 
 // isUntouched reports a pending order that nobody has confirmed yet, so
 // cancelling it has no financial effect.
-func isUntouched(ctx context.Context, q querier, orderID uuid.UUID, locked lockedOrder) (bool, error) {
+func isUntouched(ctx context.Context, q database.Querier, orderID uuid.UUID, locked lockedOrder) (bool, error) {
 	if locked.status != StatusPending {
 		return false, nil
 	}
@@ -104,7 +105,7 @@ func isUntouched(ctx context.Context, q querier, orderID uuid.UUID, locked locke
 
 // insert records the request. An immediately approved request is answered
 // by the requester at the same moment.
-func (r cancellationRequest) insert(ctx context.Context, q querier, status string) error {
+func (r cancellationRequest) insert(ctx context.Context, q database.Querier, status string) error {
 	var respondedBy *uuid.UUID
 	var respondedAt *time.Time
 	if status == cancellationApproved {
@@ -123,7 +124,7 @@ func (r cancellationRequest) insert(ctx context.Context, q querier, status strin
 	return nil
 }
 
-func openCancellationRequest(ctx context.Context, q querier, r cancellationRequest) error {
+func openCancellationRequest(ctx context.Context, q database.Querier, r cancellationRequest) error {
 	if err := requireActiveParties(ctx, q, r.locked.parties); err != nil {
 		return err
 	}
@@ -139,7 +140,7 @@ func openCancellationRequest(ctx context.Context, q querier, r cancellationReque
 	}, r.at)
 }
 
-func cancelImmediately(ctx context.Context, q querier, r cancellationRequest) error {
+func cancelImmediately(ctx context.Context, q database.Querier, r cancellationRequest) error {
 	if err := r.insert(ctx, q, cancellationApproved); err != nil {
 		return err
 	}
@@ -156,7 +157,7 @@ func cancelImmediately(ctx context.Context, q querier, r cancellationRequest) er
 	}, r.at)
 }
 
-func markCancelled(ctx context.Context, q querier, orderID uuid.UUID, at time.Time) error {
+func markCancelled(ctx context.Context, q database.Querier, orderID uuid.UUID, at time.Time) error {
 	_, err := q.Exec(ctx, `
 		UPDATE orders SET status = 'cancelled', cancelled_at = $2, updated_at = $2 WHERE id = $1
 	`, orderID, at)
@@ -209,7 +210,7 @@ func (s *Service) RespondCancellation(ctx context.Context, actorID, groupID, ord
 }
 
 // lockForParty locks the order and requires the actor to be its giver or receiver.
-func lockForParty(ctx context.Context, q querier, actorID, groupID, orderID uuid.UUID) (viewer, lockedOrder, error) {
+func lockForParty(ctx context.Context, q database.Querier, actorID, groupID, orderID uuid.UUID) (viewer, lockedOrder, error) {
 	v, err := loadViewer(ctx, q, groupID, actorID)
 	if err != nil {
 		return viewer{}, lockedOrder{}, err
@@ -227,7 +228,7 @@ func lockForParty(ctx context.Context, q querier, actorID, groupID, orderID uuid
 	return v, locked, nil
 }
 
-func requireNoOpenCancellation(ctx context.Context, q querier, orderID uuid.UUID) error {
+func requireNoOpenCancellation(ctx context.Context, q database.Querier, orderID uuid.UUID) error {
 	var open bool
 	err := q.QueryRow(ctx, `
 		SELECT EXISTS (
@@ -246,7 +247,7 @@ func requireNoOpenCancellation(ctx context.Context, q querier, orderID uuid.UUID
 
 // requireActiveParties refuses a request the other party could never answer:
 // once an employee leaves the group, their old orders cannot be cancelled.
-func requireActiveParties(ctx context.Context, q querier, p parties) error {
+func requireActiveParties(ctx context.Context, q database.Querier, p parties) error {
 	var active int
 	err := q.QueryRow(ctx, `
 		SELECT COUNT(*) FROM group_members
@@ -266,7 +267,7 @@ type openCancellation struct {
 	requesterID uuid.UUID
 }
 
-func lockOpenCancellation(ctx context.Context, q querier, orderID uuid.UUID) (openCancellation, error) {
+func lockOpenCancellation(ctx context.Context, q database.Querier, orderID uuid.UUID) (openCancellation, error) {
 	var request openCancellation
 	err := q.QueryRow(ctx, `
 		SELECT id, requested_by_member_id
@@ -290,7 +291,7 @@ type cancellationResponse struct {
 	at                        time.Time
 }
 
-func (r cancellationResponse) close(ctx context.Context, q querier, status string) error {
+func (r cancellationResponse) close(ctx context.Context, q database.Querier, status string) error {
 	_, err := q.Exec(ctx, `
 		UPDATE order_cancellations
 		SET status = $2, responded_by_member_id = $3, responded_at = $4, updated_at = $4
@@ -302,7 +303,7 @@ func (r cancellationResponse) close(ctx context.Context, q querier, status strin
 	return nil
 }
 
-func rejectCancellation(ctx context.Context, q querier, r cancellationResponse) error {
+func rejectCancellation(ctx context.Context, q database.Querier, r cancellationResponse) error {
 	if err := r.close(ctx, q, cancellationRejected); err != nil {
 		return err
 	}
@@ -315,7 +316,7 @@ func rejectCancellation(ctx context.Context, q querier, r cancellationResponse) 
 	}, r.at)
 }
 
-func approveCancellation(ctx context.Context, q querier, r cancellationResponse) error {
+func approveCancellation(ctx context.Context, q database.Querier, r cancellationResponse) error {
 	if err := r.close(ctx, q, cancellationApproved); err != nil {
 		return err
 	}
@@ -348,7 +349,7 @@ func approveCancellation(ctx context.Context, q querier, r cancellationResponse)
 
 // loadCancellation returns the open request, or the approved one for a
 // cancelled order, with each party's approval.
-func loadCancellation(ctx context.Context, q querier, orderID uuid.UUID, p parties) (*Cancellation, error) {
+func loadCancellation(ctx context.Context, q database.Querier, orderID uuid.UUID, p parties) (*Cancellation, error) {
 	var c Cancellation
 	var requesterMemberID uuid.UUID
 	var reason *string

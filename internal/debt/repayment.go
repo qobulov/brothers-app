@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/qobulov/brothers-app/pkg/apperror"
+	"github.com/qobulov/brothers-app/pkg/paging"
 )
 
 // Repay records a partial repayment. The debt row is locked first, so two
@@ -72,8 +73,8 @@ func validRepayment(amount int64, d Debt) error {
 }
 
 // ListRepayments returns a debt's repayments, newest first.
-func (s *Service) ListRepayments(ctx context.Context, ownerID, debtID uuid.UUID, page Page) ([]Repayment, error) {
-	page, err := validPage(page)
+func (s *Service) ListRepayments(ctx context.Context, ownerID, debtID uuid.UUID, page paging.Page) ([]Repayment, error) {
+	page, err := page.Valid()
 	if err != nil {
 		return nil, err
 	}
