@@ -46,3 +46,12 @@ func TestLoadConfigReadsAPIRequestTimeout(t *testing.T) {
 		t.Fatalf("APIRequestTimeout = %s, want 750ms", cfg.APIRequestTimeout)
 	}
 }
+
+func TestLoadConfigReadsAPICacheTTL(t *testing.T) {
+	t.Setenv("API_CACHE_TTL", "45s")
+
+	cfg := LoadConfig("file-that-does-not-exist")
+	if cfg.APICacheTTL != 45*time.Second {
+		t.Fatalf("APICacheTTL = %s, want 45s", cfg.APICacheTTL)
+	}
+}

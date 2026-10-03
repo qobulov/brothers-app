@@ -21,8 +21,8 @@ func Connect(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 	// connection to UTC so database-generated values (for example now()) and
 	// scanned time.Time values consistently use RFC3339's Z offset.
 	config.ConnConfig.RuntimeParams["TimeZone"] = "UTC"
-	config.MaxConns = 25
-	config.MinConns = 2
+	config.MaxConns = 10
+	config.MinConns = 1
 	config.MaxConnLifetime = 5 * time.Minute
 	config.MaxConnIdleTime = time.Minute
 	pool, err := pgxpool.NewWithConfig(ctx, config)

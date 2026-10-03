@@ -14,6 +14,7 @@ type Config struct {
 	AppPort                      string
 	AppEnv                       string
 	APIRequestTimeout            time.Duration
+	APICacheTTL                  time.Duration
 	DBHost                       string
 	DBPort                       string
 	DBUser                       string
@@ -59,6 +60,7 @@ func LoadConfig(env string) *Config {
 		AppPort:                      getEnv("PORT", getEnv("APP_PORT", "8000")),
 		AppEnv:                       getEnv("APP_ENV", "development"),
 		APIRequestTimeout:            getEnvAsDuration("API_REQUEST_TIMEOUT", 10*time.Second),
+		APICacheTTL:                  getEnvAsDuration("API_CACHE_TTL", 30*time.Second),
 		DBHost:                       getEnv("DB_HOST", "localhost"),
 		DBPort:                       getEnv("DB_PORT", "5432"),
 		DBUser:                       getEnv("DB_USER", "postgres"),

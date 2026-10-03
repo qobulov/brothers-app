@@ -35,6 +35,7 @@ func FiberMiddleware(app *fiber.App, cfg *config.Config) error {
 			AllowOrigins:     allowOrigins,
 			AllowMethods:     "GET,POST,PUT,PATCH,DELETE,HEAD,OPTIONS",
 			AllowHeaders:     "Origin,Content-Type,Accept,Authorization,Accept-Language,Application-Language,Api-Version,X-Request-ID",
+			ExposeHeaders:    "X-Request-ID,X-Cache",
 			AllowCredentials: cfg.CORSAllowCredentials,
 			MaxAge:           86400,
 		}),

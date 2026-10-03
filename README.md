@@ -119,11 +119,12 @@ Set these environment variables in the Vercel project before deploying:
 
 - `APP_ENV=production`
 - `DATABASE_URL`: hosted PostgreSQL connection URL, including the provider's TLS settings
-- `REDIS_URL`: hosted Redis connection URL used for OTP records
+- `REDIS_URL`: hosted Redis connection URL used for sessions, OTP, and API response caching
 - `JWT_SECRET`: a strong random signing secret
 - `OTP_PEPPER`: a separate strong random secret for hashing OTP values
 - `CORS_ALLOW_ORIGINS`: comma-separated frontend origins allowed to call the API
 - `CORS_ALLOW_CREDENTIALS`: set to `true` only with explicit origins, never with `*`
+- `API_CACHE_TTL`: successful GET response lifetime in Redis (default `30s`)
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`: SMTP relay settings
 - `SMTP_FROM`: verified sender identity; delivery uses STARTTLS, as in Formula
 
@@ -164,6 +165,7 @@ Key environment variables in `.env.dev`:
 - `SMTP_FROM`: verified sender identity
 - `CORS_ALLOW_ORIGINS`: comma-separated allowed browser origins (default: `*`)
 - `CORS_ALLOW_CREDENTIALS`: whether credentialed browser requests are allowed (default: `false`)
+- `API_CACHE_TTL`: successful GET response lifetime in Redis (default: `30s`)
 
 ### Development Database
 - `DATABASE_URL`: Hosted PostgreSQL connection URL; it takes precedence over the individual `DB_*` values
@@ -174,7 +176,7 @@ Key environment variables in `.env.dev`:
 - `DB_NAME`: Database name
 
 ### Redis
-- `REDIS_URL`: Redis connection URL used for OTP storage; use a hosted Redis instance in production
+- `REDIS_URL`: Redis connection URL used for sessions, OTP, and successful GET response caching; use a hosted Redis instance in production
 
 ### Test Database
 - `DB_TEST_HOST`: Test database host (default: `localhost`)

@@ -11,6 +11,7 @@ import (
 	notification "github.com/qobulov/brothers-app/internal/notification"
 	order "github.com/qobulov/brothers-app/internal/order"
 	user "github.com/qobulov/brothers-app/internal/user"
+	cachepkg "github.com/qobulov/brothers-app/pkg/cache"
 	"github.com/qobulov/brothers-app/pkg/config"
 	middleware "github.com/qobulov/brothers-app/pkg/middleware"
 
@@ -18,10 +19,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func RegisterPrivateRoutes(app fiber.Router, pool *pgxpool.Pool, otpCache *otp.Cache, sessions session.Store, cfg *config.Config) {
+func RegisterPrivateRoutes(app fiber.Router, pool *pgxpool.Pool, otpCache *otp.Cache, sessions session.Store, cfg *config.Config, responseCache *cachepkg.ResponseCache) {
 
 	queries := db.New(pool)
-	secureRoute := app.Group("/api/v1", middleware.SessionJWTMiddleware(sessions, cfg))
+	secureRoute := app.Group("/api/v1", middleware.SessionJWTMiddleware(sessions, cfg), responseCache.Cache())
+	invalidate := responseCache.Invalidate()
 	groupService := group.NewService(pool)
 	groupHandler := group.NewHandler(groupService)
 	notificationHandler := notification.NewHandler(pool)
@@ -30,50 +32,50 @@ func RegisterPrivateRoutes(app fiber.Router, pool *pgxpool.Pool, otpCache *otp.C
 	service := authService.New(pool, otpCache, sessions, cfg, nil)
 	handler := authHandler.NewHandler(service)
 	secureRoute.Get("/me", handler.CurrentUser)
-	secureRoute.Patch("/me", handler.UpdateCurrentUser)
-	secureRoute.Post("/me/email", handler.ChangeEmail)
-	secureRoute.Post("/me/password", handler.ChangePassword)
+	secureRoute.Patch("/me", invalidate, handler.UpdateCurrentUser)
+	secureRoute.Post("/me/email", invalidate, handler.ChangeEmail)
+	secureRoute.Post("/me/password", invalidate, handler.ChangePassword)
 	secureRoute.Post("/auth/logout", handler.Logout)
 	secureRoute.Get("/users", userLookupHandler.Lookup)
 
 	secureRoute.Get("/notifications", notificationHandler.List)
-	secureRoute.Post("/invitations/:invitationID/action", groupHandler.Action)
+	secureRoute.Post("/invitations/:invitationID/action", invalidate, groupHandler.Action)
 
 	// summary is registered before /:debtID so it is not read as a debt ID.
 	debtHandler := debt.NewHandler(debt.NewService(pool))
 	debts := secureRoute.Group("/debts")
 	debts.Get("/summary", debtHandler.Summary)
 	debts.Get("/", debtHandler.List)
-	debts.Post("/", debtHandler.Create)
+	debts.Post("/", invalidate, debtHandler.Create)
 	debts.Get("/:debtID", debtHandler.Get)
-	debts.Delete("/:debtID", debtHandler.Delete)
-	debts.Post("/:debtID/repayments", debtHandler.Repay)
+	debts.Delete("/:debtID", invalidate, debtHandler.Delete)
+	debts.Post("/:debtID/repayments", invalidate, debtHandler.Repay)
 	debts.Get("/:debtID/repayments", debtHandler.Repayments)
-	debts.Post("/:debtID/complete", debtHandler.Complete)
+	debts.Post("/:debtID/complete", invalidate, debtHandler.Complete)
 
 	groups := secureRoute.Group("/groups")
-	groups.Post("/", groupHandler.Create)
+	groups.Post("/", invalidate, groupHandler.Create)
 	groups.Get("/", groupHandler.List)
-	groups.Delete("/:groupID", groupHandler.Delete)
-	groups.Post("/:groupID/invitations", groupHandler.Invite)
+	groups.Delete("/:groupID", invalidate, groupHandler.Delete)
+	groups.Post("/:groupID/invitations", invalidate, groupHandler.Invite)
 	groups.Get("/:groupID/members", groupHandler.ListMembers)
 	groups.Get("/:groupID/members/:userID", groupHandler.GetMember)
-	groups.Patch("/:groupID/members/:userID", groupHandler.EditMember)
-	groups.Delete("/:groupID/members/:userID", groupHandler.RemoveMember)
-	groups.Post("/:groupID/members/:userID/balance-adjustments", groupHandler.AdjustBalance)
+	groups.Patch("/:groupID/members/:userID", invalidate, groupHandler.EditMember)
+	groups.Delete("/:groupID/members/:userID", invalidate, groupHandler.RemoveMember)
+	groups.Post("/:groupID/members/:userID/balance-adjustments", invalidate, groupHandler.AdjustBalance)
 	groups.Get("/:groupID/members/:userID/balance-adjustments", groupHandler.BalanceHistory)
 	groups.Get("/:groupID/locations", groupHandler.ListLocations)
-	groups.Post("/:groupID/locations", groupHandler.CreateLocation)
-	groups.Delete("/:groupID/locations/:locationID", groupHandler.DeleteLocation)
+	groups.Post("/:groupID/locations", invalidate, groupHandler.CreateLocation)
+	groups.Delete("/:groupID/locations/:locationID", invalidate, groupHandler.DeleteLocation)
 	groups.Get("/:groupID/customers", groupHandler.ListCustomers)
 
 	orderHandler := order.NewHandler(order.NewService(pool))
-	groups.Post("/:groupID/orders", orderHandler.Create)
+	groups.Post("/:groupID/orders", invalidate, orderHandler.Create)
 	groups.Get("/:groupID/orders", orderHandler.List)
 	groups.Get("/:groupID/orders/:orderID", orderHandler.Get)
-	groups.Patch("/:groupID/orders/:orderID", orderHandler.Edit)
-	groups.Post("/:groupID/orders/:orderID/confirmations", orderHandler.Confirm)
+	groups.Patch("/:groupID/orders/:orderID", invalidate, orderHandler.Edit)
+	groups.Post("/:groupID/orders/:orderID/confirmations", invalidate, orderHandler.Confirm)
 	groups.Get("/:groupID/orders/:orderID/events", orderHandler.Events)
-	groups.Post("/:groupID/orders/:orderID/cancellation", orderHandler.RequestCancellation)
-	groups.Post("/:groupID/orders/:orderID/cancellation/action", orderHandler.RespondCancellation)
+	groups.Post("/:groupID/orders/:orderID/cancellation", invalidate, orderHandler.RequestCancellation)
+	groups.Post("/:groupID/orders/:orderID/cancellation/action", invalidate, orderHandler.RespondCancellation)
 }

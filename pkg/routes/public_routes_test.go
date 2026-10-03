@@ -40,7 +40,7 @@ func (s *PublicRoutesTestSuite) SetupTest() {
 
 	// Setup REST server with test database (For registering routes and middleware)
 	var err error
-	s.app, err = app.SetupRestServer(s.db, nil, session.NewMemoryStore(), s.cfg)
+	s.app, err = app.SetupRestServer(s.db, nil, session.NewMemoryStore(), nil, s.cfg)
 	s.NoError(err, "Failed to setup REST server")
 	s.createLoginUser("suite-owner", "+998901239999", "suite-owner@example.com", "securepassword123")
 	s.accessToken = s.loginAccessToken("suite-owner", "securepassword123")

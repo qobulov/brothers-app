@@ -149,6 +149,12 @@ func Success[T any](c *fiber.Ctx, status int, data T, message string) error {
 	})
 }
 
+// Metadata returns fresh request-scoped envelope metadata. Response caches use
+// it instead of replaying metadata from the request that populated the cache.
+func Metadata(c *fiber.Ctx) Meta {
+	return meta(c)
+}
+
 // Language is the response language for the request, from Application-Language
 // or Accept-Language.
 func Language(c *fiber.Ctx) string {

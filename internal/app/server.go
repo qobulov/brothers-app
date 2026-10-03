@@ -29,7 +29,7 @@ func Start() {
 		log.Fatalf("❌ Failed to connect to Redis: %v", err)
 	}
 	otpCache := otp.NewCache(redisClient)
-	restApp, err := SetupRestServer(pool, otpCache, session.NewRedisStore(redisClient), cfg)
+	restApp, err := SetupRestServer(pool, otpCache, session.NewRedisStore(redisClient), redisClient, cfg)
 	if err != nil {
 		log.Fatalf("❌ Failed to setup REST server: %v", err)
 	}

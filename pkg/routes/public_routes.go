@@ -8,13 +8,14 @@ import (
 	"github.com/qobulov/brothers-app/internal/auth/otp"
 	authService "github.com/qobulov/brothers-app/internal/auth/service"
 	"github.com/qobulov/brothers-app/internal/auth/session"
+	cachepkg "github.com/qobulov/brothers-app/pkg/cache"
 	"github.com/qobulov/brothers-app/pkg/config"
 	"github.com/qobulov/brothers-app/pkg/middleware"
 )
 
-func RegisterPublicRoutes(app fiber.Router, pool *pgxpool.Pool, otpCache *otp.Cache, sessions session.Store, cfg *config.Config, emailSender authService.EmailSender) {
+func RegisterPublicRoutes(app fiber.Router, pool *pgxpool.Pool, otpCache *otp.Cache, sessions session.Store, cfg *config.Config, emailSender authService.EmailSender, responseCache *cachepkg.ResponseCache) {
 
-	api := app.Group("/api/v1")
+	api := app.Group("/api/v1", responseCache.Cache())
 
 	authService := authService.New(pool, otpCache, sessions, cfg, emailSender)
 	authHandler := authHandler.NewHandler(authService)
@@ -23,12 +24,12 @@ func RegisterPublicRoutes(app fiber.Router, pool *pgxpool.Pool, otpCache *otp.Ca
 
 	// Auth routes (separated from /users)
 	authGroup := api.Group("/auth")
-	authGroup.Post("/register", authHandler.Register)
+	authGroup.Post("/register", responseCache.Invalidate(), authHandler.Register)
 	// A token is optional here; the email_change purpose requires one.
 	authGroup.Post("/otp/send", middleware.OptionalSessionJWTMiddleware(sessions, cfg), authHandler.SendOTP)
 	authGroup.Get("/username/check", authHandler.CheckUsername)
-	authGroup.Post("/login", authHandler.Login)
+	authGroup.Post("/login", responseCache.Invalidate(), authHandler.Login)
 	authGroup.Post("/refresh", authHandler.Refresh)
 	authGroup.Post("/password/verify", authHandler.VerifyPassword)
-	authGroup.Post("/password/reset", authHandler.ResetPassword)
+	authGroup.Post("/password/reset", responseCache.Invalidate(), authHandler.ResetPassword)
 }
