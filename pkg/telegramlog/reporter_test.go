@@ -205,3 +205,67 @@ func TestMissingTokenDisablesReporting(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestFormat_SummarisesDatabaseConnectionErrors(t *testing.T) {
+	t.Parallel()
+	r := &Reporter{}
+	reason := "checking username: failed to connect to `user=71e54ef database=postgres`:\n" +
+		"\t66.135.14.99:5432 (db.prisma.io): server error: : Failed to connect to upstream database. (SQLSTATE )\n" +
+		"\t66.135.0.131:5432 (db.prisma.io): server error: FATAL: too many connections for role \"prisma_migration\" (SQLSTATE 53300)\n" +
+		"\t207.148.29.248:5432 (db.prisma.io): server error: : Failed to connect to upstream database. (SQLSTATE )"
+	text := html.UnescapeString(r.format(responses.FailureReport{Environment: "development", Status: 500, Slug: "internal_error", Reason: reason}))
+
+	want := "checking username: cannot connect to the database\n" +
+		"• Failed to connect to upstream database.\n" +
+		"• FATAL: too many connections for role \"prisma_migration\" (SQLSTATE 53300)"
+	if !strings.Contains(text, want) {
+		t.Fatalf("reason is not summarised:\n%s", text)
+	}
+	for _, noise := range []string{"71e54ef", "66.135.14.99", "[REDACTED]", "(SQLSTATE )"} {
+		if strings.Contains(text, noise) {
+			t.Fatalf("report still contains %q:\n%s", noise, text)
+		}
+	}
+}
+
+func TestFormat_HeaderIsShortAndReadable(t *testing.T) {
+	t.Parallel()
+	r := &Reporter{}
+	text := html.UnescapeString(r.format(responses.FailureReport{
+		Method: "GET", Path: "/api/v1/groups", Environment: "development", Status: 504, Code: 1504, Slug: "timeout", Reason: "timeout",
+		ResponseBody: `{"reason":"timeout"}`,
+		Meta:         responses.Meta{RequestID: "req-1", Timestamp: "2026-10-03T11:51:34Z", Duration: "1.144964794s"},
+	}))
+	for _, want := range []string{"504 timeout", "GET /api/v1/groups", "2026-10-03 16:51:34 Toshkent", "1.14s", "development", "req-1"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("missing %q:\n%s", want, text)
+		}
+	}
+	// The response only repeats the reason shown above.
+	if strings.Contains(text, "Response data") {
+		t.Fatalf("a response that only repeats the reason must be left out:\n%s", text)
+	}
+}
+
+func TestFormat_KeepsResponseDataWithMoreThanTheReason(t *testing.T) {
+	t.Parallel()
+	r := &Reporter{}
+	text := html.UnescapeString(r.format(responses.FailureReport{Environment: "development", Reason: "boom", ResponseBody: `{"reason":"boom","order_id":"42"}`}))
+	if !strings.Contains(text, "Response data") || !strings.Contains(text, "order_id") {
+		t.Fatalf("response data with extra fields must be shown:\n%s", text)
+	}
+}
+
+func TestRedact_KeepsOperationLabels(t *testing.T) {
+	t.Parallel()
+	r := &Reporter{}
+	if got := r.redact("checking username: failed to connect"); got != "checking username: failed to connect" {
+		t.Fatalf("operation label was redacted: %q", got)
+	}
+	got := r.redact(`username=qobulov "email":"ali@example.com" password: hunter2`)
+	for _, secret := range []string{"qobulov", "ali@example.com", "hunter2"} {
+		if strings.Contains(got, secret) {
+			t.Fatalf("%q leaked: %q", secret, got)
+		}
+	}
+}

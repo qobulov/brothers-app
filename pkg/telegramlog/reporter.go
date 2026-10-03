@@ -191,7 +191,11 @@ func (r *Reporter) send(ctx context.Context, message string) (time.Duration, err
 	return 0, nil
 }
 
-var credentialPattern = regexp.MustCompile(`(?i)("?(?:password|passwd|pwd|otp|otp_code|token|access_token|refresh_token|reset_token|secret|authorization|api_key|apikey|email|phone|username|first_name|last_name|avatar_url)"?\s*[:=]\s*)(?:"[^"]*"|'[^']*'|[^\s,;]+)`)
+var credentialPattern = regexp.MustCompile(`(?i)("?(?:password|passwd|pwd|otp|otp_code|token|access_token|refresh_token|reset_token|secret|authorization|api_key|apikey)"?\s*[:=]\s*)(?:"[^"]*"|'[^']*'|[^\s,;]+)`)
+
+// personalPattern needs a quoted key or "=", so an operation label in an error
+// such as "checking username: ..." is not mistaken for a value.
+var personalPattern = regexp.MustCompile(`(?i)((?:"(?:email|phone|username|first_name|last_name|avatar_url)"\s*:|\b(?:email|phone|username|first_name|last_name|avatar_url)\s*=)\s*)(?:"[^"]*"|'[^']*'|[^\s,;]+)`)
 var sensitiveJSONKeyPattern = regexp.MustCompile(`(?i)(password|passwd|pwd|otp|token|secret|authorization|api_?key|email|phone|username|first_name|last_name|avatar_url)`)
 var bearerPattern = regexp.MustCompile(`(?i)Bearer\s+[A-Za-z0-9._~+/=-]+`)
 var urlPasswordPattern = regexp.MustCompile(`(://[^\s/:@]+:)[^\s@]+@`)
@@ -204,6 +208,7 @@ func (r *Reporter) redact(value string) string {
 	}
 	value = bearerPattern.ReplaceAllString(value, "Bearer [REDACTED]")
 	value = credentialPattern.ReplaceAllString(value, "${1}[REDACTED]")
+	value = personalPattern.ReplaceAllString(value, "${1}[REDACTED]")
 	return urlPasswordPattern.ReplaceAllString(value, "${1}[REDACTED]@")
 }
 
@@ -233,10 +238,82 @@ func (r *Reporter) format(event responses.FailureReport) string {
 	// 4096 UTF-16 code unit limit, including non-BMP Unicode.
 	query := bodySection("Query", event.Query, 400)
 	requestBody := bodySection("Request body", event.RequestBody, 800)
-	responseBody := bodySection("Response data", event.ResponseBody, 800)
-	return fmt.Sprintf("<b>Brothers API error</b>\nEnvironment: <code>%s</code>\nTime (UTC): <code>%s</code>\nEndpoint: <code>%s %s</code>\nHTTP: <code>%d</code> · Code: <code>%d</code>\nSlug: <code>%s</code>\nRequest ID: <code>%s</code>\nDuration: <code>%s</code>\n\n<b>Reason</b>\n<pre>%s</pre>%s",
-		field(event.Environment, 32), field(event.Meta.Timestamp, 40), field(event.Method, 10), field(event.Path, 200),
-		event.Status, event.Code, field(event.Slug, 80), field(event.Meta.RequestID, 128), field(event.Meta.Duration, 32), field(event.Reason, 700), query+requestBody+responseBody)
+	responseBody := ""
+	if !onlyRepeatsReason(event.ResponseBody) {
+		responseBody = bodySection("Response data", event.ResponseBody, 800)
+	}
+	return fmt.Sprintf("🔴 <b>%d %s</b> · <code>%s %s</code>\n%s · %s · %s\nRequest ID: <code>%s</code>\n\n<b>Reason</b>\n<pre>%s</pre>%s",
+		event.Status, field(event.Slug, 80), field(event.Method, 10), field(event.Path, 200),
+		field(tashkentTime(event.Meta.Timestamp), 40), field(shortDuration(event.Meta.Duration), 32), field(event.Environment, 32),
+		field(event.Meta.RequestID, 128), field(readableReason(event.Reason), 700), query+requestBody+responseBody)
+}
+
+// readableReason shortens pgx connection failures, which list every database
+// host on its own line, to the operation and the distinct server messages.
+func readableReason(reason string) string {
+	const marker = "failed to connect to `"
+	start := strings.Index(reason, marker)
+	if start < 0 {
+		return reason
+	}
+	_, details, _ := strings.Cut(reason[start+len(marker):], "`:")
+	summary := reason[:start] + "cannot connect to the database"
+	seen := map[string]bool{}
+	for _, line := range strings.Split(details, "\n") {
+		message := hostErrorMessage(line)
+		if message == "" || seen[message] {
+			continue
+		}
+		seen[message] = true
+		summary += "\n• " + message
+	}
+	return summary
+}
+
+// hostErrorMessage drops the "ip:port (host): server error:" prefix of one line.
+func hostErrorMessage(line string) string {
+	if _, after, found := strings.Cut(line, "server error:"); found {
+		line = after
+	} else if _, after, found := strings.Cut(line, "): "); found {
+		line = after
+	}
+	line = strings.TrimSuffix(strings.TrimSpace(line), "(SQLSTATE )")
+	return strings.TrimSpace(strings.TrimLeft(line, ": "))
+}
+
+// onlyRepeatsReason reports a response that carries nothing but the reason
+// already shown in the report.
+func onlyRepeatsReason(responseBody string) bool {
+	var data map[string]any
+	if err := json.Unmarshal([]byte(responseBody), &data); err != nil {
+		return false
+	}
+	_, hasReason := data["reason"]
+	return hasReason && len(data) == 1
+}
+
+var tashkent = time.FixedZone("Toshkent", 5*60*60)
+
+func tashkentTime(timestamp string) string {
+	parsed, err := time.Parse(time.RFC3339, timestamp)
+	if err != nil {
+		return timestamp
+	}
+	return parsed.In(tashkent).Format("2006-01-02 15:04:05") + " Toshkent"
+}
+
+func shortDuration(duration string) string {
+	parsed, err := time.ParseDuration(duration)
+	if err != nil {
+		return duration
+	}
+	switch {
+	case parsed >= time.Second:
+		return parsed.Round(10 * time.Millisecond).String()
+	case parsed >= time.Millisecond:
+		return parsed.Round(time.Millisecond).String()
+	}
+	return duration
 }
 
 func prettyJSON(value string) string {
