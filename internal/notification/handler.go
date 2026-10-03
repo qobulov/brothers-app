@@ -46,7 +46,7 @@ func NewHandler(pool *pgxpool.Pool) *Handler {
 // @Summary List my notifications
 // @Tags notifications
 // @Produce json
-// @Param limit query int false "Page size" default(50) minimum(1) maximum(100)
+// @Param limit query int false "Page size" default(20) minimum(1) maximum(100)
 // @Param offset query int false "Number of notifications to skip" default(0) minimum(0)
 // @Success 200 {object} NotificationsResponse
 // @Failure 400 {object} group.ErrorResponse

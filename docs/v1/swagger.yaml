@@ -1752,7 +1752,7 @@ paths:
         maxLength: 100
         name: query
         type: string
-      - default: 50
+      - default: 20
         description: Page size
         in: query
         maximum: 100
@@ -1926,7 +1926,7 @@ paths:
         name: debtID
         required: true
         type: string
-      - default: 50
+      - default: 20
         description: Page size
         in: query
         maximum: 100
@@ -2521,7 +2521,7 @@ paths:
         name: userID
         required: true
         type: string
-      - default: 50
+      - default: 20
         description: Page size
         in: query
         maximum: 100
@@ -2626,7 +2626,7 @@ paths:
         in: query
         name: status
         type: string
-      - default: 50
+      - default: 20
         description: Page size
         in: query
         maximum: 100
@@ -3171,7 +3171,7 @@ paths:
   /notifications:
     get:
       parameters:
-      - default: 50
+      - default: 20
         description: Page size
         in: query
         maximum: 100

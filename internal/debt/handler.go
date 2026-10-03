@@ -56,7 +56,7 @@ func (h *Handler) Summary(c *fiber.Ctx) error {
 // @Param direction query string false "Direction" Enums(they_owe_me,i_owe)
 // @Param status query string false "Status" Enums(active,completed,all) default(active)
 // @Param query query string false "Search by name or phone" maxlength(100)
-// @Param limit query int false "Page size" default(50) minimum(1) maximum(100)
+// @Param limit query int false "Page size" default(20) minimum(1) maximum(100)
 // @Param offset query int false "Number of debts to skip" default(0) minimum(0) maximum(10000)
 // @Success 200 {object} DebtsResponse
 // @Failure 400 {object} responses.ErrorResponse
@@ -169,7 +169,7 @@ func (h *Handler) Repay(c *fiber.Ctx) error {
 // @Tags debts
 // @Produce json
 // @Param debtID path string true "Debt UUID"
-// @Param limit query int false "Page size" default(50) minimum(1) maximum(100)
+// @Param limit query int false "Page size" default(20) minimum(1) maximum(100)
 // @Param offset query int false "Number of repayments to skip" default(0) minimum(0) maximum(10000)
 // @Success 200 {object} RepaymentsResponse
 // @Failure 400 {object} responses.ErrorResponse

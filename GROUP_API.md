@@ -563,10 +563,10 @@ Response `201` — yaratilgan yozuv (15-bo‘limdagi `adjustments` elementi bila
 ## 15. Balans tarixi
 
 ```http
-GET /api/v1/groups/:groupID/members/:userID/balance-adjustments?limit=50&offset=0
+GET /api/v1/groups/:groupID/members/:userID/balance-adjustments?limit=20&offset=0
 ```
 
-`limit`: 1–100, default 50. Eng yangisi birinchi.
+`limit`: 1–100, default 20. Eng yangisi birinchi.
 
 ```json
 {

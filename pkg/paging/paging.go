@@ -4,7 +4,7 @@ package paging
 import "github.com/qobulov/brothers-app/pkg/apperror"
 
 const (
-	DefaultLimit = 50
+	DefaultLimit = 20
 	MaxLimit     = 100
 	MaxOffset    = 10000
 )

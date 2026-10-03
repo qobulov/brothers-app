@@ -141,7 +141,7 @@ Sums `remaining_amount` of the user's active, non-deleted debts:
 | `direction` | `they_owe_me`, `i_owe` | both |
 | `status` | `active`, `completed`, `all` | `active` |
 | `query` | Up to 100 characters; matches `person_name` or `person_phone` case-insensitively, LIKE wildcards escaped | none |
-| `limit` / `offset` | 1–100 / 0–10,000 | 50 / 0 |
+| `limit` / `offset` | 1–100 / 0–10,000 | 20 / 0 |
 
 Newest first by `(created_at DESC, id DESC)`.
 

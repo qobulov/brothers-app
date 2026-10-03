@@ -84,7 +84,7 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 // @Produce json
 // @Param groupID path string true "Group UUID"
 // @Param status query string false "Status filter" Enums(pending,completed,cancelled)
-// @Param limit query int false "Page size" default(50) minimum(1) maximum(100)
+// @Param limit query int false "Page size" default(20) minimum(1) maximum(100)
 // @Param offset query int false "Number of orders to skip" default(0) minimum(0) maximum(10000)
 // @Success 200 {object} OrdersResponse
 // @Failure 400 {object} responses.ErrorResponse

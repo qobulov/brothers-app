@@ -68,11 +68,11 @@ Response `201` — order detail (3-bo‘limga qarang).
 ## 2. Orderlar ro‘yxati
 
 ```http
-GET /api/v1/groups/:groupID/orders?status=pending&limit=50&offset=0
+GET /api/v1/groups/:groupID/orders?status=pending&limit=20&offset=0
 ```
 
 - `status`: `pending`, `completed`, `cancelled` (ixtiyoriy).
-- `limit`: 1–100, default 50. `offset`: 0–10000.
+- `limit`: 1–100, default 20. `offset`: 0–10000.
 - Eng yangilari birinchi.
 
 ```json

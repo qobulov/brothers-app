@@ -80,7 +80,7 @@ Faqat `active` qarzlarning qolgan summalari qo‘shiladi.
 ## 2. Qarzlar ro‘yxati
 
 ```http
-GET /api/v1/debts?direction=they_owe_me&status=active&query=akmal&limit=50&offset=0
+GET /api/v1/debts?direction=they_owe_me&status=active&query=akmal&limit=20&offset=0
 ```
 
 | Parametr | Qiymatlar | Default |
@@ -88,7 +88,7 @@ GET /api/v1/debts?direction=they_owe_me&status=active&query=akmal&limit=50&offse
 | `direction` | `they_owe_me`, `i_owe` | ikkalasi ham |
 | `status` | `active`, `completed`, `all` | `active` |
 | `query` | Ism yoki telefon bo‘yicha qidiruv, 100 belgigacha. Telefon bo‘sh joy va chiziqcha bilan yozilsa ham topiladi (`90 777-44`) | yo‘q |
-| `limit` / `offset` | 1–100 / 0–10 000 | 50 / 0 |
+| `limit` / `offset` | 1–100 / 0–10 000 | 20 / 0 |
 
 Eng yangisi birinchi. `data` — qarz obyektlari ro‘yxati.
 
@@ -143,7 +143,7 @@ Response `201` — yangilangan qarz.
 ## 6. To‘lovlar tarixi (History tab)
 
 ```http
-GET /api/v1/debts/:debtID/repayments?limit=50&offset=0
+GET /api/v1/debts/:debtID/repayments?limit=20&offset=0
 ```
 
 ```json

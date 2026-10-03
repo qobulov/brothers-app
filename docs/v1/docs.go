@@ -432,7 +432,7 @@ const docTemplate = `{
                         "maximum": 100,
                         "minimum": 1,
                         "type": "integer",
-                        "default": 50,
+                        "default": 20,
                         "description": "Page size",
                         "name": "limit",
                         "in": "query"
@@ -733,7 +733,7 @@ const docTemplate = `{
                         "maximum": 100,
                         "minimum": 1,
                         "type": "integer",
-                        "default": 50,
+                        "default": 20,
                         "description": "Page size",
                         "name": "limit",
                         "in": "query"
@@ -1612,7 +1612,7 @@ const docTemplate = `{
                         "maximum": 100,
                         "minimum": 1,
                         "type": "integer",
-                        "default": 50,
+                        "default": 20,
                         "description": "Page size",
                         "name": "limit",
                         "in": "query"
@@ -1768,7 +1768,7 @@ const docTemplate = `{
                         "maximum": 100,
                         "minimum": 1,
                         "type": "integer",
-                        "default": 50,
+                        "default": 20,
                         "description": "Page size",
                         "name": "limit",
                         "in": "query"
@@ -2595,7 +2595,7 @@ const docTemplate = `{
                         "maximum": 100,
                         "minimum": 1,
                         "type": "integer",
-                        "default": 50,
+                        "default": 20,
                         "description": "Page size",
                         "name": "limit",
                         "in": "query"
